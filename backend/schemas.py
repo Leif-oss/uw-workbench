@@ -1,0 +1,174 @@
+from typing import Optional, List
+from datetime import datetime, date
+from pydantic import BaseModel, EmailStr, ConfigDict
+
+
+class OrmModel(BaseModel):
+    """Base model configured for ORM attribute access (Pydantic v2 style)."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# --------- OFFICE ---------
+class OfficeBase(BaseModel):
+    code: str
+    name: str
+
+
+class OfficeCreate(OfficeBase):
+    pass
+
+
+class Office(OfficeBase, OrmModel):
+    id: int
+
+
+# --------- EMPLOYEE ---------
+class EmployeeBase(BaseModel):
+    name: str
+    office_id: Optional[int]
+
+
+class EmployeeCreate(EmployeeBase):
+    pass
+
+
+class Employee(EmployeeBase, OrmModel):
+    id: int
+
+
+# --------- AGENCY ---------
+class AgencyBase(BaseModel):
+    name: str
+    code: str
+    office_id: Optional[int]
+    web_address: Optional[str] = None
+    notes: Optional[str] = None
+    primary_underwriter_id: Optional[int] = None
+    primary_underwriter: Optional[str] = None
+    active_flag: Optional[str] = "Unknown"
+
+
+class AgencyCreate(AgencyBase):
+    pass
+
+
+class AgencyUpdate(BaseModel):
+    name: Optional[str] = None
+    office_id: Optional[int] = None
+    web_address: Optional[str] = None
+    notes: Optional[str] = None
+    primary_underwriter_id: Optional[int] = None
+    primary_underwriter: Optional[str] = None
+    active_flag: Optional[str] = None
+
+
+class Agency(AgencyBase, OrmModel):
+    id: int
+
+
+# --------- CONTACT ---------
+class ContactBase(BaseModel):
+    name: str
+    title: Optional[str] = None
+    email: Optional[EmailStr] = None
+    phone: Optional[str] = None
+    agency_id: int
+
+
+class ContactCreate(ContactBase):
+    pass
+
+
+class Contact(ContactBase, OrmModel):
+    id: int
+
+
+class ContactUpdate(BaseModel):
+    name: Optional[str] = None
+    title: Optional[str] = None
+    email: Optional[EmailStr] = None
+    phone: Optional[str] = None
+    agency_id: Optional[int] = None
+
+
+# --------- LOG ---------
+class LogBase(BaseModel):
+    user: str
+    datetime: datetime
+    action: str
+    agency_id: Optional[int] = None
+    office: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class LogCreate(LogBase):
+    pass
+
+
+class Log(LogBase, OrmModel):
+    id: int
+
+
+class LogUpdate(BaseModel):
+    user: Optional[str] = None
+    datetime: Optional[datetime] = None
+    action: Optional[str] = None
+    agency_id: Optional[int] = None
+    office: Optional[str] = None
+    notes: Optional[str] = None
+
+
+# --------- EMPLOYEE ---------
+class EmployeeUpdate(BaseModel):
+    name: Optional[str] = None
+    office_id: Optional[int] = None
+
+
+# --------- TASK ---------
+class TaskBase(BaseModel):
+    title: str
+    due_date: Optional[datetime] = None
+    status: Optional[str] = None
+    owner: Optional[str] = None
+    notes: Optional[str] = None
+    agency_id: Optional[int] = None
+
+
+class TaskCreate(TaskBase):
+    pass
+
+
+class TaskUpdate(BaseModel):
+    title: Optional[str] = None
+    due_date: Optional[datetime] = None
+    status: Optional[str] = None
+    owner: Optional[str] = None
+    notes: Optional[str] = None
+    agency_id: Optional[int] = None
+
+
+class Task(TaskBase, OrmModel):
+    id: int
+
+
+# --------- PRODUCTION ---------
+class ProductionBase(BaseModel):
+    office: str
+    agency_code: str
+    agency_name: str
+    active_flag: Optional[str] = None
+    month: str  # "YYYY-MM"
+    all_ytd_wp: Optional[int] = None
+    all_ytd_nb: Optional[int] = None
+    pytd_wp: Optional[int] = None
+    pytd_nb: Optional[int] = None
+    py_total_nb: Optional[int] = None
+
+
+class ProductionCreate(ProductionBase):
+    pass
+
+
+class Production(ProductionBase, OrmModel):
+    id: int
