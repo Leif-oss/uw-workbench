@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { WorkbenchLayout } from "../components/WorkbenchLayout";
-import { apiGet } from "../api/client";
+import { apiGet, apiPost } from "../api/client";
+import { LOG_ACTION_OPTIONS, LogAction } from "../constants/logActions";
 
 type Office = {
   id: number;
@@ -24,6 +25,7 @@ type Log = {
   agency_id: number | null;
   office: string | null;
   notes: string | null;
+  contact_id?: number | null;
 };
 
 type Agency = {
@@ -42,6 +44,16 @@ interface EmployeeWithOffice extends Employee {
   officeCode?: string;
   officeName?: string;
 }
+
+type Contact = {
+  id: number;
+  name: string;
+  title?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  agency_id: number;
+  notes?: string | null;
+};
 
 const fieldLabelStyle: React.CSSProperties = {
   fontSize: 11,
@@ -71,13 +83,29 @@ const cardStyle: React.CSSProperties = {
   flex: 1,
 };
 
+const formatDateTime = (value: string) => {
+  if (!value) return "";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+};
+
 export const EmployeesPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const [offices, setOffices] = useState<Office[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [logs, setLogs] = useState<Log[]>([]);
   const [agencies, setAgencies] = useState<Agency[]>([]);
+  const [contacts, setContacts] = useState<Contact[]>([]);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<number | null>(null);
+  const [selectedAgencyIdForTasks, setSelectedAgencyIdForTasks] = useState<number | null>(null);
+  const [selectedTaskContactId, setSelectedTaskContactId] = useState<number | null>(null);
+  const [logAction, setLogAction] = useState<LogAction>("In Person");
+  const [logNotes, setLogNotes] = useState("");
 
   const [search, setSearch] = useState("");
   const [officeFilter, setOfficeFilter] = useState<string>("all");
@@ -91,17 +119,19 @@ export const EmployeesPage: React.FC = () => {
       setIsLoading(true);
       setError(null);
       try {
-        const [officesResp, employeesResp, logsResp, agenciesResp] = await Promise.all([
+        const [officesResp, employeesResp, logsResp, agenciesResp, contactsResp] = await Promise.all([
           apiGet<Office[]>("/offices"),
           apiGet<Employee[]>("/employees"),
           apiGet<Log[]>("/logs"),
           apiGet<Agency[]>("/agencies"),
+          apiGet<Contact[]>("/contacts"),
         ]);
 
         setOffices(officesResp || []);
         setEmployees(employeesResp || []);
         setLogs(logsResp || []);
         setAgencies(agenciesResp || []);
+        setContacts(contactsResp || []);
       } catch (err) {
         console.error("Failed to load offices/employees", err);
         setError("Failed to load offices/employees");
@@ -250,7 +280,90 @@ export const EmployeesPage: React.FC = () => {
       });
   }, [agencies, selectedEmployee]);
 
+  useEffect(() => {
+    if (employeeAgencies.length && !selectedAgencyIdForTasks) {
+      setSelectedAgencyIdForTasks(employeeAgencies[0].id);
+    }
+
+    if (!employeeAgencies.length) {
+      setSelectedAgencyIdForTasks(null);
+      setSelectedTaskContactId(null);
+    }
+  }, [employeeAgencies, selectedAgencyIdForTasks]);
+
   const employeeAgenciesCount = employeeAgencies.length;
+
+  const getContactedInfoForContact = (contactId: number) => {
+    if (!logs || !logs.length) {
+      return { label: "never", isStale: true };
+    }
+
+    const matches = logs.filter((log) => {
+      if (log.contact_id == null) return false;
+      // eslint-disable-next-line eqeqeq
+      return String(log.contact_id) == String(contactId);
+    });
+
+    if (!matches.length) {
+      return { label: "never", isStale: true };
+    }
+
+    let latest: Date | null = null;
+    matches.forEach((log) => {
+      const d = new Date(log.datetime);
+      if (!Number.isNaN(d.getTime())) {
+        if (!latest || d > latest) latest = d;
+      }
+    });
+
+    if (!latest) {
+      return { label: "never", isStale: true };
+    }
+
+    const now = new Date();
+    const diffMs = now.getTime() - latest.getTime();
+    const diffDays = diffMs / (1000 * 60 * 60 * 24);
+    const isStale = diffDays > 90;
+
+    const label = latest.toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+
+    return { label, isStale };
+  };
+
+  const staleContactsForTasks = useMemo(() => {
+    if (!contacts.length || !employeeAgencies.length) return [];
+    const agencyIds = new Set(employeeAgencies.map((a) => a.id));
+    return contacts
+      .filter((c) => agencyIds.has(c.agency_id))
+      .map((c) => ({ contact: c, contacted: getContactedInfoForContact(c.id) }))
+      .filter(({ contacted }) => contacted.label === "never" || contacted.isStale);
+  }, [contacts, employeeAgencies, logs]);
+
+  const handleCreateEmployeeLog = async () => {
+    if (!selectedTaskContactId || !selectedAgencyIdForTasks || !selectedEmployee) return;
+    const payload = {
+      user: selectedEmployee.name || "",
+      datetime: new Date().toISOString(),
+      action: logAction,
+      agency_id: selectedAgencyIdForTasks,
+      contact_id: selectedTaskContactId,
+      notes: logNotes.trim() || undefined,
+    };
+
+    try {
+      await apiPost<Log, typeof payload>("/logs", payload);
+      const refreshed = await apiGet<Log[]>("/logs");
+      setLogs(refreshed || []);
+      setLogNotes("");
+    } catch (err) {
+      console.error("Failed to create employee log", err);
+      setError("Failed to create marketing log");
+    }
+  };
 
   const sidebar = (
     <>
@@ -307,140 +420,26 @@ export const EmployeesPage: React.FC = () => {
 
       <div
         style={{
-          borderTop: "1px solid #e5e7eb",
-          paddingTop: 10,
-          marginTop: 6,
+          marginTop: 12,
           fontSize: 11,
-          color: "#4b5563",
+          fontWeight: 500,
+          color: "#6b7280",
+          textTransform: "uppercase",
+          letterSpacing: "0.04em",
+          marginBottom: 4,
         }}
       >
-        <div style={fieldLabelStyle}>Notes</div>
-        <ul style={{ margin: 0, paddingLeft: 16 }}>
-          <li>Filters are local (front-end only) for now.</li>
-          <li>Later: add production + call counts per employee.</li>
-          <li>Use this as a starting point for manager views.</li>
-        </ul>
-      </div>
-    </>
-  );
-
-  const kpiCards = (
-    <div
-      style={{
-        display: "flex",
-        gap: 12,
-        flexWrap: "wrap",
-      }}
-    >
-      <div style={cardStyle}>
-        <div
-          style={{
-            fontSize: 11,
-            textTransform: "uppercase",
-            color: "#6b7280",
-            letterSpacing: "0.05em",
-            marginBottom: 6,
-          }}
-        >
-          Total Employees
-        </div>
-        <div style={{ fontSize: 18, fontWeight: 600, color: "#111827" }}>
-          {totalEmployees}
-        </div>
-        <div style={{ fontSize: 11, color: "#6b7280", marginTop: 2 }}>
-          In the database
-        </div>
-      </div>
-
-      <div style={cardStyle}>
-        <div
-          style={{
-            fontSize: 11,
-            textTransform: "uppercase",
-            color: "#6b7280",
-            letterSpacing: "0.05em",
-            marginBottom: 6,
-          }}
-        >
-          In View
-        </div>
-        <div style={{ fontSize: 18, fontWeight: 600, color: "#111827" }}>
-          {totalInView}
-        </div>
-        <div style={{ fontSize: 11, color: "#6b7280", marginTop: 2 }}>
-          Matching current filters
-        </div>
-      </div>
-
-      <div style={cardStyle}>
-        <div
-          style={{
-            fontSize: 11,
-            textTransform: "uppercase",
-            color: "#6b7280",
-            letterSpacing: "0.05em",
-            marginBottom: 6,
-          }}
-        >
-          Offices in View
-        </div>
-        <div style={{ fontSize: 18, fontWeight: 600, color: "#111827" }}>
-          {officesInView}
-        </div>
-        <div style={{ fontSize: 11, color: "#6b7280", marginTop: 2 }}>
-          Based on filtered employees
-        </div>
-      </div>
-    </div>
-  );
-
-  const listPanel = (
-    <section
-      style={{
-        background: "#ffffff",
-        borderRadius: 12,
-        padding: "10px 12px",
-        boxShadow: "0 1px 3px rgba(15, 23, 42, 0.08)",
-        display: "flex",
-        flexDirection: "column",
-        flex: 1.3,
-        minHeight: 320,
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "baseline",
-          marginBottom: 6,
-        }}
-      >
-        <div>
-          <div
-            style={{
-              fontSize: 13,
-              fontWeight: 600,
-              color: "#111827",
-            }}
-          >
-            Employee List
-          </div>
-          <div style={{ fontSize: 11, color: "#9ca3af" }}>
-            Click a row to view details and activity
-          </div>
-        </div>
-        <div style={{ fontSize: 11, color: "#9ca3af" }}>
-          {filteredEmployees.length} item
-          {filteredEmployees.length === 1 ? "" : "s"} in view
-        </div>
+        Employee List
       </div>
 
       <div
         style={{
-          flex: 1,
+          maxHeight: 260,
           overflow: "auto",
-          borderRadius: 10,
+          borderRadius: 8,
           border: "1px solid #e5e7eb",
+          background: "#ffffff",
+          marginBottom: 8,
         }}
       >
         <table
@@ -539,7 +538,94 @@ export const EmployeesPage: React.FC = () => {
           </tbody>
         </table>
       </div>
-    </section>
+
+      <div
+        style={{
+          borderTop: "1px solid #e5e7eb",
+          paddingTop: 10,
+          marginTop: 6,
+          fontSize: 11,
+          color: "#4b5563",
+        }}
+      >
+        <div style={fieldLabelStyle}>Notes</div>
+        <ul style={{ margin: 0, paddingLeft: 16 }}>
+          <li>Filters are local (front-end only) for now.</li>
+          <li>Later: add production + call counts per employee.</li>
+          <li>Use this as a starting point for manager views.</li>
+        </ul>
+      </div>
+    </>
+  );
+
+  const kpiCards = (
+    <div
+      style={{
+        display: "flex",
+        gap: 12,
+        flexWrap: "wrap",
+      }}
+    >
+      <div style={cardStyle}>
+        <div
+          style={{
+            fontSize: 11,
+            textTransform: "uppercase",
+            color: "#6b7280",
+            letterSpacing: "0.05em",
+            marginBottom: 6,
+          }}
+        >
+          Total Employees
+        </div>
+        <div style={{ fontSize: 18, fontWeight: 600, color: "#111827" }}>
+          {totalEmployees}
+        </div>
+        <div style={{ fontSize: 11, color: "#6b7280", marginTop: 2 }}>
+          In the database
+        </div>
+      </div>
+
+      <div style={cardStyle}>
+        <div
+          style={{
+            fontSize: 11,
+            textTransform: "uppercase",
+            color: "#6b7280",
+            letterSpacing: "0.05em",
+            marginBottom: 6,
+          }}
+        >
+          In View
+        </div>
+        <div style={{ fontSize: 18, fontWeight: 600, color: "#111827" }}>
+          {totalInView}
+        </div>
+        <div style={{ fontSize: 11, color: "#6b7280", marginTop: 2 }}>
+          Matching current filters
+        </div>
+      </div>
+
+      <div style={cardStyle}>
+        <div
+          style={{
+            fontSize: 11,
+            textTransform: "uppercase",
+            color: "#6b7280",
+            letterSpacing: "0.05em",
+            marginBottom: 6,
+          }}
+        >
+          Offices in View
+        </div>
+        <div style={{ fontSize: 18, fontWeight: 600, color: "#111827" }}>
+          {officesInView}
+        </div>
+        <div style={{ fontSize: 11, color: "#6b7280", marginTop: 2 }}>
+          Based on filtered employees
+        </div>
+      </div>
+    </div>
   );
 
   const detailPanel = (
@@ -642,6 +728,181 @@ export const EmployeesPage: React.FC = () => {
               </div>
             </div>
 
+            {selectedEmployee && (
+              <div style={{ display: "flex", gap: 16, marginTop: 16 }}>
+                <div
+                  style={{
+                    flex: 1,
+                    border: "1px solid #e5e7eb",
+                    borderRadius: 8,
+                    padding: 8,
+                  }}
+                >
+                  <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>
+                    Agencies for {selectedEmployee.name}
+                  </div>
+                  {employeeAgencies.length === 0 ? (
+                    <div style={{ fontSize: 12, color: "#6b7280" }}>No agencies assigned.</div>
+                  ) : (
+                    <ul style={{ listStyle: "none", paddingLeft: 0, margin: 0 }}>
+                      {employeeAgencies.map((a) => (
+                        <li key={a.id}>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedAgencyIdForTasks(a.id)}
+                            style={{
+                              width: "100%",
+                              textAlign: "left",
+                              padding: "4px 6px",
+                              borderRadius: 6,
+                              border: "none",
+                              marginBottom: 4,
+                              fontSize: 12,
+                              cursor: "pointer",
+                              backgroundColor:
+                                a.id === selectedAgencyIdForTasks ? "#eff6ff" : "transparent",
+                            }}
+                          >
+                            <div style={{ fontWeight: 500 }}>{a.name}</div>
+                            {a.code && (
+                              <div style={{ fontSize: 11, color: "#6b7280" }}>{a.code}</div>
+                            )}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+                <div
+                  style={{
+                    flex: 1.4,
+                    border: "1px solid #e5e7eb",
+                    borderRadius: 8,
+                    padding: 8,
+                  }}
+                >
+                  <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>
+                    Marketing tasks (never / &gt;90 days)
+                  </div>
+                  {staleContactsForTasks.length === 0 ? (
+                    <div style={{ fontSize: 12, color: "#16a34a" }}>No stale contacts. 🎉</div>
+                  ) : (
+                    <ul style={{ listStyle: "none", paddingLeft: 0, margin: 0 }}>
+                      {staleContactsForTasks.map(({ contact, contacted }) => (
+                        <li key={contact.id} style={{ marginBottom: 4 }}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedTaskContactId(contact.id);
+                              setSelectedAgencyIdForTasks(contact.agency_id);
+                            }}
+                            style={{
+                              width: "100%",
+                              textAlign: "left",
+                              padding: "4px 6px",
+                              borderRadius: 6,
+                              border: "none",
+                              fontSize: 12,
+                              cursor: "pointer",
+                              backgroundColor:
+                                contact.id === selectedTaskContactId ? "#fef3c7" : "transparent",
+                            }}
+                          >
+                            <div
+                              style={{
+                                display: "flex",
+                                justifyContent: "space-between",
+                                gap: 8,
+                              }}
+                            >
+                              <div style={{ minWidth: 0 }}>
+                                <div style={{ fontWeight: 500 }}>{contact.name}</div>
+                                {contact.title && (
+                                  <div style={{ fontSize: 11, color: "#6b7280" }}>{contact.title}</div>
+                                )}
+                              </div>
+                              <div
+                                style={{
+                                  fontSize: 11,
+                                  fontWeight: 500,
+                                  whiteSpace: "nowrap",
+                                  color: "#b91c1c",
+                                }}
+                              >
+                                {contacted.label === "never"
+                                  ? "Contacted: never"
+                                  : `Contacted: ${contacted.label}`}
+                              </div>
+                            </div>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+                <div
+                  style={{
+                    flex: 1.2,
+                    border: "1px solid #e5e7eb",
+                    borderRadius: 8,
+                    padding: 8,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 8,
+                  }}
+                >
+                  <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>
+                    Log new marketing call
+                  </div>
+                  <div style={{ fontSize: 12, color: "#6b7280" }}>
+                    {selectedTaskContactId
+                      ? "Logging for selected task contact."
+                      : "Select a contact in the middle column to log a call."}
+                  </div>
+                  <label style={{ fontSize: 12, color: "#374151", display: "block" }}>
+                    Action
+                    <select
+                      value={logAction}
+                      onChange={(e) => setLogAction(e.target.value as LogAction)}
+                      style={inputStyle}
+                      disabled={!selectedTaskContactId}
+                    >
+                      {LOG_ACTION_OPTIONS.map((opt) => (
+                        <option key={opt} value={opt}>
+                          {opt}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label style={{ fontSize: 12, color: "#374151", display: "block" }}>
+                    Notes
+                    <textarea
+                      value={logNotes}
+                      onChange={(e) => setLogNotes(e.target.value)}
+                      rows={3}
+                      style={{ ...inputStyle, resize: "vertical" }}
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleCreateEmployeeLog}
+                    disabled={!selectedTaskContactId || !selectedAgencyIdForTasks}
+                    style={{
+                      padding: "7px 10px",
+                      borderRadius: 6,
+                      border: "1px solid #2563eb",
+                      background: "#2563eb",
+                      color: "#fff",
+                      cursor: "pointer",
+                      fontWeight: 600,
+                    }}
+                  >
+                    Save Log
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div
               style={{
                 marginTop: 8,
@@ -740,7 +1001,7 @@ export const EmployeesPage: React.FC = () => {
                               borderBottom: "1px solid #e5e7eb",
                             }}
                           >
-                            Date/Time
+                            Date
                           </th>
                           <th
                             style={{
@@ -781,7 +1042,7 @@ export const EmployeesPage: React.FC = () => {
                                 whiteSpace: "nowrap",
                               }}
                             >
-                              {new Date(log.datetime).toLocaleString()}
+                              {formatDateTime(log.datetime)}
                             </td>
                             <td
                               style={{
@@ -1018,7 +1279,6 @@ export const EmployeesPage: React.FC = () => {
       {kpiCards}
 
       <div style={{ display: "flex", gap: 12, flex: 1, minHeight: 320 }}>
-        {listPanel}
         {detailPanel}
       </div>
     </>
@@ -1030,6 +1290,7 @@ export const EmployeesPage: React.FC = () => {
       subtitle="Company view of underwriters and office assignments"
       rightNote="Manager view - baseline version"
       sidebar={sidebar}
+      hideHeader
     >
       {content}
     </WorkbenchLayout>

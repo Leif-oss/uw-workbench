@@ -4,7 +4,7 @@ from alembic import context
 import os
 import sys
 
-BASE_DIR = os.path.dirname(os.path.dirname(__file__))
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 sys.path.append(BASE_DIR)
 
 from backend.database import Base, DATABASE_URL  # noqa: E402
@@ -14,8 +14,8 @@ from backend import models  # noqa: F401
 
 config = context.config
 
-if config.get_main_option("sqlalchemy.url") is None:
-    config.set_main_option("sqlalchemy.url", DATABASE_URL)
+db_url = os.getenv("DATABASE_URL") or DATABASE_URL
+config.set_main_option("sqlalchemy.url", db_url)
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)

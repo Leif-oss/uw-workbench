@@ -6,6 +6,7 @@ interface WorkbenchLayoutProps {
   rightNote?: string;
   sidebar: ReactNode;
   children: ReactNode;
+  hideHeader?: boolean;
 }
 
 export const WorkbenchLayout: React.FC<WorkbenchLayoutProps> = ({
@@ -14,41 +15,42 @@ export const WorkbenchLayout: React.FC<WorkbenchLayoutProps> = ({
   rightNote,
   sidebar,
   children,
+  hideHeader,
 }) => {
   return (
     <div className="uw-app-root" style={{ minHeight: "100vh", background: "#f3f4f6" }}>
-      {/* Top bar - keep simple for now (you can unify with the rest of the app later) */}
-      <header
-        style={{
-          height: 56,
-          background: "linear-gradient(90deg, #111827, #1f2933)",
-          color: "#f9fafb",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "0 20px",
-          boxShadow: "0 1px 4px rgba(0, 0, 0, 0.25)",
-        }}
-      >
-        <div>
-          <div style={{ fontWeight: 600, letterSpacing: "0.02em", fontSize: 16 }}>
-            {title}
+      {!hideHeader && (
+        <header
+          style={{
+            height: 56,
+            background: "linear-gradient(90deg, #111827, #1f2933)",
+            color: "#f9fafb",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "0 20px",
+            boxShadow: "0 1px 4px rgba(0, 0, 0, 0.25)",
+          }}
+        >
+          <div>
+            <div style={{ fontWeight: 600, letterSpacing: "0.02em", fontSize: 16 }}>
+              {title}
+            </div>
+            {subtitle && (
+              <div style={{ fontSize: 12, color: "#d1d5db" }}>{subtitle}</div>
+            )}
           </div>
-          {subtitle && (
-            <div style={{ fontSize: 12, color: "#d1d5db" }}>{subtitle}</div>
+          {rightNote && (
+            <div style={{ fontSize: 12, color: "#9ca3af" }}>{rightNote}</div>
           )}
-        </div>
-        {rightNote && (
-          <div style={{ fontSize: 12, color: "#9ca3af" }}>{rightNote}</div>
-        )}
-      </header>
-
+        </header>
+      )}
       <main
         style={{
           display: "flex",
           padding: 16,
           gap: 16,
-          minHeight: "calc(100vh - 56px)",
+          minHeight: hideHeader ? "100vh" : "calc(100vh - 56px)",
         }}
       >
         <aside

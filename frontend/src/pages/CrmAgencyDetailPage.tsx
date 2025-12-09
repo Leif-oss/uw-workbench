@@ -79,7 +79,6 @@ const logFieldStyle: React.CSSProperties = {
   const [selectedContactId, setSelectedContactId] = useState<number | null>(null);
 
   const [logUser, setLogUser] = useState("");
-  const [logContact, setLogContact] = useState("");
   const [logAction, setLogAction] = useState<LogAction>("In Person");
   const [logNotes, setLogNotes] = useState("");
   const [logDate, setLogDate] = useState("");
@@ -113,7 +112,6 @@ const logFieldStyle: React.CSSProperties = {
         setLogs(logsResp || []);
         if (contactsResp && contactsResp.length > 0) {
           setSelectedContactId(contactsResp[0].id);
-          setLogContact(String(contactsResp[0].id));
         }
         if (!found) {
           setError("Agency not found.");
@@ -245,7 +243,6 @@ const logFieldStyle: React.CSSProperties = {
       setContacts(refreshed || []);
       if (refreshed && refreshed.length > 0) {
         setSelectedContactId(refreshed[0].id);
-        setLogContact(String(refreshed[0].id));
       }
     } catch (err: any) {
       setError(err?.message || "Failed to create contact");
@@ -258,27 +255,30 @@ const logFieldStyle: React.CSSProperties = {
       setLogError("User and action are required.");
       return;
     }
+    if (!selectedContactId) {
+      alert("Please select a contact in the left column before logging a call.");
+      return;
+    }
     try {
       setIsSavingLog(true);
       setLogError(null);
-    const datetimeIso = (() => {
-      if (logDate) {
-        return new Date(`${logDate}T00:00`).toISOString();
-      }
-      return new Date().toISOString();
-    })();
-    const selectedContactId = logContact ? Number(logContact) : undefined;
-    const payload = {
-      user: logUser.trim(),
-      datetime: datetimeIso,
-      action: logAction.trim(),
-      agency_id: agencyIdNum,
-      office: agency?.office_id ? String(agency.office_id) : null,
-      notes: logNotes.trim() || null,
-      contact_id: selectedContactId ?? undefined,
-    };
-    console.log("Creating log payload (CRM Agency):", payload);
-    await apiPost<Log, typeof payload>("/logs", payload);
+      const datetimeIso = (() => {
+        if (logDate) {
+          return new Date(`${logDate}T00:00`).toISOString();
+        }
+        return new Date().toISOString();
+      })();
+      const payload = {
+        user: logUser.trim(),
+        datetime: datetimeIso,
+        action: logAction.trim(),
+        agency_id: agencyIdNum,
+        office: agency?.office_id ? String(agency.office_id) : null,
+        notes: logNotes.trim() || null,
+        contact_id: selectedContactId,
+      };
+      console.log("CRM Agency - creating log payload:", payload);
+      await apiPost<Log, typeof payload>("/logs", payload);
       const refreshed = await apiGet<Log[]>(`/logs?agency_id=${agencyIdNum}`);
       setLogs(refreshed || []);
       setLogNotes("");
@@ -544,6 +544,11 @@ const logFieldStyle: React.CSSProperties = {
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <div style={{ ...cardStyle, display: "flex", flexDirection: "column", gap: 8 }}>
           <div style={{ fontSize: 13, fontWeight: 600 }}>Log New Marketing Call</div>
+          <div style={{ fontSize: 12, marginBottom: 8, color: "#6b7280" }}>
+            {selectedContactId
+              ? "Logging for the contact selected in the left column."
+              : "Select a contact from the left column before logging a call."}
+          </div>
           <label style={{ fontSize: 12, color: "#374151", display: "block" }}>
             Underwriter
             <select
@@ -556,23 +561,6 @@ const logFieldStyle: React.CSSProperties = {
               {underwritersForOffice.map((uw) => (
                 <option key={uw.id} value={uw.name}>
                   {uw.name}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label style={{ fontSize: 12, color: "#374151", display: "block" }}>
-            Contact
-            <select
-              value={logContact}
-              onChange={(e) => setLogContact(e.target.value)}
-              style={logFieldStyle}
-              disabled={!contacts.length}
-            >
-              <option value="">Select contact-</option>
-              {contacts.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
                 </option>
               ))}
             </select>
