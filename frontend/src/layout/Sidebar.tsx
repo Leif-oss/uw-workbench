@@ -1,7 +1,7 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 
 const sidebarStyles: React.CSSProperties = {
-  width: "230px",
+  width: "175px",
   background: "#0f2742",
   color: "#e5ecf5",
   display: "flex",
@@ -29,32 +29,63 @@ const activeLinkStyles: React.CSSProperties = {
   background: "#1d3b5a",
 };
 
-const navLinks = [
-  { to: "/dashboard", label: "Dashboard" },
-  { to: "/offices", label: "Offices" },
-  { to: "/agencies", label: "Agencies" },
-  { to: "/workbench", label: "Workbench" },
-  { to: "/admin", label: "Admin" },
+type NavItem = {
+  id: string;
+  label: string;
+  to?: string;
+  path?: string;
+};
+
+const defaultItems: NavItem[] = [
+  { to: "/dashboard", label: "Dashboard", id: "dashboard" },
+  { to: "/agencies", label: "CRM", id: "crm" },
+  { to: "/workbench", label: "Workbench", id: "workbench" },
+  { to: "/admin", label: "Admin", id: "admin" },
+];
+
+const crmItems: NavItem[] = [
+  { id: "crm-offices", label: "Offices", path: "/crm/offices" },
+  { id: "crm-underwriters", label: "Underwriters", path: "/crm/underwriters" },
+  { id: "crm-agencies", label: "Agencies", path: "/crm/agencies" },
+  { id: "crm-reports", label: "Marketing Reports", path: "/crm/reports" },
 ];
 
 function Sidebar() {
+  const location = useLocation();
+  const isCrm = location.pathname.startsWith("/crm");
+  const itemsToRender = isCrm ? crmItems : defaultItems;
+
   return (
     <aside style={sidebarStyles}>
       <div style={brandStyles}>UW Workbench</div>
       <nav>
-        {navLinks.map((link) => (
-          <NavLink
-            key={link.to}
-            to={link.to}
-            style={({ isActive }) => ({
-              ...linkStyles,
-              ...(isActive ? activeLinkStyles : {}),
-            })}
-            end={link.to === "/dashboard"}
-          >
-            {link.label}
-          </NavLink>
-        ))}
+        {itemsToRender.map((item) =>
+          isCrm && item.path ? (
+            <NavLink
+              key={item.id}
+              to={item.path}
+              style={({ isActive }) => ({
+                ...linkStyles,
+                ...(isActive ? activeLinkStyles : {}),
+              })}
+              end
+            >
+              {item.label}
+            </NavLink>
+          ) : (
+            <NavLink
+              key={item.to}
+              to={item.to || "/"}
+              style={({ isActive }) => ({
+                ...linkStyles,
+                ...(isActive ? activeLinkStyles : {}),
+              })}
+              end={item.to === "/dashboard"}
+            >
+              {item.label}
+            </NavLink>
+          ),
+        )}
       </nav>
     </aside>
   );
