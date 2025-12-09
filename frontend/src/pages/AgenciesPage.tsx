@@ -4,7 +4,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import { apiGet, apiPost, apiDelete } from "../api/client";
 
@@ -112,10 +112,6 @@ const AgenciesPage: React.FC = () => {
 
 
 
-  const [newAgencyName, setNewAgencyName] = useState<string>("");
-
-
-
   const [selectedAgency, setSelectedAgency] = useState<Agency | null>(null);
 
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -125,6 +121,8 @@ const AgenciesPage: React.FC = () => {
 
 
   const [logUser, setLogUser] = useState<string>("");
+
+  const [logContact, setLogContact] = useState<string>("");
 
   const [logAction, setLogAction] = useState<string>("");
 
@@ -159,6 +157,10 @@ const AgenciesPage: React.FC = () => {
 
 
   const navigate = useNavigate();
+
+  const location = useLocation();
+
+  const isCrm = location.pathname.startsWith("/crm");
 
 
 
@@ -374,11 +376,23 @@ const AgenciesPage: React.FC = () => {
 
   };
 
+  const logFieldStyle: React.CSSProperties = {
+    width: "100%",
+    padding: "6px 8px",
+    borderRadius: 8,
+    border: "1px solid #d1d5db",
+    fontSize: 13,
+    lineHeight: "20px",
+    backgroundColor: "#f9fafb",
+  };
+
 
 
   const resetLogForm = () => {
 
     setLogUser("");
+
+    setLogContact("");
 
     setLogAction("");
 
@@ -459,50 +473,6 @@ const AgenciesPage: React.FC = () => {
     loadAllData();
 
   }, []);
-
-
-
-  const handleCreateAgency = async () => {
-
-    if (!newAgencyName.trim()) {
-
-      setStatus("Please enter an agency name before creating.");
-
-      return;
-
-    }
-
-    try {
-
-      setLoading(true);
-
-      setStatus("Creating agency...");
-
-      const created = await apiPost<Agency, { name: string }>("/agencies", {
-
-        name: newAgencyName.trim(),
-
-      });
-
-      const data = await apiGet<Agency[]>("/agencies");
-
-      setAgencies(data);
-
-      setNewAgencyName("");
-
-      setStatus(`Agency "${created.name}" created successfully.`);
-
-    } catch (err: any) {
-
-      setStatus(`Create agency failed: ${err?.message || err}`);
-
-    } finally {
-
-      setLoading(false);
-
-    }
-
-  };
 
 
 
@@ -788,6 +758,14 @@ const AgenciesPage: React.FC = () => {
 
 
 
+  const handleAgencySelect = (agency: Agency) => {
+
+    loadContactsAndLogs(agency);
+
+  };
+
+
+
   const goToOffice = (officeId?: number | null) => {
 
     if (!officeId) return;
@@ -857,14 +835,15 @@ const AgenciesPage: React.FC = () => {
             Search (Name or Code)
 
           </div>
-
           <input
 
             style={{
 
               width: "100%",
 
-              padding: "7px 9px",
+              boxSizing: "border-box",
+
+              padding: "6px 8px",
 
               borderRadius: 8,
 
@@ -872,7 +851,7 @@ const AgenciesPage: React.FC = () => {
 
               fontSize: 13,
 
-              outline: "none",
+              lineHeight: "20px",
 
               backgroundColor: "#f9fafb",
 
@@ -915,7 +894,6 @@ const AgenciesPage: React.FC = () => {
             Office
 
           </div>
-
           <select
 
             style={{
@@ -985,7 +963,6 @@ const AgenciesPage: React.FC = () => {
             Primary Underwriter
 
           </div>
-
           <select
 
             style={{
@@ -1140,7 +1117,7 @@ const AgenciesPage: React.FC = () => {
 
                     style={{ backgroundColor: isSelected ? "#dbeafe" : "transparent", cursor: "pointer" }}
 
-                    onClick={() => loadContactsAndLogs(ag)}
+                    onClick={() => handleAgencySelect(ag)}
 
                   >
 
@@ -1214,7 +1191,7 @@ const AgenciesPage: React.FC = () => {
 
                           e.stopPropagation();
 
-                          loadContactsAndLogs(ag);
+                          handleAgencySelect(ag);
 
                         }}
 
@@ -1515,7 +1492,6 @@ const AgenciesPage: React.FC = () => {
             {status} {loading && "(loading...)"}
 
           </div>
-
         )}
 
         {kpiCards}
@@ -1605,67 +1581,6 @@ const AgenciesPage: React.FC = () => {
           </div>
 
 
-
-          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-
-            <input
-
-              placeholder="New agency name"
-
-              value={newAgencyName}
-
-              onChange={(e) => setNewAgencyName(e.target.value)}
-
-              style={{
-
-                padding: "7px 9px",
-
-                borderRadius: 8,
-
-                border: "1px solid #d1d5db",
-
-                fontSize: 13,
-
-                minWidth: 220,
-
-              }}
-
-            />
-
-            <button
-
-              type="button"
-
-              onClick={handleCreateAgency}
-
-              style={{
-
-                padding: "7px 12px",
-
-                borderRadius: 8,
-
-                border: "1px solid #2563eb",
-
-                background: "#2563eb",
-
-                color: "#ffffff",
-
-                cursor: "pointer",
-
-              }}
-
-              disabled={loading}
-
-            >
-
-              {loading ? "Saving..." : "Create Agency"}
-
-            </button>
-
-          </div>
-
-
-
           <div
 
             style={{
@@ -1734,12 +1649,39 @@ const AgenciesPage: React.FC = () => {
 
                     <div>
 
-                      <div style={{ fontSize: 13, fontWeight: 600, color: "#111827" }}>{selectedAgency.name}</div>
-
-                      <div style={{ fontSize: 11, color: "#9ca3af" }}>
-
-                        {selectedAgency.code ? `Code: ${selectedAgency.code}` : "Agency selected"}
-
+                      <div
+                        style={{
+                          textAlign: "center",
+                          marginBottom: 8,
+                          paddingBottom: 8,
+                          borderBottom: "1px solid #e5e7eb",
+                        }}
+                      >
+                        <div style={{ fontSize: 20, fontWeight: 700, color: "#111827", marginBottom: 4 }}>
+                          {selectedAgency.name}
+                        </div>
+                        <div style={{ fontSize: 13, color: "#4b5563" }}>
+                          Code: <strong>{selectedAgency.code || "N/A"}</strong>
+                        </div>
+                        <div style={{ fontSize: 13, color: "#4b5563", marginTop: 4 }}>
+                          Primary UW: <strong>{selectedAgency.primary_underwriter || "N/A"}</strong>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/crm/agencies/${selectedAgency.id}`)}
+                          style={{
+                            marginTop: 8,
+                            padding: "6px 12px",
+                            borderRadius: 6,
+                            border: "1px solid #2563eb",
+                            backgroundColor: "#2563eb",
+                            color: "#ffffff",
+                            fontSize: 13,
+                            cursor: "pointer",
+                          }}
+                        >
+                          Open Full Agency Page
+                        </button>
                       </div>
 
                       <div style={{ fontSize: 11, color: "#6b7280", marginTop: 4, display: "flex", gap: 8 }}>
@@ -2347,6 +2289,7 @@ const AgenciesPage: React.FC = () => {
 
 
 
+            {false && (
             <section
 
               style={{
@@ -2381,21 +2324,13 @@ const AgenciesPage: React.FC = () => {
 
 
 
-              <label style={{ fontSize: 12, color: "#374151" }}>
+              <label style={{ fontSize: 12, color: "#374151", display: "block", marginBottom: 8 }}>
                 Underwriter
                 <select
                   value={logUser}
                   onChange={(e) => setLogUser(e.target.value)}
                   disabled={!selectedAgency || underwritersForSelectedAgency.length === 0}
-                  style={{
-                    width: "100%",
-                    padding: "6px 8px",
-                    borderRadius: 8,
-                    border: "1px solid #d1d5db",
-                    marginTop: 4,
-                    marginBottom: 8,
-                    backgroundColor: "#f9fafb",
-                  }}
+                  style={logFieldStyle}
                 >
                   <option value="">Select underwriter...</option>
                   {underwritersForSelectedAgency.map((emp) => (
@@ -2406,35 +2341,46 @@ const AgenciesPage: React.FC = () => {
                 </select>
               </label>
 
+              <label style={{ fontSize: 12, color: "#374151", display: "block", marginBottom: 8 }}>
+                Contact
+                <select
+                  value={logContact}
+                  onChange={(e) => setLogContact(e.target.value)}
+                  style={logFieldStyle}
+                  disabled={!selectedAgency}
+                >
+                  <option value="">Select contact...</option>
+                  {contacts.map((c) => (
+                    <option key={c.id} value={c.name}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
 
 
-              <label style={{ fontSize: 12, color: "#374151" }}>
+
+              <label style={{ fontSize: 12, color: "#374151", display: "block", marginBottom: 8 }}>
 
                 Action
 
-                <input
+                <select
 
                   value={logAction}
 
                   onChange={(e) => setLogAction(e.target.value)}
 
-                  style={{
+                  style={logFieldStyle}
 
-                    width: "100%",
+                >
 
-                    padding: "6px 8px",
+                  <option value="">Select action…</option>
 
-                    borderRadius: 8,
+                  <option value="In person marketing call">In person marketing call</option>
 
-                    border: "1px solid #d1d5db",
+                  <option value="Phone / Zoom / Email">Phone / Zoom / Email</option>
 
-                    marginTop: 4,
-
-                    marginBottom: 8,
-
-                  }}
-
-                />
+                </select>
 
               </label>
 
@@ -2442,66 +2388,28 @@ const AgenciesPage: React.FC = () => {
 
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
 
-                <label style={{ fontSize: 12, color: "#374151", flex: 1, minWidth: 140 }}>
+                <label style={{ fontSize: 12, color: "#374151", flex: 1, minWidth: 140, display: "block", marginBottom: 8 }}>
 
                   Date
 
                   <input
-
                     type="date"
-
                     value={logDate}
-
                     onChange={(e) => setLogDate(e.target.value)}
-
-                    style={{
-
-                      width: "100%",
-
-                      padding: "6px 8px",
-
-                      borderRadius: 8,
-
-                      border: "1px solid #d1d5db",
-
-                      marginTop: 4,
-
-                      marginBottom: 8,
-
-                    }}
-
+                    style={logFieldStyle}
                   />
 
                 </label>
 
-                <label style={{ fontSize: 12, color: "#374151", flex: 1, minWidth: 140 }}>
+                <label style={{ fontSize: 12, color: "#374151", flex: 1, minWidth: 140, display: "block", marginBottom: 8 }}>
 
                   Time
 
                   <input
-
                     type="time"
-
                     value={logTime}
-
                     onChange={(e) => setLogTime(e.target.value)}
-
-                    style={{
-
-                      width: "100%",
-
-                      padding: "6px 8px",
-
-                      borderRadius: 8,
-
-                      border: "1px solid #d1d5db",
-
-                      marginTop: 4,
-
-                      marginBottom: 8,
-
-                    }}
-
+                    style={logFieldStyle}
                   />
 
                 </label>
@@ -2510,7 +2418,7 @@ const AgenciesPage: React.FC = () => {
 
 
 
-              <label style={{ fontSize: 12, color: "#374151" }}>
+              <label style={{ fontSize: 12, color: "#374151", display: "block", marginBottom: 8 }}>
 
                 Notes
 
@@ -2522,23 +2430,7 @@ const AgenciesPage: React.FC = () => {
 
                   rows={4}
 
-                  style={{
-
-                    width: "100%",
-
-                    padding: "6px 8px",
-
-                    borderRadius: 8,
-
-                    border: "1px solid #d1d5db",
-
-                    marginTop: 4,
-
-                    marginBottom: 8,
-
-                    resize: "vertical",
-
-                  }}
+                  style={{ ...logFieldStyle, resize: "vertical" }}
 
                 />
 
@@ -2593,9 +2485,9 @@ const AgenciesPage: React.FC = () => {
               )}
 
             </section>
+            )}
 
           </div>
-
         </section>
 
       </>

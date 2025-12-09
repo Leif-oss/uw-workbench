@@ -238,7 +238,16 @@ export const OfficesPage: React.FC = () => {
         <div style={{ marginBottom: 10 }}>
           <div style={fieldLabelStyle}>Search (Code or Name)</div>
           <input
-            style={inputStyle}
+            style={{
+              width: "100%",
+              boxSizing: "border-box",
+              padding: "6px 8px",
+              borderRadius: 8,
+              border: "1px solid #d1d5db",
+              fontSize: 13,
+              lineHeight: "20px",
+              backgroundColor: "#f9fafb",
+            }}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="e.g. SDO, Fresno"
