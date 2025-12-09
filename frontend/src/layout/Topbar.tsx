@@ -1,3 +1,5 @@
+import { NavLink, useLocation } from "react-router-dom";
+
 const topbarStyles: React.CSSProperties = {
   height: "56px",
   background: "#ffffff",
@@ -15,11 +17,47 @@ const titleStyles: React.CSSProperties = {
   color: "#0f2742",
 };
 
+const tabBaseStyle: React.CSSProperties = {
+  padding: "6px 12px",
+  borderRadius: 999,
+  fontSize: 13,
+  cursor: "pointer",
+  border: "1px solid transparent",
+  textDecoration: "none",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+};
+
 function Topbar() {
+  const location = useLocation();
+  const isCrm = location.pathname.startsWith("/crm");
+
   return (
     <header style={topbarStyles}>
-      <div style={titleStyles}>Underwriting Workbench</div>
-      <div style={{ fontSize: "0.9rem", color: "#4a5568" }}>React + Vite + TS</div>
+      <div style={titleStyles}>{isCrm ? "CRM" : "Underwriting Workbench"}</div>
+      <div style={{ display: "flex", gap: 8 }}>
+        {[
+          { to: "/dashboard", label: "Dashboard" },
+          { to: "/crm", label: "CRM" },
+          { to: "/workbench", label: "Workbench" },
+          { to: "/admin", label: "Admin" },
+        ].map((link) => (
+          <NavLink
+            key={link.to}
+            to={link.to}
+            style={({ isActive }) => ({
+              ...tabBaseStyle,
+              borderColor: isActive ? "#2563eb" : "transparent",
+              backgroundColor: isActive ? "#eff6ff" : "transparent",
+              color: isActive ? "#1d4ed8" : "#374151",
+            })}
+            end={link.to === "/dashboard"}
+          >
+            {link.label}
+          </NavLink>
+        ))}
+      </div>
     </header>
   );
 }
