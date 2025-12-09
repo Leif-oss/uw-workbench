@@ -89,6 +89,8 @@ type Log = {
   office?: string | null;
 
   notes?: string | null;
+  contact_id?: number | null;
+  contact?: string | null;
 
 };
 
@@ -349,6 +351,59 @@ const AgenciesPage: React.FC = () => {
   const agenciesInView = filteredAgencies.length;
 
   const selectedAgencyName = selectedAgency ? selectedAgency.name : "None";
+
+  const ninetyDaysAgo = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 90);
+    return d;
+  }, []);
+
+  const getContactedInfoForContact = (contactId: number) => {
+    if (!logs || !logs.length) {
+      return { label: "never", isStale: true };
+    }
+
+    let matches = logs.filter((log) => {
+      if (log.contact_id != null) {
+        // eslint-disable-next-line eqeqeq
+        return String(log.contact_id) == String(contactId);
+      }
+      return false;
+    });
+
+    if (!matches.length) {
+      matches = logs;
+    }
+
+    if (!matches.length) {
+      return { label: "never", isStale: true };
+    }
+
+    let latest: Date | null = null;
+    matches.forEach((log) => {
+      const d = new Date(log.datetime);
+      if (!Number.isNaN(new Date(log.datetime).getTime())) {
+        if (!latest || d > latest) latest = d;
+      }
+    });
+
+    if (!latest) {
+      return { label: "never", isStale: true };
+    }
+
+    const now = new Date();
+    const diffMs = now.getTime() - latest.getTime();
+    const diffDays = diffMs / (1000 * 60 * 60 * 24);
+    const isStale = diffDays > 90;
+
+    const label = latest.toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+
+    return { label, isStale };
+  };
 
   const underwritersForSelectedAgency = useMemo(
     () => {
@@ -843,7 +898,7 @@ const AgenciesPage: React.FC = () => {
 
               boxSizing: "border-box",
 
-              padding: "6px 8px",
+              padding: "7px 9px",
 
               borderRadius: 8,
 
@@ -1868,18 +1923,67 @@ const AgenciesPage: React.FC = () => {
 
                     ) : (
 
-                      <ul style={{ margin: 0, paddingLeft: 16 }}>
+                      <ul style={{ margin: 0, paddingLeft: 0, listStyle: "none" }}>
 
-                        {contacts.map((c) => (
+                        {contacts.map((c) => {
+                          const { label, isStale } = getContactedInfoForContact(c.id);
+                          return (
+                            <li
+                              key={c.id}
+                              style={{
+                                fontSize: 12,
+                                marginBottom: 4,
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "center",
+                                gap: 8,
+                              }}
+                            >
+                              <div style={{ minWidth: 0 }}>
+                                <span>
+                                  <strong>{c.name}</strong>
+                                  {c.title && (
+                                    <span style={{ color: "#6b7280" }}> · {c.title}</span>
+                                  )}
+                                </span>
 
-                          <li key={c.id} style={{ fontSize: 12, marginBottom: 4 }}>
-                            <strong>{c.name}</strong>
-                            {c.title ? ` · ${c.title}` : ""}
-                            {c.email ? ` · ${c.email}` : ""}
-                            {c.phone ? ` · ${c.phone}` : ""}
-                          </li>
+                                {c.email && (
+                                  <>
+                                    {" / "}
+                                    <a
+                                      href={`mailto:${c.email}`}
+                                      style={{
+                                        color: "#2563eb",
+                                        textDecoration: "underline",
+                                        cursor: "pointer",
+                                      }}
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      {c.email}
+                                    </a>
+                                  </>
+                                )}
 
-                        ))}
+                                {c.phone && (
+                                  <span style={{ color: "#4b5563" }}>
+                                    {" / "}
+                                    {c.phone}
+                                  </span>
+                                )}
+                              </div>
+                              <div
+                                style={{
+                                  fontSize: 11,
+                                  fontWeight: 500,
+                                  whiteSpace: "nowrap",
+                                  color: isStale ? "#b91c1c" : "#6b7280",
+                                }}
+                              >
+                                {label === "never" ? "Contacted: never" : `Contacted: ${label}`}
+                              </div>
+                            </li>
+                          );
+                        })}
 
                       </ul>
 

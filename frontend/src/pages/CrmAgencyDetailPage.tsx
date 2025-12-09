@@ -15,7 +15,7 @@ import { apiGet, apiPost } from "../api/client";
   active_flag?: string | null;
 };
 
- type Contact = {
+type Contact = {
   id: number;
   name: string;
   title?: string | null;
@@ -23,6 +23,7 @@ import { apiGet, apiPost } from "../api/client";
   phone?: string | null;
   agency_id: number;
   notes?: string | null;
+  linkedin_url?: string | null;
 };
 
  type Employee = {
@@ -39,7 +40,8 @@ import { apiGet, apiPost } from "../api/client";
   agency_id?: number | null;
   office?: string | null;
   notes?: string | null;
-};
+  contact_id?: number | null;
+ };
 
  const cardStyle: React.CSSProperties = {
   border: "1px solid #e5e7eb",
@@ -48,7 +50,7 @@ import { apiGet, apiPost } from "../api/client";
   backgroundColor: "#ffffff",
 };
 
- const logFieldStyle: React.CSSProperties = {
+const logFieldStyle: React.CSSProperties = {
   width: "100%",
   padding: "6px 8px",
   borderRadius: 8,
@@ -56,6 +58,7 @@ import { apiGet, apiPost } from "../api/client";
   fontSize: 13,
   lineHeight: "20px",
   backgroundColor: "#f9fafb",
+  boxSizing: "border-box",
 };
 
  const CrmAgencyDetailPage: React.FC = () => {
@@ -86,6 +89,7 @@ import { apiGet, apiPost } from "../api/client";
   const [newContactTitle, setNewContactTitle] = useState("");
   const [newContactEmail, setNewContactEmail] = useState("");
   const [newContactPhone, setNewContactPhone] = useState("");
+  const [newContactLinkedIn, setNewContactLinkedIn] = useState("");
   const [newContactNotes, setNewContactNotes] = useState("");
   const [isAddingContact, setIsAddingContact] = useState(false);
 
@@ -141,10 +145,86 @@ import { apiGet, apiPost } from "../api/client";
 
   const logsForAgency = useMemo(() => logs, [logs]);
 
+  const getContactedInfoForContact = (contactId: number) => {
+    if (!logsForAgency || logsForAgency.length === 0) {
+      return { label: "never", isStale: true };
+    }
+
+    let relevantLogs = logsForAgency.filter((log) => {
+      // @ts-expect-error contact_id may exist at runtime even if not always in type
+      if (log.contact_id != null) {
+        // eslint-disable-next-line eqeqeq
+        return String(log.contact_id) == String(contactId);
+      }
+      return false;
+    });
+
+    if (!relevantLogs.length) {
+      relevantLogs = logsForAgency;
+    }
+
+    if (!relevantLogs.length) {
+      return { label: "never", isStale: true };
+    }
+
+    let latest: Date | null = null;
+    relevantLogs.forEach((log) => {
+      const d = new Date(log.datetime);
+      if (!Number.isNaN(d.getTime())) {
+        if (!latest || d > latest) latest = d;
+      }
+    });
+
+    if (!latest) {
+      return { label: "never", isStale: true };
+    }
+
+    const now = new Date();
+    const diffMs = now.getTime() - latest.getTime();
+    const diffDays = diffMs / (1000 * 60 * 60 * 24);
+    const isStale = diffDays > 90;
+
+    const label = latest.toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+
+    return { label, isStale };
+  };
+
   const underwritersForOffice = useMemo(() => {
     if (!agency || !agency.office_id) return [] as Employee[];
     return employees.filter((e) => e.office_id === agency.office_id);
   }, [agency, employees]);
+
+  const getLastContactInfoForContact = (contactId: number) => {
+    if (!logsForAgency || logsForAgency.length === 0) {
+      return { label: "Never", isStale: true };
+    }
+
+    const logsForContact = logsForAgency
+      .filter((log) => log.contact_id === contactId && log.datetime)
+      .sort((a, b) => new Date(b.datetime).getTime() - new Date(a.datetime).getTime());
+
+    if (logsForContact.length === 0) {
+      return { label: "Never", isStale: true };
+    }
+
+    const last = new Date(logsForContact[0].datetime);
+    const now = new Date();
+    const diffMs = now.getTime() - last.getTime();
+    const diffDays = diffMs / (1000 * 60 * 60 * 24);
+    const isStale = diffDays > 90;
+
+    const formattedLabel = last.toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+
+    return { label: formattedLabel, isStale };
+  };
 
   const handleCreateContact = async () => {
     if (!agencyIdNum) return;
@@ -154,6 +234,7 @@ import { apiGet, apiPost } from "../api/client";
       title: newContactTitle.trim() || undefined,
       email: newContactEmail.trim() || undefined,
       phone: newContactPhone.trim() || undefined,
+      linkedin_url: newContactLinkedIn.trim() || undefined,
       notes: newContactNotes.trim() || undefined,
       agency_id: agencyIdNum,
     };
@@ -163,6 +244,7 @@ import { apiGet, apiPost } from "../api/client";
       setNewContactTitle("");
       setNewContactEmail("");
       setNewContactPhone("");
+      setNewContactLinkedIn("");
       setNewContactNotes("");
       setIsAddingContact(false);
       const refreshed = await apiGet<Contact[]>(`/contacts?agency_id=${agencyIdNum}`);
@@ -278,6 +360,12 @@ import { apiGet, apiPost } from "../api/client";
               onChange={(e) => setNewContactPhone(e.target.value)}
               style={logFieldStyle}
             />
+            <input
+              placeholder="LinkedIn URL"
+              value={newContactLinkedIn}
+              onChange={(e) => setNewContactLinkedIn(e.target.value)}
+              style={logFieldStyle}
+            />
             <textarea
               placeholder="Notes"
               value={newContactNotes}
@@ -317,25 +405,64 @@ import { apiGet, apiPost } from "../api/client";
         </div>
 
         <div style={{ maxHeight: 320, overflowY: "auto", display: "flex", flexDirection: "column", gap: 4 }}>
-          {filteredContacts.map((c) => (
-            <button
-              key={c.id}
-              onClick={() => setSelectedContactId(c.id)}
-              style={{
-                textAlign: "left",
-                padding: "6px 8px",
-                borderRadius: 6,
-                border: "none",
-                backgroundColor: c.id === selectedContactId ? "#eff6ff" : "transparent",
-                cursor: "pointer",
-                fontSize: 13,
-              }}
-            >
-              <div style={{ fontWeight: 500 }}>{c.name}</div>
-              {c.title && <div style={{ fontSize: 11, color: "#6b7280" }}>{c.title}</div>}
-            </button>
-          ))}
-          {filteredContacts.length === 0 && <div style={{ fontSize: 12, color: "#6b7280" }}>No contacts found.</div>}
+          {filteredContacts.map((c) => {
+            const { label, isStale } = getContactedInfoForContact(c.id);
+            return (
+              <button
+                key={c.id}
+                onClick={() => setSelectedContactId(c.id)}
+                style={{
+                  textAlign: "left",
+                  padding: "6px 8px",
+                  borderRadius: 6,
+                  border: "none",
+                  backgroundColor: c.id === selectedContactId ? "#eff6ff" : "transparent",
+                  cursor: "pointer",
+                  fontSize: 13,
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 8,
+                  }}
+                >
+                  <div style={{ fontSize: 12, minWidth: 0 }}>
+                    <span style={{ fontWeight: 500 }}>{c.name}</span>
+                    {c.title && (
+                      <span style={{ color: "#6b7280" }}>
+                        {" / "}
+                        {c.title}
+                      </span>
+                    )}
+                    {c.email && (
+                      <>
+                        {" / "}
+                        <a href={`mailto:${c.email}`} style={{ color: "#2563eb", textDecoration: "none" }}>
+                          {c.email}
+                        </a>
+                      </>
+                    )}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 500,
+                      whiteSpace: "nowrap",
+                      color: isStale ? "#b91c1c" : "#6b7280",
+                    }}
+                  >
+                    {label === "never" ? "Contacted: never" : `Contacted: ${label}`}
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+          {filteredContacts.length === 0 && (
+            <div style={{ fontSize: 12, color: "#6b7280" }}>No contacts found.</div>
+          )}
         </div>
       </div>
 
@@ -373,10 +500,47 @@ import { apiGet, apiPost } from "../api/client";
           <div style={{ marginTop: 4, paddingTop: 6, borderTop: "1px solid #e5e7eb" }}>
             <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>Contact Details</div>
             <div style={{ fontSize: 13 }}>{selectedContact.name}</div>
-            {selectedContact.title && <div style={{ fontSize: 12, color: "#6b7280" }}>{selectedContact.title}</div>}
-            {selectedContact.phone && <div style={{ fontSize: 12 }}>Phone: {selectedContact.phone}</div>}
-            {selectedContact.email && <div style={{ fontSize: 12 }}>Email: {selectedContact.email}</div>}
-            {selectedContact.notes && <div style={{ fontSize: 12, marginTop: 4 }}>Notes: {selectedContact.notes}</div>}
+            {selectedContact.title && (
+              <div style={{ fontSize: 12, color: "#6b7280" }}>{selectedContact.title}</div>
+            )}
+            {selectedContact.phone && (
+              <div style={{ fontSize: 12 }}>Phone: {selectedContact.phone}</div>
+            )}
+            {selectedContact.email && (
+              <div style={{ fontSize: 12 }}>
+                Email:{" "}
+                <a href={`mailto:${selectedContact.email}`} style={{ color: "#2563eb", textDecoration: "none" }}>
+                  {selectedContact.email}
+                </a>
+              </div>
+            )}
+            {selectedContact.linkedin_url && (
+              <div style={{ fontSize: 12 }}>
+                LinkedIn:{" "}
+                <a
+                  href={selectedContact.linkedin_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: "#2563eb", textDecoration: "none" }}
+                >
+                  {selectedContact.linkedin_url}
+                </a>
+              </div>
+            )}
+            <div
+              style={{
+                fontSize: 12,
+                marginTop: 8,
+                paddingTop: 6,
+                borderTop: "1px dashed #e5e7eb",
+                whiteSpace: "pre-wrap",
+              }}
+            >
+              <strong>Contact Notes:</strong>{" "}
+              {selectedContact.notes && selectedContact.notes.trim().length > 0
+                ? selectedContact.notes
+                : "No notes yet for this contact."}
+            </div>
           </div>
         )}
       </div>
