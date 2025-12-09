@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { apiGet, apiPost } from "../api/client";
+import { LOG_ACTION_OPTIONS, LogAction } from "../constants/logActions";
 
 // Reuse types consistent with other CRM pages
  type Agency = {
@@ -32,7 +33,7 @@ type Contact = {
   office_id: number | null;
 };
 
- type Log = {
+type Log = {
   id: number;
   user: string;
   datetime: string;
@@ -41,6 +42,7 @@ type Contact = {
   office?: string | null;
   notes?: string | null;
   contact_id?: number | null;
+  contact?: string | null;
  };
 
  const cardStyle: React.CSSProperties = {
@@ -78,10 +80,9 @@ const logFieldStyle: React.CSSProperties = {
 
   const [logUser, setLogUser] = useState("");
   const [logContact, setLogContact] = useState("");
-  const [logAction, setLogAction] = useState("");
+  const [logAction, setLogAction] = useState<LogAction>("In Person");
   const [logNotes, setLogNotes] = useState("");
   const [logDate, setLogDate] = useState("");
-  const [logTime, setLogTime] = useState("");
   const [isSavingLog, setIsSavingLog] = useState(false);
   const [logError, setLogError] = useState<string | null>(null);
 
@@ -147,28 +148,21 @@ const logFieldStyle: React.CSSProperties = {
 
   const getContactedInfoForContact = (contactId: number) => {
     if (!logsForAgency || logsForAgency.length === 0) {
-      return { label: "never", isStale: true };
+      return { label: "never", isStale: true, matchCount: 0 };
     }
 
-    let relevantLogs = logsForAgency.filter((log) => {
-      // @ts-expect-error contact_id may exist at runtime even if not always in type
-      if (log.contact_id != null) {
-        // eslint-disable-next-line eqeqeq
-        return String(log.contact_id) == String(contactId);
-      }
-      return false;
+    const matches = logsForAgency.filter((log) => {
+      if (log.contact_id == null) return false;
+      // eslint-disable-next-line eqeqeq
+      return String(log.contact_id) == String(contactId);
     });
 
-    if (!relevantLogs.length) {
-      relevantLogs = logsForAgency;
-    }
-
-    if (!relevantLogs.length) {
-      return { label: "never", isStale: true };
+    if (!matches.length) {
+      return { label: "never", isStale: true, matchCount: 0 };
     }
 
     let latest: Date | null = null;
-    relevantLogs.forEach((log) => {
+    matches.forEach((log) => {
       const d = new Date(log.datetime);
       if (!Number.isNaN(d.getTime())) {
         if (!latest || d > latest) latest = d;
@@ -176,7 +170,7 @@ const logFieldStyle: React.CSSProperties = {
     });
 
     if (!latest) {
-      return { label: "never", isStale: true };
+      return { label: "never", isStale: true, matchCount: matches.length };
     }
 
     const now = new Date();
@@ -190,7 +184,7 @@ const logFieldStyle: React.CSSProperties = {
       year: "numeric",
     });
 
-    return { label, isStale };
+    return { label, isStale, matchCount: matches.length };
   };
 
   const underwritersForOffice = useMemo(() => {
@@ -267,30 +261,29 @@ const logFieldStyle: React.CSSProperties = {
     try {
       setIsSavingLog(true);
       setLogError(null);
-      const datetimeIso = (() => {
-        if (logDate) {
-          const timePart = logTime || "09:00";
-          const localString = `${logDate}T${timePart}`;
-          const dt = new Date(localString);
-          return dt.toISOString();
-        }
-        return new Date().toISOString();
-      })();
-      const payload = {
-        user: logUser.trim(),
-        datetime: datetimeIso,
-        action: logAction.trim(),
-        agency_id: agencyIdNum,
-        office: agency?.office_id ? String(agency.office_id) : null,
-        notes: logNotes.trim() || null,
-      };
-      await apiPost<Log, typeof payload>("/logs", payload);
+    const datetimeIso = (() => {
+      if (logDate) {
+        return new Date(`${logDate}T00:00`).toISOString();
+      }
+      return new Date().toISOString();
+    })();
+    const selectedContactId = logContact ? Number(logContact) : undefined;
+    const payload = {
+      user: logUser.trim(),
+      datetime: datetimeIso,
+      action: logAction.trim(),
+      agency_id: agencyIdNum,
+      office: agency?.office_id ? String(agency.office_id) : null,
+      notes: logNotes.trim() || null,
+      contact_id: selectedContactId ?? undefined,
+    };
+    console.log("Creating log payload (CRM Agency):", payload);
+    await apiPost<Log, typeof payload>("/logs", payload);
       const refreshed = await apiGet<Log[]>(`/logs?agency_id=${agencyIdNum}`);
       setLogs(refreshed || []);
       setLogNotes("");
-      setLogAction("");
+      setLogAction("In Person");
       setLogDate("");
-      setLogTime("");
     } catch (err: any) {
       setLogError(err?.message || "Failed to create log");
     } finally {
@@ -406,7 +399,7 @@ const logFieldStyle: React.CSSProperties = {
 
         <div style={{ maxHeight: 320, overflowY: "auto", display: "flex", flexDirection: "column", gap: 4 }}>
           {filteredContacts.map((c) => {
-            const { label, isStale } = getContactedInfoForContact(c.id);
+            const { label, isStale, matchCount } = getContactedInfoForContact(c.id);
             return (
               <button
                 key={c.id}
@@ -454,7 +447,9 @@ const logFieldStyle: React.CSSProperties = {
                       color: isStale ? "#b91c1c" : "#6b7280",
                     }}
                   >
-                    {label === "never" ? "Contacted: never" : `Contacted: ${label}`}
+                    {label === "never"
+                      ? `Contacted: never (matches: ${matchCount})`
+                      : `Contacted: ${label} (matches: ${matchCount})`}
                   </div>
                 </div>
               </button>
@@ -587,12 +582,14 @@ const logFieldStyle: React.CSSProperties = {
             Action
             <select
               value={logAction}
-              onChange={(e) => setLogAction(e.target.value)}
+              onChange={(e) => setLogAction(e.target.value as LogAction)}
               style={logFieldStyle}
             >
-              <option value="">Select action-</option>
-              <option value="In person marketing call">In person marketing call</option>
-              <option value="Phone / Zoom / Email">Phone / Zoom / Email</option>
+              {LOG_ACTION_OPTIONS.map((opt) => (
+                <option key={opt} value={opt}>
+                  {opt}
+                </option>
+              ))}
             </select>
           </label>
 
@@ -603,15 +600,6 @@ const logFieldStyle: React.CSSProperties = {
                 type="date"
                 value={logDate}
                 onChange={(e) => setLogDate(e.target.value)}
-                style={logFieldStyle}
-              />
-            </label>
-            <label style={{ fontSize: 12, color: "#374151", flex: 1, minWidth: 140 }}>
-              Time
-              <input
-                type="time"
-                value={logTime}
-                onChange={(e) => setLogTime(e.target.value)}
                 style={logFieldStyle}
               />
             </label>
@@ -660,6 +648,7 @@ const logFieldStyle: React.CSSProperties = {
                   <th style={{ padding: "4px 6px" }}>Date/Time</th>
                   <th style={{ padding: "4px 6px" }}>User</th>
                   <th style={{ padding: "4px 6px" }}>Action</th>
+                  <th style={{ padding: "4px 6px" }}>Contact ID (debug)</th>
                   <th style={{ padding: "4px 6px" }}>Notes</th>
                 </tr>
               </thead>
@@ -672,6 +661,9 @@ const logFieldStyle: React.CSSProperties = {
                       <td style={{ padding: "4px 6px" }}>{formatDateTime(log.datetime)}</td>
                       <td style={{ padding: "4px 6px" }}>{log.user}</td>
                       <td style={{ padding: "4px 6px" }}>{log.action}</td>
+                      <td style={{ padding: "4px 6px" }}>
+                        {log.contact_id != null ? String(log.contact_id) : "—"}
+                      </td>
                       <td style={{ padding: "4px 6px", maxWidth: 240 }}>
                         {log.notes && log.notes.length > 80 ? `${log.notes.slice(0, 80)}-` : log.notes}
                       </td>
