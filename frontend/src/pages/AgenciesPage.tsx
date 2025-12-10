@@ -1943,7 +1943,7 @@ const AgenciesPage: React.FC = () => {
 
                       >
 
-                        Total logs: <strong>{totalLogsCount}</strong>
+                        Total calls: <strong>{totalLogsCount}</strong>
 
                       </div>
 
