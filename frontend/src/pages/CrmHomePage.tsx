@@ -1,6 +1,21 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiGet } from "../api/client";
+import {
+  cardStyle,
+  panelStyle,
+  inputStyle,
+  labelStyle,
+  tableContainerStyle,
+  tableBaseStyle,
+  tableHeaderCellStyle,
+  tableCellStyle,
+  tableHeaderStickyStyle,
+  kpiLabelStyle,
+  kpiValueStyle,
+  sectionHeadingStyle,
+  secondaryButtonStyle,
+} from "../ui/designSystem";
 
 type Office = {
   id: number;
@@ -172,13 +187,10 @@ const CrmHomePage: React.FC = () => {
                   type="button"
                   onClick={() => navigate(`/crm/offices/${office.id}`)}
                   style={{
+                    ...secondaryButtonStyle,
                     fontSize: 11,
                     padding: "4px 8px",
                     borderRadius: 6,
-                    border: "1px solid #d1d5db",
-                    backgroundColor: "#ffffff",
-                    color: "#1f2937",
-                    cursor: "pointer",
                     whiteSpace: "nowrap",
                   }}
                 >
@@ -213,87 +225,77 @@ const CrmHomePage: React.FC = () => {
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
           <div
             style={{
+              ...cardStyle,
               flex: 1,
-              padding: 12,
-              borderRadius: 10,
-              border: "1px solid #e5e7eb",
-              backgroundColor: "#ffffff",
               minWidth: 180,
             }}
           >
-            <div style={{ fontSize: 11, textTransform: "uppercase", color: "#6b7280", marginBottom: 4 }}>
+            <div style={kpiLabelStyle}>
               YTD New Business Premium
             </div>
-            <div style={{ fontSize: 18, fontWeight: 600 }}>$1,234,567</div>
+            <div style={kpiValueStyle}>$1,234,567</div>
           </div>
           <div
             style={{
+              ...cardStyle,
               flex: 1,
-              padding: 12,
-              borderRadius: 10,
-              border: "1px solid #e5e7eb",
-              backgroundColor: "#ffffff",
               minWidth: 180,
             }}
           >
-            <div style={{ fontSize: 11, textTransform: "uppercase", color: "#6b7280", marginBottom: 4 }}>
+            <div style={kpiLabelStyle}>
               YTD New Business Count
             </div>
-            <div style={{ fontSize: 18, fontWeight: 600 }}>123</div>
+            <div style={kpiValueStyle}>123</div>
           </div>
           <div
             style={{
+              ...cardStyle,
               flex: 1,
-              padding: 12,
-              borderRadius: 10,
-              border: "1px solid #e5e7eb",
-              backgroundColor: "#ffffff",
               minWidth: 180,
             }}
           >
-            <div style={{ fontSize: 11, textTransform: "uppercase", color: "#6b7280", marginBottom: 4 }}>
+            <div style={kpiLabelStyle}>
               % Up vs Prior Year
             </div>
-            <div style={{ fontSize: 18, fontWeight: 600, color: "#16a34a" }}>+8.4%</div>
+            <div style={{ ...kpiValueStyle, color: "#16a34a" }}>+8.4%</div>
           </div>
         </div>
 
         <div
           style={{
-            padding: 12,
-            borderRadius: 10,
-            border: "1px solid #e5e7eb",
-            backgroundColor: "#ffffff",
+            ...panelStyle,
             flex: 1,
             minHeight: 280,
           }}
         >
-          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>Underwriter Marketing Activity</div>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-            <thead>
-              <tr style={{ textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>
-                <th style={{ padding: "4px 8px" }}>Underwriter</th>
-                <th style={{ padding: "4px 8px" }}>In-person calls (last 90 days)</th>
-                <th style={{ padding: "4px 8px" }}>Total marketing calls (YTD)</th>
-              </tr>
-            </thead>
+          <div style={sectionHeadingStyle}>Underwriter Marketing Activity</div>
+          <div style={tableContainerStyle}>
+            <table style={tableBaseStyle}>
+              <thead>
+                <tr>
+                  <th style={tableHeaderStickyStyle}>Underwriter</th>
+                  <th style={tableHeaderStickyStyle}>In-person calls (last 90 days)</th>
+                  <th style={tableHeaderStickyStyle}>Total marketing calls (YTD)</th>
+                </tr>
+              </thead>
             <tbody>
               {underwriterStats.map((uw) => (
-                <tr key={uw.user} style={{ borderBottom: "1px solid #f3f4f6" }}>
-                  <td style={{ padding: "4px 8px" }}>{uw.user}</td>
-                  <td style={{ padding: "4px 8px" }}>{uw.inPersonLast90}</td>
-                  <td style={{ padding: "4px 8px" }}>{uw.totalYtd}</td>
+                <tr key={uw.user}>
+                  <td style={tableCellStyle}>{uw.user}</td>
+                  <td style={tableCellStyle}>{uw.inPersonLast90}</td>
+                  <td style={tableCellStyle}>{uw.totalYtd}</td>
                 </tr>
               ))}
               {underwriterStats.length === 0 && (
                 <tr>
-                  <td colSpan={3} style={{ padding: "6px 8px", fontSize: 12, color: "#6b7280" }}>
+                  <td colSpan={3} style={{ ...tableCellStyle, textAlign: "center", fontSize: 12, color: "#6b7280" }}>
                     No marketing logs found for the selected office yet.
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
+          </div>
         </div>
       </div>
     </div>

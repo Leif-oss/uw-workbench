@@ -2,6 +2,24 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { WorkbenchLayout } from "../components/WorkbenchLayout";
 import { apiGet } from "../api/client";
+import {
+  cardStyle,
+  panelStyle,
+  inputStyle,
+  labelStyle,
+  sidebarHeadingStyle,
+  tableContainerStyle,
+  tableBaseStyle,
+  tableHeaderCellStyle,
+  tableCellStyle,
+  tableHeaderStickyStyle,
+  kpiLabelStyle,
+  kpiValueStyle,
+  kpiSubtextStyle,
+  sectionHeadingStyle,
+  sectionSubheadingStyle,
+  selectStyle,
+} from "../ui/designSystem";
 
 type Office = {
   id: number;
@@ -43,33 +61,6 @@ interface EmployeeWithOffice extends Employee {
   officeName?: string;
 }
 
-const fieldLabelStyle: React.CSSProperties = {
-  fontSize: 11,
-  fontWeight: 500,
-  color: "#6b7280",
-  textTransform: "uppercase",
-  letterSpacing: "0.04em",
-  marginBottom: 4,
-};
-
-const inputStyle: React.CSSProperties = {
-  width: "100%",
-  padding: "7px 9px",
-  borderRadius: 8,
-  border: "1px solid #d1d5db",
-  fontSize: 13,
-  outline: "none",
-  backgroundColor: "#f9fafb",
-};
-
-const cardStyle: React.CSSProperties = {
-  background: "#ffffff",
-  borderRadius: 12,
-  padding: "12px 14px",
-  boxShadow: "0 1px 3px rgba(15, 23, 42, 0.08)",
-  minWidth: 140,
-  flex: 1,
-};
 
 export const EmployeesPage: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -255,19 +246,11 @@ export const EmployeesPage: React.FC = () => {
   const sidebar = (
     <>
       <div>
-        <h2
-          style={{
-            margin: 0,
-            fontSize: 14,
-            fontWeight: 600,
-            color: "#111827",
-            marginBottom: 8,
-          }}
-        >
+        <h2 style={sidebarHeadingStyle}>
           Employee Filters
         </h2>
         <div style={{ marginBottom: 10 }}>
-          <div style={fieldLabelStyle}>Search (Name or Office)</div>
+          <div style={labelStyle}>Search (Name or Office)</div>
           <input
             style={inputStyle}
             value={search}
@@ -277,9 +260,9 @@ export const EmployeesPage: React.FC = () => {
         </div>
 
         <div style={{ marginBottom: 10 }}>
-          <div style={fieldLabelStyle}>Office</div>
+          <div style={labelStyle}>Office</div>
           <select
-            style={inputStyle}
+            style={selectStyle}
             value={officeFilter}
             onChange={(e) => setOfficeFilter(e.target.value)}
           >
@@ -293,9 +276,9 @@ export const EmployeesPage: React.FC = () => {
         </div>
 
         <div style={{ marginBottom: 10 }}>
-          <div style={fieldLabelStyle}>Status</div>
+          <div style={labelStyle}>Status</div>
           <select
-            style={inputStyle}
+            style={selectStyle}
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
           >
@@ -314,7 +297,7 @@ export const EmployeesPage: React.FC = () => {
           color: "#4b5563",
         }}
       >
-        <div style={fieldLabelStyle}>Notes</div>
+        <div style={labelStyle}>Notes</div>
         <ul style={{ margin: 0, paddingLeft: 16 }}>
           <li>Filters are local (front-end only) for now.</li>
           <li>Later: add production + call counts per employee.</li>
@@ -333,61 +316,37 @@ export const EmployeesPage: React.FC = () => {
       }}
     >
       <div style={cardStyle}>
-        <div
-          style={{
-            fontSize: 11,
-            textTransform: "uppercase",
-            color: "#6b7280",
-            letterSpacing: "0.05em",
-            marginBottom: 6,
-          }}
-        >
+        <div style={kpiLabelStyle}>
           Total Employees
         </div>
-        <div style={{ fontSize: 18, fontWeight: 600, color: "#111827" }}>
+        <div style={kpiValueStyle}>
           {totalEmployees}
         </div>
-        <div style={{ fontSize: 11, color: "#6b7280", marginTop: 2 }}>
+        <div style={kpiSubtextStyle}>
           In the database
         </div>
       </div>
 
       <div style={cardStyle}>
-        <div
-          style={{
-            fontSize: 11,
-            textTransform: "uppercase",
-            color: "#6b7280",
-            letterSpacing: "0.05em",
-            marginBottom: 6,
-          }}
-        >
+        <div style={kpiLabelStyle}>
           In View
         </div>
-        <div style={{ fontSize: 18, fontWeight: 600, color: "#111827" }}>
+        <div style={kpiValueStyle}>
           {totalInView}
         </div>
-        <div style={{ fontSize: 11, color: "#6b7280", marginTop: 2 }}>
+        <div style={kpiSubtextStyle}>
           Matching current filters
         </div>
       </div>
 
       <div style={cardStyle}>
-        <div
-          style={{
-            fontSize: 11,
-            textTransform: "uppercase",
-            color: "#6b7280",
-            letterSpacing: "0.05em",
-            marginBottom: 6,
-          }}
-        >
+        <div style={kpiLabelStyle}>
           Offices in View
         </div>
-        <div style={{ fontSize: 18, fontWeight: 600, color: "#111827" }}>
+        <div style={kpiValueStyle}>
           {officesInView}
         </div>
-        <div style={{ fontSize: 11, color: "#6b7280", marginTop: 2 }}>
+        <div style={kpiSubtextStyle}>
           Based on filtered employees
         </div>
       </div>
@@ -397,12 +356,7 @@ export const EmployeesPage: React.FC = () => {
   const listPanel = (
     <section
       style={{
-        background: "#ffffff",
-        borderRadius: 12,
-        padding: "10px 12px",
-        boxShadow: "0 1px 3px rgba(15, 23, 42, 0.08)",
-        display: "flex",
-        flexDirection: "column",
+        ...panelStyle,
         flex: 1.3,
         minHeight: 320,
       }}
@@ -416,16 +370,10 @@ export const EmployeesPage: React.FC = () => {
         }}
       >
         <div>
-          <div
-            style={{
-              fontSize: 13,
-              fontWeight: 600,
-              color: "#111827",
-            }}
-          >
+          <div style={sectionHeadingStyle}>
             Employee List
           </div>
-          <div style={{ fontSize: 11, color: "#9ca3af" }}>
+          <div style={sectionSubheadingStyle}>
             Click a row to view details and activity
           </div>
         </div>
@@ -435,54 +383,14 @@ export const EmployeesPage: React.FC = () => {
         </div>
       </div>
 
-      <div
-        style={{
-          flex: 1,
-          overflow: "auto",
-          borderRadius: 10,
-          border: "1px solid #e5e7eb",
-        }}
-      >
-        <table
-          style={{
-            width: "100%",
-            borderCollapse: "collapse",
-            fontSize: 12,
-          }}
-        >
-          <thead
-            style={{
-              background: "#f9fafb",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-            }}
-          >
+      <div style={tableContainerStyle}>
+        <table style={tableBaseStyle}>
+          <thead>
             <tr>
-              <th
-                style={{
-                  padding: "6px 8px",
-                  textAlign: "left",
-                  borderBottom: "1px solid #f1f5f9",
-                  fontWeight: 500,
-                  color: "#6b7280",
-                  fontSize: 11,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.05em",
-                }}
-              >
+              <th style={tableHeaderStickyStyle}>
                 Name
               </th>
-              <th
-                style={{
-                  padding: "6px 8px",
-                  borderBottom: "1px solid #f1f5f9",
-                  fontSize: 11,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.05em",
-                  color: "#6b7280",
-                }}
-              >
+              <th style={tableHeaderStickyStyle}>
                 Office
               </th>
             </tr>
@@ -500,22 +408,10 @@ export const EmployeesPage: React.FC = () => {
                     backgroundColor: isSelected ? "#dbeafe" : "transparent",
                   }}
                 >
-                  <td
-                    style={{
-                      padding: "6px 8px",
-                      borderBottom: "1px solid #f1f5f9",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
+                  <td style={tableCellStyle}>
                     {e.name}
                   </td>
-                  <td
-                    style={{
-                      padding: "6px 8px",
-                      borderBottom: "1px solid #f1f5f9",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
+                  <td style={tableCellStyle}>
                     {e.officeCode ? `${e.officeCode} - ${e.officeName}` : "Unassigned"}
                   </td>
                 </tr>
@@ -545,12 +441,7 @@ export const EmployeesPage: React.FC = () => {
   const detailPanel = (
     <section
       style={{
-        background: "#ffffff",
-        borderRadius: 12,
-        padding: "10px 12px",
-        boxShadow: "0 1px 3px rgba(15, 23, 42, 0.08)",
-        display: "flex",
-        flexDirection: "column",
+        ...panelStyle,
         flex: 1,
         minHeight: 320,
       }}
@@ -564,16 +455,10 @@ export const EmployeesPage: React.FC = () => {
         }}
       >
         <div>
-          <div
-            style={{
-              fontSize: 13,
-              fontWeight: 600,
-              color: "#111827",
-            }}
-          >
+          <div style={sectionHeadingStyle}>
             {selectedEmployee ? selectedEmployee.name : "Select an employee"}
           </div>
-          <div style={{ fontSize: 11, color: "#9ca3af" }}>
+          <div style={sectionSubheadingStyle}>
             {selectedEmployee
               ? selectedEmployee.officeName
                 ? `${selectedEmployee.officeCode} - ${selectedEmployee.officeName}`

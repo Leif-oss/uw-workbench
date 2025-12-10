@@ -1,6 +1,19 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { apiGet, apiPost } from "../api/client";
+import {
+  cardStyle,
+  panelStyle,
+  inputStyle,
+  labelStyle,
+  tableContainerStyle,
+  tableBaseStyle,
+  tableHeaderCellStyle,
+  tableCellStyle,
+  selectStyle,
+  primaryButtonStyle,
+  secondaryButtonStyle,
+} from "../ui/designSystem";
 
 // Types reused across CRM
  type Office = {
@@ -46,12 +59,6 @@ import { apiGet, apiPost } from "../api/client";
   commYtd: number;
 };
 
- const cardStyle: React.CSSProperties = {
-  border: "1px solid #e5e7eb",
-  borderRadius: 10,
-  padding: 10,
-  backgroundColor: "#ffffff",
-};
 
  const CrmOfficeDetailPage: React.FC = () => {
   const { officeId } = useParams<{ officeId: string }>();
@@ -622,4 +629,5 @@ import { apiGet, apiPost } from "../api/client";
   );
 };
 
-export default CrmOfficeDetailPage;
+export default CrmOfficeDetailPage;
+

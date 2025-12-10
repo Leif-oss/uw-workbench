@@ -47,6 +47,8 @@ class AgencyBase(BaseModel):
     primary_underwriter_id: Optional[int] = None
     primary_underwriter: Optional[str] = None
     active_flag: Optional[str] = "Unknown"
+    dba: Optional[str] = None
+    email: Optional[str] = None
 
 
 class AgencyCreate(AgencyBase):
@@ -61,6 +63,8 @@ class AgencyUpdate(BaseModel):
     primary_underwriter_id: Optional[int] = None
     primary_underwriter: Optional[str] = None
     active_flag: Optional[str] = None
+    dba: Optional[str] = None
+    email: Optional[str] = None
 
 
 class Agency(AgencyBase, OrmModel):
@@ -74,6 +78,8 @@ class ContactBase(BaseModel):
     email: Optional[EmailStr] = None
     phone: Optional[str] = None
     agency_id: int
+    notes: Optional[str] = None
+    linkedin_url: Optional[str] = None
 
 
 class ContactCreate(ContactBase):
@@ -90,6 +96,10 @@ class ContactUpdate(BaseModel):
     email: Optional[EmailStr] = None
     phone: Optional[str] = None
     agency_id: Optional[int] = None
+    notes: Optional[str] = None
+    linkedin_url: Optional[str] = None
+    notes: Optional[str] = None
+    linkedin_url: Optional[str] = None
 
 
 # --------- LOG ---------
@@ -100,6 +110,8 @@ class LogBase(BaseModel):
     agency_id: Optional[int] = None
     office: Optional[str] = None
     notes: Optional[str] = None
+    contact_id: Optional[int] = None
+    contact: Optional[str] = None
 
 
 class LogCreate(LogBase):
@@ -117,6 +129,8 @@ class LogUpdate(BaseModel):
     agency_id: Optional[int] = None
     office: Optional[str] = None
     notes: Optional[str] = None
+    contact_id: Optional[int] = None
+    contact: Optional[str] = None
 
 
 # --------- EMPLOYEE ---------
