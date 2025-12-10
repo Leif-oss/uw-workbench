@@ -1,18 +1,11 @@
 import React from "react";
 import { WorkbenchLayout } from "../components/WorkbenchLayout";
+import { cardStyle, sidebarHeadingStyle } from "../ui/designSystem";
 
 export const DashboardPage: React.FC = () => {
   const sidebar = (
     <>
-      <h2
-        style={{
-          margin: 0,
-          fontSize: 14,
-          fontWeight: 600,
-          color: "#111827",
-          marginBottom: 8,
-        }}
-      >
+      <h2 style={sidebarHeadingStyle}>
         Dashboard Filters
       </h2>
       <div style={{ fontSize: 11, color: "#6b7280" }}>
@@ -30,10 +23,7 @@ export const DashboardPage: React.FC = () => {
     >
       <div
         style={{
-          background: "#ffffff",
-          borderRadius: 12,
-          padding: "12px 14px",
-          boxShadow: "0 1px 3px rgba(15, 23, 42, 0.08)",
+          ...cardStyle,
           fontSize: 13,
           color: "#374151",
         }}

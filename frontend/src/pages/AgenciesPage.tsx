@@ -6,9 +6,27 @@ import React, { useEffect, useMemo, useState } from "react";
 
 import { useLocation, useNavigate } from "react-router-dom";
 
-import { apiGet, apiPost, apiDelete } from "../api/client";
+import { apiGet, apiPost, apiDelete, apiPut } from "../api/client";
 
 import { WorkbenchLayout } from "../components/WorkbenchLayout";
+import {
+  cardStyle,
+  panelStyle,
+  inputStyle,
+  labelStyle,
+  sidebarHeadingStyle,
+  tableContainerStyle,
+  tableBaseStyle,
+  tableHeaderCellStyle,
+  tableCellStyle,
+  tableHeaderStickyStyle,
+  kpiLabelStyle,
+  kpiValueStyle,
+  kpiSubtextStyle,
+  sectionHeadingStyle,
+  sectionSubheadingStyle,
+  selectStyle,
+} from "../ui/designSystem";
 
 
 
@@ -27,6 +45,10 @@ type Agency = {
   primary_underwriter?: string | null;
 
   active_flag?: string | null;
+
+  dba?: string | null;
+
+  email?: string | null;
 
 };
 
@@ -69,6 +91,10 @@ type Contact = {
   phone?: string | null;
 
   agency_id: number;
+
+  linkedin_url?: string | null;
+
+  notes?: string | null;
 
 };
 
@@ -119,6 +145,18 @@ const AgenciesPage: React.FC = () => {
   const [contacts, setContacts] = useState<Contact[]>([]);
 
   const [logs, setLogs] = useState<Log[]>([]);
+
+
+
+  // Edit contact state
+  const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
+  const [isEditingContact, setIsEditingContact] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editTitle, setEditTitle] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [editLinkedIn, setEditLinkedIn] = useState("");
+  const [editNotes, setEditNotes] = useState("");
 
 
 
@@ -294,7 +332,9 @@ const AgenciesPage: React.FC = () => {
 
         const code = (ag.code || "").toLowerCase();
 
-        return name.includes(needle) || code.includes(needle);
+        const dba = (ag.dba || "").toLowerCase();
+
+        return name.includes(needle) || code.includes(needle) || dba.includes(needle);
 
       });
 
@@ -415,31 +455,6 @@ const AgenciesPage: React.FC = () => {
 
 
 
-  const cardStyle: React.CSSProperties = {
-
-    background: "#ffffff",
-
-    borderRadius: 12,
-
-    padding: "12px 14px",
-
-    boxShadow: "0 1px 3px rgba(15, 23, 42, 0.08)",
-
-    minWidth: 140,
-
-    flex: 1,
-
-  };
-
-  const logFieldStyle: React.CSSProperties = {
-    width: "100%",
-    padding: "6px 8px",
-    borderRadius: 8,
-    border: "1px solid #d1d5db",
-    fontSize: 13,
-    lineHeight: "20px",
-    backgroundColor: "#f9fafb",
-  };
 
 
 
@@ -613,6 +628,51 @@ const AgenciesPage: React.FC = () => {
 
     }
 
+  };
+
+
+
+  const handleEditContact = (contact: Contact) => {
+    setSelectedContact(contact);
+    setIsEditingContact(true);
+    setEditName(contact.name);
+    setEditTitle(contact.title || "");
+    setEditEmail(contact.email || "");
+    setEditPhone(contact.phone || "");
+    setEditLinkedIn(contact.linkedin_url || "");
+    setEditNotes(contact.notes || "");
+  };
+
+  const handleSaveContact = async () => {
+    if (!selectedContact || !selectedAgency) return;
+
+    if (!editName.trim()) {
+      alert("Contact name is required.");
+      return;
+    }
+
+    const payload = {
+      name: editName.trim() || undefined,
+      title: editTitle.trim() || undefined,
+      email: editEmail.trim() || undefined,
+      phone: editPhone.trim() || undefined,
+      linkedin_url: editLinkedIn.trim() || undefined,
+      notes: editNotes.trim() || undefined,
+      agency_id: selectedContact.agency_id,
+    };
+
+    try {
+      await apiPut<Contact, typeof payload>(`/contacts/${selectedContact.id}`, payload);
+      // Reload contacts for the selected agency
+      await loadContactsAndLogs(selectedAgency);
+      // Update the selected contact reference
+      const refreshedContact = contacts.find(c => c.id === selectedContact.id);
+      setSelectedContact(refreshedContact || null);
+      setIsEditingContact(false);
+    } catch (err: any) {
+      console.error("Failed to update contact:", err);
+      alert(`Failed to update contact: ${err?.message || err}`);
+    }
   };
 
 
@@ -841,23 +901,7 @@ const AgenciesPage: React.FC = () => {
 
       <div>
 
-        <h2
-
-          style={{
-
-            margin: 0,
-
-            fontSize: 14,
-
-            fontWeight: 600,
-
-            color: "#111827",
-
-            marginBottom: 8,
-
-          }}
-
-        >
+        <h2 style={sidebarHeadingStyle}>
 
           Agency Filters
 
@@ -867,50 +911,14 @@ const AgenciesPage: React.FC = () => {
 
         <div style={{ marginBottom: 10 }}>
 
-          <div
-
-            style={{
-
-              fontSize: 11,
-
-              fontWeight: 500,
-
-              color: "#6b7280",
-
-              textTransform: "uppercase",
-
-              letterSpacing: "0.04em",
-
-              marginBottom: 4,
-
-            }}
-
-          >
+          <div style={labelStyle}>
 
             Search (Name or Code)
 
           </div>
           <input
 
-            style={{
-
-              width: "100%",
-
-              boxSizing: "border-box",
-
-              padding: "7px 9px",
-
-              borderRadius: 8,
-
-              border: "1px solid #d1d5db",
-
-              fontSize: 13,
-
-              lineHeight: "20px",
-
-              backgroundColor: "#f9fafb",
-
-            }}
+            style={inputStyle}
 
             placeholder="e.g. Snapp, C3, Fresno"
 
@@ -926,48 +934,14 @@ const AgenciesPage: React.FC = () => {
 
         <div style={{ marginBottom: 10 }}>
 
-          <div
-
-            style={{
-
-              fontSize: 11,
-
-              fontWeight: 500,
-
-              color: "#6b7280",
-
-              textTransform: "uppercase",
-
-              letterSpacing: "0.04em",
-
-              marginBottom: 4,
-
-            }}
-
-          >
+          <div style={labelStyle}>
 
             Office
 
           </div>
           <select
 
-            style={{
-
-              width: "100%",
-
-              padding: "7px 9px",
-
-              borderRadius: 8,
-
-              border: "1px solid #d1d5db",
-
-              fontSize: 13,
-
-              outline: "none",
-
-              backgroundColor: "#f9fafb",
-
-            }}
+            style={selectStyle}
 
             value={officeFilter}
 
@@ -995,48 +969,14 @@ const AgenciesPage: React.FC = () => {
 
         <div style={{ marginBottom: 10 }}>
 
-          <div
-
-            style={{
-
-              fontSize: 11,
-
-              fontWeight: 500,
-
-              color: "#6b7280",
-
-              textTransform: "uppercase",
-
-              letterSpacing: "0.04em",
-
-              marginBottom: 4,
-
-            }}
-
-          >
+          <div style={labelStyle}>
 
             Primary Underwriter
 
           </div>
           <select
 
-            style={{
-
-              width: "100%",
-
-              padding: "7px 9px",
-
-              borderRadius: 8,
-
-              border: "1px solid #d1d5db",
-
-              fontSize: 13,
-
-              outline: "none",
-
-              backgroundColor: "#f9fafb",
-
-            }}
+            style={selectStyle}
 
             value={underwriterFilter}
 
@@ -1406,133 +1346,16 @@ const AgenciesPage: React.FC = () => {
 
 
 
-  const kpiCards = (
-
-    <div
-
-      style={{
-
-        display: "flex",
-
-        gap: 12,
-
-        flexWrap: "wrap",
-
-        marginBottom: 8,
-
-      }}
-
-    >
-
-      <div style={cardStyle}>
-
-        <div
-
-          style={{
-
-            fontSize: 11,
-
-            textTransform: "uppercase",
-
-            color: "#6b7280",
-
-            letterSpacing: "0.05em",
-
-            marginBottom: 6,
-
-          }}
-
-        >
-
-          Total Agencies
-
-        </div>
-
-        <div style={{ fontSize: 18, fontWeight: 600, color: "#111827" }}>{totalAgencies}</div>
-
-        <div style={{ fontSize: 11, color: "#6b7280", marginTop: 2 }}>In the database</div>
-
-      </div>
-
-
-
-      <div style={cardStyle}>
-
-        <div
-
-          style={{
-
-            fontSize: 11,
-
-            textTransform: "uppercase",
-
-            color: "#6b7280",
-
-            letterSpacing: "0.05em",
-
-            marginBottom: 6,
-
-          }}
-
-        >
-
-          Agencies In View
-
-        </div>
-
-        <div style={{ fontSize: 18, fontWeight: 600, color: "#111827" }}>{agenciesInView}</div>
-
-        <div style={{ fontSize: 11, color: "#6b7280", marginTop: 2 }}>Matching current filters</div>
-
-      </div>
-
-
-
-      <div style={cardStyle}>
-
-        <div
-
-          style={{
-
-            fontSize: 11,
-
-            textTransform: "uppercase",
-
-            color: "#6b7280",
-
-            letterSpacing: "0.05em",
-
-            marginBottom: 6,
-
-          }}
-
-        >
-
-          Selected Agency
-
-        </div>
-
-        <div style={{ fontSize: 16, fontWeight: 600, color: "#111827" }}>{selectedAgencyName}</div>
-
-        <div style={{ fontSize: 11, color: "#6b7280", marginTop: 2 }}>Click an agency row to select</div>
-
-      </div>
-
-    </div>
-
-  );
-
-
 
   return (
 
     <WorkbenchLayout
 
-      title="Underwriting Workbench ? Agencies"
+      title="Agencies"
 
       subtitle="Agency-level view of contacts, logs, and ownership"
 
-      rightNote="Agency workbench"
+      rightNote=""
 
       sidebar={sidebar}
 
@@ -1540,100 +1363,17 @@ const AgenciesPage: React.FC = () => {
 
       <>
 
-        {status && (
-
-          <div style={{ marginBottom: 8, fontSize: 12, color: "#374151" }}>
-
-            {status} {loading && "(loading...)"}
-
-          </div>
-        )}
-
-        {kpiCards}
-
-
-
         <section
 
           style={{
 
-            background: "#ffffff",
-
-            borderRadius: 12,
-
-            padding: "10px 12px",
-
-            boxShadow: "0 1px 3px rgba(15, 23, 42, 0.08)",
-
-            display: "flex",
-
-            flexDirection: "column",
+            ...panelStyle,
 
             gap: 8,
 
           }}
 
         >
-
-          <div
-
-            style={{
-
-              display: "flex",
-
-              justifyContent: "space-between",
-
-              alignItems: "baseline",
-
-            }}
-
-          >
-
-            <div>
-
-              <div style={{ fontSize: 13, fontWeight: 600, color: "#111827" }}>Agencies Workbench</div>
-
-              <div style={{ fontSize: 11, color: "#9ca3af" }}>
-
-                Select an agency from the sidebar, review contacts and logs, and record new activity.
-
-              </div>
-
-            </div>
-
-            <div style={{ display: "flex", gap: 6 }}>
-
-              <button
-
-                type="button"
-
-                onClick={loadAllData}
-
-                style={{
-
-                  padding: "6px 10px",
-
-                  borderRadius: 8,
-
-                  border: "1px solid #d1d5db",
-
-                  background: "#f9fafb",
-
-                  cursor: "pointer",
-
-                }}
-
-                disabled={loading}
-
-              >
-
-                {loading ? "Refreshing..." : "Refresh"}
-
-              </button>
-
-            </div>
-
-          </div>
 
 
           <div
@@ -1706,20 +1446,63 @@ const AgenciesPage: React.FC = () => {
 
                       <div
                         style={{
-                          textAlign: "center",
-                          marginBottom: 8,
-                          paddingBottom: 8,
+                          marginBottom: 12,
+                          paddingBottom: 12,
                           borderBottom: "1px solid #e5e7eb",
                         }}
                       >
-                        <div style={{ fontSize: 20, fontWeight: 700, color: "#111827", marginBottom: 4 }}>
+                        <div style={{ fontSize: 24, fontWeight: 700, color: "#111827", marginBottom: 4 }}>
                           {selectedAgency.name}
                         </div>
-                        <div style={{ fontSize: 13, color: "#4b5563" }}>
-                          Code: <strong>{selectedAgency.code || "N/A"}</strong>
+                        {selectedAgency.dba && (
+                          <div style={{ fontSize: 16, fontWeight: 600, color: "#4b5563", marginTop: 2, marginBottom: 8 }}>
+                            {selectedAgency.dba}
+                          </div>
+                        )}
+                        <div style={{ fontSize: 14, color: "#4b5563", marginBottom: 4 }}>
+                          Code: <strong>{selectedAgency.code || "—"}</strong>
+                          {"  "}·{"  "}
+                          Primary UW:{" "}
+                          {selectedAgency.primary_underwriter ? (
+                            <strong
+                              onClick={() => goToEmployee(selectedAgency.primary_underwriter_id, selectedAgency.primary_underwriter)}
+                              style={{ color: "#2563eb", cursor: "pointer", textDecoration: "underline" }}
+                            >
+                              {selectedAgency.primary_underwriter}
+                            </strong>
+                          ) : (
+                            <strong>Unassigned</strong>
+                          )}
                         </div>
-                        <div style={{ fontSize: 13, color: "#4b5563", marginTop: 4 }}>
-                          Primary UW: <strong>{selectedAgency.primary_underwriter || "N/A"}</strong>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6 }}>
+                          <div>
+                            {selectedAgency.email && (
+                              <a
+                                href={`mailto:${selectedAgency.email}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style={{ color: "#2563eb", textDecoration: "underline", fontSize: 13 }}
+                              >
+                                {selectedAgency.email}
+                              </a>
+                            )}
+                          </div>
+                          {contacts.filter(c => c.email).length > 0 && (
+                            <a
+                              href={`mailto:?bcc=${contacts.filter(c => c.email).map(c => c.email).join(',')}`}
+                              style={{
+                                color: "#2563eb",
+                                textDecoration: "none",
+                                fontSize: 12,
+                                padding: "4px 8px",
+                                border: "1px solid #2563eb",
+                                borderRadius: 4,
+                                cursor: "pointer",
+                              }}
+                            >
+                              Email All Contacts
+                            </a>
+                          )}
                         </div>
                         <button
                           type="button"
@@ -1733,88 +1516,11 @@ const AgenciesPage: React.FC = () => {
                             color: "#ffffff",
                             fontSize: 13,
                             cursor: "pointer",
+                            width: "100%",
                           }}
                         >
-                          Open Full Agency Page
+                          Contacts and Log Calls
                         </button>
-                      </div>
-
-                      <div style={{ fontSize: 11, color: "#6b7280", marginTop: 4, display: "flex", gap: 8 }}>
-
-                        {selectedAgency.primary_underwriter && (
-
-                          <button
-
-                            type="button"
-
-                            onClick={() =>
-
-                              goToEmployee(
-
-                                selectedAgency.primary_underwriter_id ?? null,
-
-                                selectedAgency.primary_underwriter || null,
-
-                              )
-
-                            }
-
-                            style={{
-
-                              border: "none",
-
-                              padding: "4px 8px",
-
-                              borderRadius: 999,
-
-                              background: "#eff6ff",
-
-                              color: "#1d4ed8",
-
-                              cursor: "pointer",
-
-                            }}
-
-                          >
-
-                            View underwriter in Employees
-
-                          </button>
-
-                        )}
-
-                        {selectedAgency.office_id && (
-
-                          <button
-
-                            type="button"
-
-                            onClick={() => goToOffice(selectedAgency.office_id)}
-
-                            style={{
-
-                              border: "none",
-
-                              padding: "4px 8px",
-
-                              borderRadius: 999,
-
-                              background: "#ecfdf3",
-
-                              color: "#15803d",
-
-                              cursor: "pointer",
-
-                            }}
-
-                          >
-
-                            View office in Offices
-
-                          </button>
-
-                        )}
-
                       </div>
 
                     </div>
@@ -1851,7 +1557,18 @@ const AgenciesPage: React.FC = () => {
 
                           const office = offices.find((o) => o.id === selectedAgency.office_id);
 
-                          return office ? `${office.code} ? ${office.name}` : "Unassigned";
+                          if (office) {
+                            return (
+                              <span
+                                onClick={() => goToOffice(selectedAgency.office_id)}
+                                style={{ color: "#2563eb", cursor: "pointer", textDecoration: "underline" }}
+                              >
+                                {`${office.code} - ${office.name}`}
+                              </span>
+                            );
+                          }
+
+                          return "Unassigned";
 
                         })()}
 
@@ -1859,137 +1576,194 @@ const AgenciesPage: React.FC = () => {
 
                     </div>
 
-                    <div>
-
-                      <div style={{ fontSize: 11, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-
-                        Primary Underwriter
-
-                      </div>
-
-                      <div style={{ fontSize: 12, color: "#111827" }}>
-
-                        {selectedAgency.primary_underwriter || "Not set"}
-
-                      </div>
-
-                    </div>
-
                   </div>
 
 
 
-                  <div
 
-                    style={{
-
-                      marginTop: 8,
-
-                      paddingTop: 6,
-
-                      borderTop: "1px dashed #e5e7eb",
-
-                    }}
-
-                  >
-
+                  {selectedContact && (
                     <div
-
                       style={{
-
-                        fontSize: 11,
-
-                        fontWeight: 600,
-
-                        textTransform: "uppercase",
-
-                        color: "#6b7280",
-
-                        letterSpacing: "0.06em",
-
-                        marginBottom: 4,
-
+                        marginTop: 8,
+                        paddingTop: 8,
+                        borderTop: "1px solid #e5e7eb",
                       }}
-
                     >
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                        <div
+                          style={{
+                            fontSize: 11,
+                            fontWeight: 600,
+                            textTransform: "uppercase",
+                            color: "#6b7280",
+                            letterSpacing: "0.06em",
+                          }}
+                        >
+                          Contact Details
+                        </div>
+                        {!isEditingContact && (
+                          <button
+                            type="button"
+                            onClick={() => handleEditContact(selectedContact)}
+                            style={{
+                              padding: "4px 8px",
+                              borderRadius: 6,
+                              border: "1px solid #d1d5db",
+                              background: "#f9fafb",
+                              cursor: "pointer",
+                              fontSize: 11,
+                            }}
+                          >
+                            Edit Contact
+                          </button>
+                        )}
+                      </div>
 
-                      Contacts
-
-                    </div>
-
-                    {contacts.length === 0 ? (
-
-                      <div style={{ fontSize: 12, color: "#9ca3af" }}>No contacts on file for this agency.</div>
-
-                    ) : (
-
-                      <ul style={{ margin: 0, paddingLeft: 0, listStyle: "none" }}>
-
-                        {contacts.map((c) => {
-                          const { label, isStale } = getContactedInfoForContact(c.id);
-                          return (
-                            <li
-                              key={c.id}
+                      {isEditingContact ? (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
+                          <input
+                            placeholder="Name*"
+                            value={editName}
+                            onChange={(e) => setEditName(e.target.value)}
+                            style={{
+                              ...inputStyle,
+                              fontSize: 12,
+                              padding: "6px 8px",
+                            }}
+                          />
+                          <input
+                            placeholder="Title"
+                            value={editTitle}
+                            onChange={(e) => setEditTitle(e.target.value)}
+                            style={{
+                              ...inputStyle,
+                              fontSize: 12,
+                              padding: "6px 8px",
+                            }}
+                          />
+                          <input
+                            placeholder="Email"
+                            value={editEmail}
+                            onChange={(e) => setEditEmail(e.target.value)}
+                            style={{
+                              ...inputStyle,
+                              fontSize: 12,
+                              padding: "6px 8px",
+                            }}
+                          />
+                          <input
+                            placeholder="Phone"
+                            value={editPhone}
+                            onChange={(e) => setEditPhone(e.target.value)}
+                            style={{
+                              ...inputStyle,
+                              fontSize: 12,
+                              padding: "6px 8px",
+                            }}
+                          />
+                          <input
+                            placeholder="LinkedIn URL"
+                            value={editLinkedIn}
+                            onChange={(e) => setEditLinkedIn(e.target.value)}
+                            style={{
+                              ...inputStyle,
+                              fontSize: 12,
+                              padding: "6px 8px",
+                            }}
+                          />
+                          <textarea
+                            placeholder="Notes"
+                            value={editNotes}
+                            onChange={(e) => setEditNotes(e.target.value)}
+                            rows={3}
+                            style={{
+                              ...inputStyle,
+                              fontSize: 12,
+                              padding: "6px 8px",
+                              resize: "vertical",
+                            }}
+                          />
+                          <div style={{ display: "flex", justifyContent: "flex-end", gap: 6 }}>
+                            <button
+                              type="button"
+                              onClick={handleSaveContact}
                               style={{
+                                padding: "6px 12px",
+                                borderRadius: 6,
+                                border: "1px solid #2563eb",
+                                background: "#2563eb",
+                                color: "#ffffff",
+                                cursor: "pointer",
                                 fontSize: 12,
-                                marginBottom: 4,
-                                display: "flex",
-                                justifyContent: "space-between",
-                                alignItems: "center",
-                                gap: 8,
+                              }}
+                              disabled={!editName.trim()}
+                            >
+                              Save Changes
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setIsEditingContact(false)}
+                              style={{
+                                padding: "6px 12px",
+                                borderRadius: 6,
+                                border: "1px solid #d1d5db",
+                                background: "#f9fafb",
+                                cursor: "pointer",
+                                fontSize: 12,
                               }}
                             >
-                              <div style={{ minWidth: 0 }}>
-                                <span>
-                                  <strong>{c.name}</strong>
-                                  {c.title && (
-                                    <span style={{ color: "#6b7280" }}> · {c.title}</span>
-                                  )}
-                                </span>
-
-                                {c.email && (
-                                  <>
-                                    {" / "}
-                                    <a
-                                      href={`mailto:${c.email}`}
-                                      style={{
-                                        color: "#2563eb",
-                                        textDecoration: "underline",
-                                        cursor: "pointer",
-                                      }}
-                                      onClick={(e) => e.stopPropagation()}
-                                    >
-                                      {c.email}
-                                    </a>
-                                  </>
-                                )}
-
-                                {c.phone && (
-                                  <span style={{ color: "#4b5563" }}>
-                                    {" / "}
-                                    {c.phone}
-                                  </span>
-                                )}
-                              </div>
-                              <div
-                                style={{
-                                  fontSize: 11,
-                                  fontWeight: 500,
-                                  whiteSpace: "nowrap",
-                                  color: isStale ? "#b91c1c" : "#6b7280",
-                                }}
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <div style={{ fontSize: 13, fontWeight: 600 }}>{selectedContact.name}</div>
+                          {selectedContact.title && (
+                            <div style={{ fontSize: 12, color: "#6b7280" }}>{selectedContact.title}</div>
+                          )}
+                          {selectedContact.email && (
+                            <div style={{ fontSize: 12, marginTop: 4 }}>
+                              Email:{" "}
+                              <a href={`mailto:${selectedContact.email}`} style={{ color: "#2563eb", textDecoration: "none" }}>
+                                {selectedContact.email}
+                              </a>
+                            </div>
+                          )}
+                          {selectedContact.phone && (
+                            <div style={{ fontSize: 12 }}>Phone: {selectedContact.phone}</div>
+                          )}
+                          {selectedContact.linkedin_url && (
+                            <div style={{ fontSize: 12 }}>
+                              LinkedIn:{" "}
+                              <a
+                                href={selectedContact.linkedin_url}
+                                target="_blank"
+                                rel="noreferrer"
+                                style={{ color: "#2563eb", textDecoration: "none" }}
                               >
-                                {label === "never" ? "Contacted: never" : `Contacted: ${label}`}
-                              </div>
-                            </li>
-                          );
-                        })}
-
-                      </ul>
-
-                    )}
-
-                  </div>
+                                {selectedContact.linkedin_url}
+                              </a>
+                            </div>
+                          )}
+                          {selectedContact.notes && selectedContact.notes.trim().length > 0 && (
+                            <div
+                              style={{
+                                fontSize: 12,
+                                marginTop: 8,
+                                paddingTop: 6,
+                                borderTop: "1px dashed #e5e7eb",
+                                whiteSpace: "pre-wrap",
+                                color: "#4b5563",
+                              }}
+                            >
+                              <strong>Notes:</strong> {selectedContact.notes}
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  )}
 
 
 
@@ -2058,34 +1832,6 @@ const AgenciesPage: React.FC = () => {
                         </div>
 
                       </div>
-
-                      <button
-
-                        type="button"
-
-                        onClick={handleExportLogsCsv}
-
-                        style={{
-
-                          padding: "6px 10px",
-
-                          borderRadius: 8,
-
-                          border: "1px solid #d1d5db",
-
-                          background: "#f9fafb",
-
-                          cursor: "pointer",
-
-                        }}
-
-                        disabled={!filteredLogs.length}
-
-                      >
-
-                        Export CSV
-
-                      </button>
 
                     </div>
 

@@ -1,7 +1,21 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { apiGet, apiPost } from "../api/client";
+import { apiGet, apiPost, apiPut, apiDelete } from "../api/client";
 import { LOG_ACTION_OPTIONS, LogAction } from "../constants/logActions";
+import {
+  cardStyle,
+  panelStyle,
+  inputStyle,
+  labelStyle,
+  tableContainerStyle,
+  tableBaseStyle,
+  tableHeaderCellStyle,
+  tableCellStyle,
+  tableHeaderStickyStyle,
+  selectStyle,
+  primaryButtonStyle,
+  secondaryButtonStyle,
+} from "../ui/designSystem";
 
 // Reuse types consistent with other CRM pages
  type Agency = {
@@ -14,6 +28,8 @@ import { LOG_ACTION_OPTIONS, LogAction } from "../constants/logActions";
   primary_underwriter_id?: number | null;
   primary_underwriter?: string | null;
   active_flag?: string | null;
+  dba?: string | null;
+  email?: string | null;
 };
 
 type Contact = {
@@ -45,23 +61,6 @@ type Log = {
   contact?: string | null;
  };
 
- const cardStyle: React.CSSProperties = {
-  border: "1px solid #e5e7eb",
-  borderRadius: 10,
-  padding: 10,
-  backgroundColor: "#ffffff",
-};
-
-const logFieldStyle: React.CSSProperties = {
-  width: "100%",
-  padding: "6px 8px",
-  borderRadius: 8,
-  border: "1px solid #d1d5db",
-  fontSize: 13,
-  lineHeight: "20px",
-  backgroundColor: "#f9fafb",
-  boxSizing: "border-box",
-};
 
  const CrmAgencyDetailPage: React.FC = () => {
   const { agencyId } = useParams<{ agencyId: string }>();
@@ -77,14 +76,21 @@ const logFieldStyle: React.CSSProperties = {
 
   const [contactSearch, setContactSearch] = useState("");
   const [selectedContactId, setSelectedContactId] = useState<number | null>(null);
+  const [primaryContactId, setPrimaryContactId] = useState<number | null>(null);
 
-  const [logUser, setLogUser] = useState("");
-  const [logContact, setLogContact] = useState("");
+  const [selectedUnderwriter, setSelectedUnderwriter] = useState<string>("");
   const [logAction, setLogAction] = useState<LogAction>("In Person");
   const [logNotes, setLogNotes] = useState("");
   const [logDate, setLogDate] = useState("");
   const [isSavingLog, setIsSavingLog] = useState(false);
   const [logError, setLogError] = useState<string | null>(null);
+  const [logSuccess, setLogSuccess] = useState<string | null>(null);
+  const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
+  const [isDeletingLogId, setIsDeletingLogId] = useState<number | null>(null);
+  const [expandedLogId, setExpandedLogId] = useState<number | null>(null);
+  const isLogFormValid = Boolean(
+    selectedContactId && selectedUnderwriter.trim() && logAction.trim() && logDate
+  );
 
   const [newContactName, setNewContactName] = useState("");
   const [newContactTitle, setNewContactTitle] = useState("");
@@ -93,6 +99,18 @@ const logFieldStyle: React.CSSProperties = {
   const [newContactLinkedIn, setNewContactLinkedIn] = useState("");
   const [newContactNotes, setNewContactNotes] = useState("");
   const [isAddingContact, setIsAddingContact] = useState(false);
+
+  const [isEditingContact, setIsEditingContact] = useState(false);
+  const [editContactName, setEditContactName] = useState("");
+  const [editContactTitle, setEditContactTitle] = useState("");
+  const [editContactEmail, setEditContactEmail] = useState("");
+  const [editContactPhone, setEditContactPhone] = useState("");
+
+  const [isEditingAgency, setIsEditingAgency] = useState(false);
+  const [editAgencyName, setEditAgencyName] = useState("");
+  const [editAgencyDBA, setEditAgencyDBA] = useState("");
+  const [editAgencyEmail, setEditAgencyEmail] = useState("");
+  const [editAgencyPrimaryUW, setEditAgencyPrimaryUW] = useState<number | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -112,8 +130,9 @@ const logFieldStyle: React.CSSProperties = {
         setEmployees(employeesResp || []);
         setLogs(logsResp || []);
         if (contactsResp && contactsResp.length > 0) {
-          setSelectedContactId(contactsResp[0].id);
-          setLogContact(String(contactsResp[0].id));
+          const firstContactId = contactsResp[0].id;
+          setSelectedContactId(firstContactId);
+          setPrimaryContactId(firstContactId);
         }
         if (!found) {
           setError("Agency not found.");
@@ -127,6 +146,11 @@ const logFieldStyle: React.CSSProperties = {
     load();
   }, [agencyIdNum]);
 
+  const officeEmployees = useMemo(() => {
+    if (!agency || !agency.office_id) return [];
+    return employees.filter((e) => e.office_id === agency.office_id);
+  }, [employees, agency]);
+
   const filteredContacts = useMemo(() => {
     const term = contactSearch.trim().toLowerCase();
     if (!term) return contacts;
@@ -138,17 +162,17 @@ const logFieldStyle: React.CSSProperties = {
   }, [contacts, contactSearch]);
 
   const selectedContact = useMemo(() => {
-    if (selectedContactId) {
-      return contacts.find((c) => c.id === selectedContactId) || null;
+    if (primaryContactId) {
+      return contacts.find((c) => c.id === primaryContactId) || null;
     }
     return contacts[0] || null;
-  }, [contacts, selectedContactId]);
+  }, [contacts, primaryContactId]);
 
   const logsForAgency = useMemo(() => logs, [logs]);
 
   const getContactedInfoForContact = (contactId: number) => {
     if (!logsForAgency || logsForAgency.length === 0) {
-      return { label: "never", isStale: true, matchCount: 0 };
+      return { label: "never", isStale: true };
     }
 
     const matches = logsForAgency.filter((log) => {
@@ -158,7 +182,7 @@ const logFieldStyle: React.CSSProperties = {
     });
 
     if (!matches.length) {
-      return { label: "never", isStale: true, matchCount: 0 };
+      return { label: "never", isStale: true };
     }
 
     let latest: Date | null = null;
@@ -170,21 +194,22 @@ const logFieldStyle: React.CSSProperties = {
     });
 
     if (!latest) {
-      return { label: "never", isStale: true, matchCount: matches.length };
+      return { label: "never", isStale: true };
     }
 
+    const latestDate = latest as Date;
     const now = new Date();
-    const diffMs = now.getTime() - latest.getTime();
+    const diffMs = now.getTime() - latestDate.getTime();
     const diffDays = diffMs / (1000 * 60 * 60 * 24);
     const isStale = diffDays > 90;
 
-    const label = latest.toLocaleDateString(undefined, {
+    const label = latestDate.toLocaleDateString(undefined, {
       month: "short",
       day: "numeric",
       year: "numeric",
     });
 
-    return { label, isStale, matchCount: matches.length };
+    return { label, isStale };
   };
 
   const underwritersForOffice = useMemo(() => {
@@ -244,8 +269,9 @@ const logFieldStyle: React.CSSProperties = {
       const refreshed = await apiGet<Contact[]>(`/contacts?agency_id=${agencyIdNum}`);
       setContacts(refreshed || []);
       if (refreshed && refreshed.length > 0) {
-        setSelectedContactId(refreshed[0].id);
-        setLogContact(String(refreshed[0].id));
+        const firstContactId = refreshed[0].id;
+        setSelectedContactId(firstContactId);
+        setPrimaryContactId(firstContactId);
       }
     } catch (err: any) {
       setError(err?.message || "Failed to create contact");
@@ -254,60 +280,223 @@ const logFieldStyle: React.CSSProperties = {
 
   const handleCreateLog = async () => {
     if (!agencyIdNum) return;
-    if (!logUser.trim() || !logAction.trim()) {
-      setLogError("User and action are required.");
+    setHasAttemptedSubmit(true);
+    
+    // Validation
+    if (!selectedUnderwriter.trim() || !logAction.trim()) {
+      setLogError("Underwriter and action are required.");
       return;
     }
+    
+    if (!selectedContactId) {
+      setLogError("A contact must be selected.");
+      return;
+    }
+    
+    if (!logDate) {
+      setLogError("Date is required.");
+      return;
+    }
+    
     try {
       setIsSavingLog(true);
       setLogError(null);
-    const datetimeIso = (() => {
-      if (logDate) {
-        return new Date(`${logDate}T00:00`).toISOString();
-      }
-      return new Date().toISOString();
-    })();
-    const selectedContactId = logContact ? Number(logContact) : undefined;
-    const payload = {
-      user: logUser.trim(),
-      datetime: datetimeIso,
-      action: logAction.trim(),
-      agency_id: agencyIdNum,
-      office: agency?.office_id ? String(agency.office_id) : null,
-      notes: logNotes.trim() || null,
-      contact_id: selectedContactId ?? undefined,
-    };
-    console.log("Creating log payload (CRM Agency):", payload);
-    await apiPost<Log, typeof payload>("/logs", payload);
+      setLogSuccess(null);
+      
+      const datetimeIso = (() => {
+        if (logDate) {
+          // Use the selected date at midnight (no time component)
+          const dateOnly = new Date(logDate);
+          dateOnly.setHours(0, 0, 0, 0);
+          return dateOnly.toISOString();
+        }
+        // Use today's date at midnight (no time component)
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        return today.toISOString();
+      })();
+      
+      const office = agency?.office_id ? String(agency.office_id) : null;
+      
+      // Get the contact name to freeze in the log
+      const contactObj = contacts.find(c => c.id === selectedContactId);
+      const contactName = contactObj?.name || null;
+      
+      // Create single log entry
+      const payload = {
+        user: selectedUnderwriter.trim(),
+        datetime: datetimeIso,
+        action: logAction.trim(),
+        agency_id: agencyIdNum,
+        office,
+        notes: logNotes.trim() || null,
+        contact_id: selectedContactId,
+        contact: contactName,
+      };
+      
+      await apiPost<Log, typeof payload>("/logs", payload);
+      
+      // Refresh logs
       const refreshed = await apiGet<Log[]>(`/logs?agency_id=${agencyIdNum}`);
       setLogs(refreshed || []);
+      
+      // Clear form
       setLogNotes("");
       setLogAction("In Person");
       setLogDate("");
+      setLogSuccess("Marketing log saved.");
+      setHasAttemptedSubmit(false);
+      
+      // Clear success message after 3 seconds
+      setTimeout(() => setLogSuccess(null), 3000);
     } catch (err: any) {
       setLogError(err?.message || "Failed to create log");
     } finally {
       setIsSavingLog(false);
     }
   };
+  
+  const handleDeleteLog = async (logId: number) => {
+    if (!agencyIdNum) return;
+    setIsDeletingLogId(logId);
+    setLogError(null);
+    try {
+      await apiDelete(`/logs/${logId}`);
+      const refreshed = await apiGet<Log[]>(`/logs?agency_id=${agencyIdNum}`);
+      setLogs(refreshed || []);
+      setLogSuccess("Log deleted.");
+      setTimeout(() => setLogSuccess(null), 3000);
+    } catch (err: any) {
+      setLogError(err?.message || "Failed to delete log");
+    } finally {
+      setIsDeletingLogId(null);
+    }
+  };
+
+  const handleEditContact = () => {
+    if (!selectedContact) return;
+    setEditContactName(selectedContact.name);
+    setEditContactTitle(selectedContact.title || "");
+    setEditContactEmail(selectedContact.email || "");
+    setEditContactPhone(selectedContact.phone || "");
+    setIsEditingContact(true);
+  };
+
+  const handleSaveContactEdit = async () => {
+    if (!agencyIdNum || !selectedContact) return;
+    try {
+      const payload = {
+        name: editContactName.trim(),
+        title: editContactTitle.trim() || undefined,
+        email: editContactEmail.trim() || undefined,
+        phone: editContactPhone.trim() || undefined,
+      };
+      await apiPut(`/contacts/${selectedContact.id}`, payload);
+      const refreshed = await apiGet<Contact[]>(`/contacts?agency_id=${agencyIdNum}`);
+      setContacts(refreshed || []);
+      setIsEditingContact(false);
+    } catch (err: any) {
+      setError(err?.message || "Failed to update contact");
+    }
+  };
+
+  const handleDeleteContact = async () => {
+    if (!agencyIdNum || !selectedContact) return;
+    if (!window.confirm(`Are you sure you want to delete contact "${selectedContact.name}"?`)) {
+      return;
+    }
+    try {
+      await apiDelete(`/contacts/${selectedContact.id}`);
+      const refreshed = await apiGet<Contact[]>(`/contacts?agency_id=${agencyIdNum}`);
+      setContacts(refreshed || []);
+      if (selectedContact.id === selectedContactId) {
+        setSelectedContactId(refreshed && refreshed.length > 0 ? refreshed[0].id : null);
+        setPrimaryContactId(refreshed && refreshed.length > 0 ? refreshed[0].id : null);
+      }
+      if (selectedContact.id === primaryContactId) {
+        setPrimaryContactId(refreshed && refreshed.length > 0 ? refreshed[0].id : null);
+      }
+    } catch (err: any) {
+      setError(err?.message || "Failed to delete contact");
+    }
+  };
+
+  const handleEditAgency = () => {
+    if (!agency) return;
+    setEditAgencyName(agency.name || "");
+    setEditAgencyDBA(agency.dba || "");
+    setEditAgencyEmail(agency.email || "");
+    setEditAgencyPrimaryUW(agency.primary_underwriter_id || null);
+    setIsEditingAgency(true);
+  };
+
+  const handleSaveAgency = async () => {
+    if (!agencyIdNum || !agency) return;
+    if (!editAgencyName.trim()) {
+      alert("Agency name is required.");
+      return;
+    }
+    try {
+      // Find the employee name for the selected underwriter ID
+      const selectedEmployee = employees.find(e => e.id === editAgencyPrimaryUW);
+      const payload = {
+        name: editAgencyName.trim(),
+        code: agency.code, // Preserve existing code
+        office_id: agency.office_id, // Preserve existing office
+        dba: editAgencyDBA.trim() || undefined,
+        email: editAgencyEmail.trim() || undefined,
+        primary_underwriter_id: editAgencyPrimaryUW || undefined,
+        primary_underwriter: selectedEmployee?.name || undefined,
+      };
+      await apiPut(`/agencies/${agencyIdNum}`, payload);
+      const refreshed = await apiGet<Agency[]>("/agencies");
+      const updatedAgency = refreshed?.find(a => a.id === agencyIdNum);
+      setAgency(updatedAgency || null);
+      setIsEditingAgency(false);
+    } catch (err: any) {
+      setError(err?.message || "Failed to update agency");
+    }
+  };
+
 
   const formatDateTime = (value: string) => {
     const d = new Date(value);
     if (Number.isNaN(d.getTime())) return value;
-    return d.toLocaleString();
+    // Only show date, no time
+    return d.toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
   };
 
   return (
-    <div
-      style={{
-        padding: 16,
-        display: "grid",
-        gridTemplateColumns: "1.1fr 1.4fr 1.3fr",
-        gap: 16,
-        alignItems: "flex-start",
-      }}
-    >
-      {/* LEFT COLUMN: Contacts */}
+    <>
+      <div
+        style={{
+          height: 56,
+          background: "linear-gradient(90deg, #111827, #1f2933)",
+          color: "#f9fafb",
+          display: "flex",
+          alignItems: "center",
+          padding: "0 20px",
+          fontSize: 18,
+          fontWeight: 600,
+          letterSpacing: "0.01em",
+        }}
+      >
+        Agency Contact and Call Tracking
+      </div>
+      <div
+        style={{
+          padding: 16,
+          display: "grid",
+          gridTemplateColumns: "1.1fr 1.4fr 1.3fr",
+          gap: 16,
+          alignItems: "flex-start",
+        }}
+      >
+        {/* LEFT COLUMN: Contacts */}
       <div style={cardStyle}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
           <div style={{ fontSize: 13, fontWeight: 600 }}>Contacts</div>
@@ -333,38 +522,38 @@ const logFieldStyle: React.CSSProperties = {
               placeholder="Name*"
               value={newContactName}
               onChange={(e) => setNewContactName(e.target.value)}
-              style={logFieldStyle}
+              style={inputStyle}
             />
             <input
               placeholder="Title"
               value={newContactTitle}
               onChange={(e) => setNewContactTitle(e.target.value)}
-              style={logFieldStyle}
+              style={inputStyle}
             />
             <input
               placeholder="Email"
               value={newContactEmail}
               onChange={(e) => setNewContactEmail(e.target.value)}
-              style={logFieldStyle}
+              style={inputStyle}
             />
             <input
               placeholder="Phone"
               value={newContactPhone}
               onChange={(e) => setNewContactPhone(e.target.value)}
-              style={logFieldStyle}
+              style={inputStyle}
             />
             <input
               placeholder="LinkedIn URL"
               value={newContactLinkedIn}
               onChange={(e) => setNewContactLinkedIn(e.target.value)}
-              style={logFieldStyle}
+              style={inputStyle}
             />
             <textarea
               placeholder="Notes"
               value={newContactNotes}
               onChange={(e) => setNewContactNotes(e.target.value)}
               rows={3}
-              style={{ ...logFieldStyle, resize: "vertical" }}
+              style={{ ...inputStyle, resize: "vertical" }}
             />
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 6 }}>
               <button
@@ -393,23 +582,24 @@ const logFieldStyle: React.CSSProperties = {
             placeholder="Search contacts-"
             value={contactSearch}
             onChange={(e) => setContactSearch(e.target.value)}
-            style={logFieldStyle}
+            style={inputStyle}
           />
         </div>
 
         <div style={{ maxHeight: 320, overflowY: "auto", display: "flex", flexDirection: "column", gap: 4 }}>
           {filteredContacts.map((c) => {
-            const { label, isStale, matchCount } = getContactedInfoForContact(c.id);
+            const { label, isStale } = getContactedInfoForContact(c.id);
+            const isPrimary = primaryContactId === c.id;
             return (
-              <button
+              <div
                 key={c.id}
-                onClick={() => setSelectedContactId(c.id)}
+                onClick={() => setPrimaryContactId(c.id)}
                 style={{
                   textAlign: "left",
                   padding: "6px 8px",
                   borderRadius: 6,
                   border: "none",
-                  backgroundColor: c.id === selectedContactId ? "#eff6ff" : "transparent",
+                  backgroundColor: isPrimary ? "#eff6ff" : "transparent",
                   cursor: "pointer",
                   fontSize: 13,
                 }}
@@ -422,8 +612,8 @@ const logFieldStyle: React.CSSProperties = {
                     gap: 8,
                   }}
                 >
-                  <div style={{ fontSize: 12, minWidth: 0 }}>
-                    <span style={{ fontWeight: 500 }}>{c.name}</span>
+                  <div style={{ fontSize: 12, minWidth: 0, display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ fontWeight: isPrimary ? 600 : 500 }}>{c.name}</span>
                     {c.title && (
                       <span style={{ color: "#6b7280" }}>
                         {" / "}
@@ -448,11 +638,11 @@ const logFieldStyle: React.CSSProperties = {
                     }}
                   >
                     {label === "never"
-                      ? `Contacted: never (matches: ${matchCount})`
-                      : `Contacted: ${label} (matches: ${matchCount})`}
+                      ? `Contacted: never`
+                      : `Contacted: ${label}`}
                   </div>
                 </div>
-              </button>
+              </div>
             );
           })}
           {filteredContacts.length === 0 && (
@@ -465,36 +655,260 @@ const logFieldStyle: React.CSSProperties = {
       <div style={{ ...cardStyle, display: "flex", flexDirection: "column", gap: 12 }}>
         <div
           style={{
-            textAlign: "center",
             marginBottom: 12,
             paddingBottom: 12,
             borderBottom: "1px solid #e5e7eb",
           }}
         >
-          <div
-            style={{
-              fontSize: 24,
-              fontWeight: 700,
-              color: "#111827",
-              marginBottom: 4,
-            }}
-          >
-            {agency?.name || "Agency"}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            <div
+              style={{
+                fontSize: 24,
+                fontWeight: 700,
+                color: "#111827",
+              }}
+            >
+              {agency?.name || "Agency"}
+            </div>
+            {!isEditingAgency && (
+              <button
+                type="button"
+                onClick={handleEditAgency}
+                style={{
+                  padding: "6px 12px",
+                  borderRadius: 6,
+                  border: "1px solid #2563eb",
+                  background: "#fff",
+                  color: "#2563eb",
+                  cursor: "pointer",
+                  fontSize: 12,
+                  fontWeight: 500,
+                }}
+              >
+                Edit Agency
+              </button>
+            )}
           </div>
 
-          <div style={{ fontSize: 14, color: "#4b5563" }}>
-            Code: <strong>{agency?.code || "—"}</strong>
-            {"  "}·{"  "}
-            Primary UW: <strong>{agency?.primary_underwriter || "Unassigned"}</strong>
-          </div>
+          {isEditingAgency ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <div>
+                <label style={labelStyle}>Agency Name*</label>
+                <input
+                  value={editAgencyName}
+                  onChange={(e) => setEditAgencyName(e.target.value)}
+                  style={inputStyle}
+                  placeholder="Agency Name"
+                />
+              </div>
+              <div>
+                <label style={labelStyle}>DBA (Doing Business As)</label>
+                <input
+                  value={editAgencyDBA}
+                  onChange={(e) => setEditAgencyDBA(e.target.value)}
+                  style={inputStyle}
+                  placeholder="Optional DBA name"
+                />
+              </div>
+              <div>
+                <label style={labelStyle}>Agency Email</label>
+                <input
+                  type="email"
+                  value={editAgencyEmail}
+                  onChange={(e) => setEditAgencyEmail(e.target.value)}
+                  style={inputStyle}
+                  placeholder="agency@example.com"
+                />
+              </div>
+              <div>
+                <label style={labelStyle}>Primary Underwriter</label>
+                <select
+                  value={editAgencyPrimaryUW || ""}
+                  onChange={(e) => setEditAgencyPrimaryUW(e.target.value ? Number(e.target.value) : null)}
+                  style={selectStyle}
+                >
+                  <option value="">Unassigned</option>
+                  {officeEmployees.map((emp) => (
+                    <option key={emp.id} value={emp.id}>
+                      {emp.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 6, marginTop: 4 }}>
+                <button
+                  type="button"
+                  onClick={handleSaveAgency}
+                  style={{
+                    ...primaryButtonStyle,
+                    padding: "6px 16px",
+                    fontSize: 12,
+                  }}
+                >
+                  Save Changes
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsEditingAgency(false)}
+                  style={{
+                    ...secondaryButtonStyle,
+                    padding: "6px 16px",
+                    fontSize: 12,
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              {agency?.dba && (
+                <div style={{ fontSize: 16, fontWeight: 600, color: "#4b5563", marginTop: 2, marginBottom: 8 }}>
+                  {agency.dba}
+                </div>
+              )}
+              <div style={{ fontSize: 14, color: "#4b5563", marginBottom: 4 }}>
+                Code: <strong>{agency?.code || "—"}</strong>
+                {"  "}·{"  "}
+                Primary UW: <strong>{agency?.primary_underwriter || "Unassigned"}</strong>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6 }}>
+                <div>
+                  {agency?.email && (
+                    <a
+                      href={`mailto:${agency.email}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ color: "#2563eb", textDecoration: "underline", fontSize: 13 }}
+                    >
+                      {agency.email}
+                    </a>
+                  )}
+                </div>
+                {contacts.filter(c => c.email).length > 0 && (
+                  <a
+                    href={`mailto:?bcc=${contacts.filter(c => c.email).map(c => c.email).join(',')}`}
+                    style={{
+                      color: "#2563eb",
+                      textDecoration: "none",
+                      fontSize: 12,
+                      padding: "4px 8px",
+                      border: "1px solid #2563eb",
+                      borderRadius: 4,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Email All Contacts
+                  </a>
+                )}
+              </div>
+            </>
+          )}
         </div>
 
         {agency?.notes && <div style={{ fontSize: 12 }}>Notes: {agency.notes}</div>}
 
         {selectedContact && (
           <div style={{ marginTop: 4, paddingTop: 6, borderTop: "1px solid #e5e7eb" }}>
-            <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>Contact Details</div>
-            <div style={{ fontSize: 13 }}>{selectedContact.name}</div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+              <div style={{ fontSize: 13, fontWeight: 600 }}>Contact Details</div>
+              <div style={{ display: "flex", gap: 6 }}>
+                <button
+                  type="button"
+                  onClick={handleEditContact}
+                  style={{
+                    padding: "4px 8px",
+                    borderRadius: 4,
+                    border: "1px solid #2563eb",
+                    background: "#fff",
+                    color: "#2563eb",
+                    cursor: "pointer",
+                    fontSize: 11,
+                  }}
+                >
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDeleteContact}
+                  style={{
+                    padding: "4px 8px",
+                    borderRadius: 4,
+                    border: "1px solid #ef4444",
+                    background: "#fff",
+                    color: "#b91c1c",
+                    cursor: "pointer",
+                    fontSize: 11,
+                  }}
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+
+            {isEditingContact ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 8 }}>
+                <input
+                  placeholder="Name*"
+                  value={editContactName}
+                  onChange={(e) => setEditContactName(e.target.value)}
+                  style={inputStyle}
+                />
+                <input
+                  placeholder="Title"
+                  value={editContactTitle}
+                  onChange={(e) => setEditContactTitle(e.target.value)}
+                  style={inputStyle}
+                />
+                <input
+                  placeholder="Email"
+                  value={editContactEmail}
+                  onChange={(e) => setEditContactEmail(e.target.value)}
+                  style={inputStyle}
+                />
+                <input
+                  placeholder="Phone"
+                  value={editContactPhone}
+                  onChange={(e) => setEditContactPhone(e.target.value)}
+                  style={inputStyle}
+                />
+                <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingContact(false)}
+                    style={{
+                      padding: "6px 10px",
+                      borderRadius: 6,
+                      border: "1px solid #d1d5db",
+                      background: "#f9fafb",
+                      cursor: "pointer",
+                      fontSize: 12,
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveContactEdit}
+                    style={{
+                      padding: "6px 10px",
+                      borderRadius: 6,
+                      border: "1px solid #2563eb",
+                      background: "#2563eb",
+                      color: "#fff",
+                      cursor: "pointer",
+                      fontSize: 12,
+                      fontWeight: 600,
+                    }}
+                    disabled={!editContactName.trim()}
+                  >
+                    Save Changes
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div style={{ fontSize: 13 }}>{selectedContact.name}</div>
             {selectedContact.title && (
               <div style={{ fontSize: 12, color: "#6b7280" }}>{selectedContact.title}</div>
             )}
@@ -522,20 +936,76 @@ const logFieldStyle: React.CSSProperties = {
                 </a>
               </div>
             )}
-            <div
-              style={{
-                fontSize: 12,
-                marginTop: 8,
-                paddingTop: 6,
-                borderTop: "1px dashed #e5e7eb",
-                whiteSpace: "pre-wrap",
-              }}
-            >
-              <strong>Contact Notes:</strong>{" "}
-              {selectedContact.notes && selectedContact.notes.trim().length > 0
-                ? selectedContact.notes
-                : "No notes yet for this contact."}
-            </div>
+                <div
+                  style={{
+                    fontSize: 12,
+                    marginTop: 8,
+                    paddingTop: 6,
+                    borderTop: "1px dashed #e5e7eb",
+                    whiteSpace: "pre-wrap",
+                  }}
+                >
+                  <strong>Contact Notes:</strong>{" "}
+                  {selectedContact.notes && selectedContact.notes.trim().length > 0
+                    ? selectedContact.notes
+                    : "No notes yet for this contact."}
+                </div>
+
+                <div
+                  style={{
+                    fontSize: 12,
+                    marginTop: 12,
+                    paddingTop: 8,
+                    borderTop: "1px dashed #e5e7eb",
+                  }}
+                >
+                  <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>
+                    Marketing Calls for This Contact
+                  </div>
+                  {(() => {
+                    const logsForContact = logsForAgency
+                      .filter((log) => log.contact_id === selectedContact.id)
+                      .sort((a, b) => new Date(b.datetime).getTime() - new Date(a.datetime).getTime());
+                    
+                    if (logsForContact.length === 0) {
+                      return (
+                        <div style={{ fontSize: 12, color: "#6b7280" }}>
+                          No marketing calls yet for this contact.
+                        </div>
+                      );
+                    }
+                    
+                    return (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                        {logsForContact.map((log) => (
+                          <div
+                            key={log.id}
+                            style={{
+                              fontSize: 12,
+                              padding: "4px 0",
+                              borderBottom: "1px solid #f1f5f9",
+                            }}
+                          >
+                            <div style={{ display: "flex", gap: 8, marginBottom: 2 }}>
+                              <span style={{ fontWeight: 600 }}>{formatDateTime(log.datetime)}</span>
+                              <span style={{ color: "#6b7280" }}>·</span>
+                              <span>{log.user}</span>
+                              <span style={{ color: "#6b7280" }}>·</span>
+                              <span>{log.action}</span>
+                            </div>
+                            {log.notes && (
+                              <div style={{ color: "#6b7280", fontSize: 11 }}>
+                                {log.notes.length > 80 ? `${log.notes.slice(0, 80)}...` : log.notes}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                </div>
+              </>
+            )}
           </div>
         )}
       </div>
@@ -544,35 +1014,42 @@ const logFieldStyle: React.CSSProperties = {
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <div style={{ ...cardStyle, display: "flex", flexDirection: "column", gap: 8 }}>
           <div style={{ fontSize: 13, fontWeight: 600 }}>Log New Marketing Call</div>
+          
+          {/* Contact Select */}
           <label style={{ fontSize: 12, color: "#374151", display: "block" }}>
-            Underwriter
+            Contact
             <select
-              value={logUser}
-              onChange={(e) => setLogUser(e.target.value)}
-              style={logFieldStyle}
-              disabled={!underwritersForOffice.length}
+              value={selectedContactId || ""}
+              onChange={(e) => {
+                const contactId = e.target.value ? Number(e.target.value) : null;
+                setSelectedContactId(contactId);
+                if (contactId) {
+                  setPrimaryContactId(contactId);
+                }
+              }}
+              style={selectStyle}
             >
-              <option value="">Select underwriter-</option>
-              {underwritersForOffice.map((uw) => (
-                <option key={uw.id} value={uw.name}>
-                  {uw.name}
+              <option value="">Select a contact...</option>
+              {contacts.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}{c.title ? ` - ${c.title}` : ""}
                 </option>
               ))}
             </select>
           </label>
 
+          {/* Underwriter Select */}
           <label style={{ fontSize: 12, color: "#374151", display: "block" }}>
-            Contact
+            Underwriter
             <select
-              value={logContact}
-              onChange={(e) => setLogContact(e.target.value)}
-              style={logFieldStyle}
-              disabled={!contacts.length}
+              value={selectedUnderwriter}
+              onChange={(e) => setSelectedUnderwriter(e.target.value)}
+              style={selectStyle}
             >
-              <option value="">Select contact-</option>
-              {contacts.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
+              <option value="">Select an underwriter...</option>
+              {underwritersForOffice.map((uw) => (
+                <option key={uw.id} value={uw.name}>
+                  {uw.name}
                 </option>
               ))}
             </select>
@@ -583,7 +1060,7 @@ const logFieldStyle: React.CSSProperties = {
             <select
               value={logAction}
               onChange={(e) => setLogAction(e.target.value as LogAction)}
-              style={logFieldStyle}
+              style={inputStyle}
             >
               {LOG_ACTION_OPTIONS.map((opt) => (
                 <option key={opt} value={opt}>
@@ -600,7 +1077,7 @@ const logFieldStyle: React.CSSProperties = {
                 type="date"
                 value={logDate}
                 onChange={(e) => setLogDate(e.target.value)}
-                style={logFieldStyle}
+                style={inputStyle}
               />
             </label>
           </div>
@@ -611,11 +1088,17 @@ const logFieldStyle: React.CSSProperties = {
               value={logNotes}
               onChange={(e) => setLogNotes(e.target.value)}
               rows={4}
-              style={{ ...logFieldStyle, resize: "vertical" }}
+              style={{ ...inputStyle, resize: "vertical" }}
             />
           </label>
 
           {logError && <div style={{ color: "red", fontSize: 12 }}>{logError}</div>}
+          {hasAttemptedSubmit && !isLogFormValid && !logError && (
+            <div style={{ color: "#b91c1c", fontSize: 12 }}>
+              Contact, underwriter, action, and date are required to save a log.
+            </div>
+          )}
+          {logSuccess && <div style={{ color: "#16a34a", fontSize: 12 }}>{logSuccess}</div>}
 
           <div style={{ display: "flex", justifyContent: "flex-end" }}>
             <button
@@ -630,7 +1113,7 @@ const logFieldStyle: React.CSSProperties = {
                 cursor: "pointer",
                 fontWeight: 600,
               }}
-              disabled={isSavingLog}
+              disabled={isSavingLog || !isLogFormValid}
             >
               {isSavingLog ? "Saving..." : "Save Log"}
             </button>
@@ -642,35 +1125,125 @@ const logFieldStyle: React.CSSProperties = {
           {logsForAgency.length === 0 ? (
             <div style={{ fontSize: 12, color: "#6b7280" }}>No marketing logs yet for this agency.</div>
           ) : (
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-              <thead>
-                <tr style={{ borderBottom: "1px solid #e5e7eb", textAlign: "left" }}>
-                  <th style={{ padding: "4px 6px" }}>Date/Time</th>
-                  <th style={{ padding: "4px 6px" }}>User</th>
-                  <th style={{ padding: "4px 6px" }}>Action</th>
-                  <th style={{ padding: "4px 6px" }}>Contact ID (debug)</th>
-                  <th style={{ padding: "4px 6px" }}>Notes</th>
-                </tr>
-              </thead>
-              <tbody>
-                {logsForAgency
-                  .slice()
-                  .sort((a, b) => new Date(b.datetime).getTime() - new Date(a.datetime).getTime())
-                  .map((log) => (
-                    <tr key={log.id} style={{ borderBottom: "1px solid #f3f4f6" }}>
-                      <td style={{ padding: "4px 6px" }}>{formatDateTime(log.datetime)}</td>
-                      <td style={{ padding: "4px 6px" }}>{log.user}</td>
-                      <td style={{ padding: "4px 6px" }}>{log.action}</td>
-                      <td style={{ padding: "4px 6px" }}>
-                        {log.contact_id != null ? String(log.contact_id) : "—"}
-                      </td>
-                      <td style={{ padding: "4px 6px", maxWidth: 240 }}>
-                        {log.notes && log.notes.length > 80 ? `${log.notes.slice(0, 80)}-` : log.notes}
-                      </td>
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
+            <div style={tableContainerStyle}>
+              <table style={tableBaseStyle}>
+                <thead>
+                  <tr>
+                    <th style={tableHeaderStickyStyle}>Date</th>
+                    <th style={tableHeaderStickyStyle}>Contact</th>
+                    <th style={tableHeaderStickyStyle}>User</th>
+                    <th style={tableHeaderStickyStyle}>Action</th>
+                    <th style={tableHeaderStickyStyle}>Notes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {logsForAgency
+                    .slice()
+                    .sort((a, b) => new Date(b.datetime).getTime() - new Date(a.datetime).getTime())
+                    .map((log) => {
+                      // Prefer frozen contact name, fall back to current contact lookup
+                      const contactName =
+                        log.contact ??
+                        (log.contact_id
+                          ? contacts.find(c => c.id === log.contact_id)?.name || null
+                          : null) ??
+                        "—";
+                      
+                      const isExpanded = expandedLogId === log.id;
+                      const hasLongNotes = log.notes && log.notes.length > 80;
+                      
+                      return (
+                        <React.Fragment key={log.id}>
+                          <tr>
+                            <td style={tableCellStyle}>{formatDateTime(log.datetime)}</td>
+                            <td style={tableCellStyle}>{contactName}</td>
+                            <td style={tableCellStyle}>{log.user}</td>
+                            <td style={tableCellStyle}>{log.action}</td>
+                            <td style={{ ...tableCellStyle, maxWidth: 240 }}>
+                              <div
+                                style={{
+                                  display: "flex",
+                                  justifyContent: "space-between",
+                                  alignItems: "center",
+                                  gap: 8,
+                                }}
+                              >
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  {hasLongNotes && !isExpanded ? (
+                                    <>
+                                      <span>{log.notes!.slice(0, 80)}...</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => setExpandedLogId(log.id)}
+                                        style={{
+                                          marginLeft: 4,
+                                          border: "none",
+                                          background: "none",
+                                          color: "#2563eb",
+                                          cursor: "pointer",
+                                          fontSize: 11,
+                                          textDecoration: "underline",
+                                          padding: 0,
+                                        }}
+                                      >
+                                        more
+                                      </button>
+                                    </>
+                                  ) : (
+                                    <span>{log.notes || "—"}</span>
+                                  )}
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteLog(log.id)}
+                                  style={{
+                                    border: "1px solid #ef4444",
+                                    background: "#fff",
+                                    color: "#b91c1c",
+                                    borderRadius: 4,
+                                    padding: "2px 6px",
+                                    fontSize: 11,
+                                    cursor: "pointer",
+                                    flexShrink: 0,
+                                  }}
+                                  disabled={isDeletingLogId === log.id}
+                                >
+                                  {isDeletingLogId === log.id ? "Deleting..." : "Delete"}
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                          {isExpanded && hasLongNotes && (
+                            <tr>
+                              <td colSpan={5} style={{ ...tableCellStyle, background: "#f9fafb", padding: "8px 12px" }}>
+                                <div style={{ fontSize: 12, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                                  <strong>Full Notes:</strong> {log.notes}
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => setExpandedLogId(null)}
+                                  style={{
+                                    marginTop: 6,
+                                    border: "none",
+                                    background: "none",
+                                    color: "#2563eb",
+                                    cursor: "pointer",
+                                    fontSize: 11,
+                                    textDecoration: "underline",
+                                    padding: 0,
+                                  }}
+                                >
+                                  show less
+                                </button>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       </div>
@@ -678,6 +1251,7 @@ const logFieldStyle: React.CSSProperties = {
       {error && <div style={{ gridColumn: "1 / span 3", color: "red", fontSize: 12 }}>{error}</div>}
       {isLoading && <div style={{ gridColumn: "1 / span 3", fontSize: 12, color: "#6b7280" }}>Loading agency...</div>}
     </div>
+    </>
   );
 };
 

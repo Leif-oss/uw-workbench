@@ -6,6 +6,10 @@ async function handleResponse(res: Response, path: string) {
     const text = await res.text().catch(() => "");
     throw new Error(`Request to ${path} failed: ${res.status} ${res.statusText} ${text}`);
   }
+  // 204 No Content - return null immediately
+  if (res.status === 204) {
+    return null;
+  }
   // Some endpoints may return no JSON (e.g., DELETE)
   const contentType = res.headers.get("content-type") || "";
   if (contentType.includes("application/json")) {

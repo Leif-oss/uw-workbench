@@ -23,19 +23,19 @@ def get_agency(agency_id: int, db: Session = Depends(get_db)):
 
 @router.post("/", response_model=schemas.Agency)
 def create_agency(agency: schemas.AgencyCreate, db: Session = Depends(get_db)):
-    new_agency = models.Agency(**agency.dict())
+    new_agency = models.Agency(**agency.model_dump())
     db.add(new_agency)
     db.commit()
     db.refresh(new_agency)
     return new_agency
 
 @router.put("/{agency_id}", response_model=schemas.Agency)
-def update_agency(agency_id: int, updated: schemas.AgencyCreate, db: Session = Depends(get_db)):
+def update_agency(agency_id: int, updated: schemas.AgencyUpdate, db: Session = Depends(get_db)):
     agency = db.query(models.Agency).filter(models.Agency.id == agency_id).first()
     if not agency:
         raise HTTPException(status_code=404, detail="Agency not found")
 
-    for key, value in updated.dict().items():
+    for key, value in updated.model_dump(exclude_unset=True).items():
         setattr(agency, key, value)
 
     db.commit()

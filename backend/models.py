@@ -38,6 +38,8 @@ class Agency(Base):
     primary_underwriter_id = Column(Integer, ForeignKey("employees.id", ondelete="SET NULL"))
     primary_underwriter = Column(String(255), nullable=True)  # store display name for now
     active_flag = Column(String(50), nullable=True)
+    dba = Column(String(255), nullable=True)  # Doing Business As name
+    email = Column(String(255), nullable=True)  # Agency email
 
     office_rel = relationship("Office", back_populates="agencies")
     underwriter_rel = relationship("Employee", back_populates="agencies")
@@ -54,6 +56,8 @@ class Contact(Base):
     email = Column(String(255), nullable=True)
     phone = Column(String(50), nullable=True)
     agency_id = Column(Integer, ForeignKey("agencies.id", ondelete="CASCADE"), nullable=False)
+    notes = Column(Text, nullable=True)
+    linkedin_url = Column(String(500), nullable=True)
 
     agency = relationship("Agency", back_populates="contacts")
 
@@ -68,6 +72,8 @@ class Log(Base):
     agency_id = Column(Integer, ForeignKey("agencies.id", ondelete="SET NULL"))
     office = Column(String(50), nullable=True)
     notes = Column(Text, nullable=True)
+    contact_id = Column(Integer, ForeignKey("contacts.id", ondelete="SET NULL"), nullable=True)
+    contact = Column(String(255), nullable=True)  # Frozen snapshot of contact name at log creation
 
     agency = relationship("Agency", back_populates="logs")
 

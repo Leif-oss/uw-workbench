@@ -20,7 +20,7 @@ def create_office(db: Session, office: schemas.OfficeCreate) -> models.Office:
 
 # Employees
 def create_employee(db: Session, emp: schemas.EmployeeCreate) -> models.Employee:
-    db_emp = models.Employee(**emp.dict())
+    db_emp = models.Employee(**emp.model_dump())
     db.add(db_emp)
     db.commit()
     db.refresh(db_emp)
@@ -38,7 +38,7 @@ def update_employee(db: Session, emp_id: int, payload: schemas.EmployeeUpdate) -
     db_emp = db.get(models.Employee, emp_id)
     if not db_emp:
         return None
-    for field, value in payload.dict(exclude_unset=True).items():
+    for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(db_emp, field, value)
     db.commit()
     db.refresh(db_emp)
@@ -66,7 +66,7 @@ def create_agency(db: Session, ag: schemas.AgencyCreate) -> models.Agency:
     if not underwriter_name:
         underwriter_name = ag.primary_underwriter
 
-    db_ag = models.Agency(**ag.dict(), primary_underwriter=underwriter_name)
+    db_ag = models.Agency(**ag.model_dump(), primary_underwriter=underwriter_name)
     db.add(db_ag)
     db.commit()
     db.refresh(db_ag)
@@ -82,7 +82,7 @@ def update_agency(db: Session, agency_id: int, payload: schemas.AgencyUpdate) ->
     if not db_ag:
         return None
 
-    data = payload.dict(exclude_unset=True)
+    data = payload.model_dump(exclude_unset=True)
     # Resolve underwriter name if id provided
     if "primary_underwriter_id" in data:
         uw_id = data.get("primary_underwriter_id")
@@ -104,8 +104,12 @@ def get_contacts(db: Session, agency_id: Optional[int] = None) -> List[models.Co
     return db.execute(stmt).scalars().all()
 
 
+def get_contact(db: Session, contact_id: int) -> Optional[models.Contact]:
+    return db.get(models.Contact, contact_id)
+
+
 def create_contact(db: Session, contact: schemas.ContactCreate) -> models.Contact:
-    db_contact = models.Contact(**contact.dict())
+    db_contact = models.Contact(**contact.model_dump())
     db.add(db_contact)
     db.commit()
     db.refresh(db_contact)
@@ -116,7 +120,7 @@ def update_contact(db: Session, contact_id: int, payload: schemas.ContactUpdate)
     db_ct = db.get(models.Contact, contact_id)
     if not db_ct:
         return None
-    for field, value in payload.dict(exclude_unset=True).items():
+    for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(db_ct, field, value)
     db.commit()
     db.refresh(db_ct)
@@ -141,7 +145,7 @@ def get_logs(db: Session, agency_id: Optional[int] = None) -> List[models.Log]:
 
 
 def create_log(db: Session, log: schemas.LogCreate) -> models.Log:
-    db_log = models.Log(**log.dict())
+    db_log = models.Log(**log.model_dump())
     db.add(db_log)
     db.commit()
     db.refresh(db_log)
@@ -152,7 +156,7 @@ def update_log(db: Session, log_id: int, payload: schemas.LogUpdate) -> Optional
     db_log = db.get(models.Log, log_id)
     if not db_log:
         return None
-    for field, value in payload.dict(exclude_unset=True).items():
+    for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(db_log, field, value)
     db.commit()
     db.refresh(db_log)
@@ -177,7 +181,7 @@ def get_tasks(db: Session, agency_id: Optional[int] = None) -> List[models.Task]
 
 
 def create_task(db: Session, task: schemas.TaskCreate) -> models.Task:
-    db_task = models.Task(**task.dict())
+    db_task = models.Task(**task.model_dump())
     db.add(db_task)
     db.commit()
     db.refresh(db_task)
@@ -188,7 +192,7 @@ def update_task(db: Session, task_id: int, payload: schemas.TaskUpdate) -> Optio
     db_task = db.get(models.Task, task_id)
     if not db_task:
         return None
-    for field, value in payload.dict(exclude_unset=True).items():
+    for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(db_task, field, value)
     db.commit()
     db.refresh(db_task)
@@ -215,7 +219,7 @@ def get_production(db: Session, office: Optional[str] = None, agency_code: Optio
 
 
 def create_production(db: Session, payload: schemas.ProductionCreate) -> models.Production:
-    db_prod = models.Production(**payload.dict())
+    db_prod = models.Production(**payload.model_dump())
     db.add(db_prod)
     db.commit()
     db.refresh(db_prod)
@@ -245,7 +249,7 @@ def bulk_upsert_production(db: Session, rows: List[schemas.ProductionCreate]) ->
             existing.pytd_nb = payload.pytd_nb
             existing.py_total_nb = payload.py_total_nb
         else:
-            db.add(models.Production(**payload.dict()))
+            db.add(models.Production(**payload.model_dump()))
         count += 1
     db.commit()
     return count
