@@ -1,21 +1,15 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { WorkbenchLayout } from "../components/WorkbenchLayout";
 import { apiGet } from "../api/client";
 import {
-  cardStyle,
   panelStyle,
-  inputStyle,
-  labelStyle,
   sidebarHeadingStyle,
   tableContainerStyle,
   tableBaseStyle,
   tableHeaderCellStyle,
   tableCellStyle,
   tableHeaderStickyStyle,
-  kpiLabelStyle,
-  kpiValueStyle,
-  kpiSubtextStyle,
   sectionHeadingStyle,
   sectionSubheadingStyle,
 } from "../ui/designSystem";
@@ -61,15 +55,23 @@ interface OfficeWithEmployees extends Office {
 
 export const OfficesPage: React.FC = () => {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [offices, setOffices] = useState<Office[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [logs, setLogs] = useState<Log[]>([]);
   const [agencies, setAgencies] = useState<Agency[]>([]);
   const [selectedOfficeId, setSelectedOfficeId] = useState<number | null>(null);
 
-  const [search, setSearch] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const goToEmployee = (employeeId?: number | null, employeeName?: string | null) => {
+    if (!employeeId && !employeeName) return;
+    const params = new URLSearchParams();
+    if (employeeId) params.set("employeeId", String(employeeId));
+    if (employeeName) params.set("employeeName", employeeName || "");
+    navigate(`/employees?${params.toString()}`);
+  };
 
   useEffect(() => {
     const load = async () => {
@@ -115,25 +117,8 @@ export const OfficesPage: React.FC = () => {
   }, [offices, employees]);
 
   const filteredOffices = useMemo(() => {
-    let result = officesWithEmployees;
-
-    if (search.trim()) {
-      const needle = search.trim().toLowerCase();
-      result = result.filter((o) => {
-        const haystack = `${o.code} ${o.name}`.toLowerCase();
-        return haystack.includes(needle);
-      });
-    }
-
-    return result;
-  }, [officesWithEmployees, search]);
-
-  const totalOffices = offices.length;
-  const officesInView = filteredOffices.length;
-  const employeesInView = filteredOffices.reduce(
-    (sum, o) => sum + o.employees.length,
-    0
-  );
+    return officesWithEmployees;
+  }, [officesWithEmployees]);
 
   const selectedOffice =
     filteredOffices.find((o) => o.id === selectedOfficeId) ||
@@ -215,173 +200,74 @@ export const OfficesPage: React.FC = () => {
     <>
       <div>
         <h2 style={sidebarHeadingStyle}>
-          Office Filters
+          Offices
         </h2>
-        <div style={{ marginBottom: 10 }}>
-          <div style={labelStyle}>Search (Code or Name)</div>
-          <input
-            style={inputStyle}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="e.g. SDO, Fresno"
-          />
+        <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 8 }}>
+          Click a row to view office details and team
         </div>
       </div>
 
-      <div
-        style={{
-          borderTop: "1px solid #e5e7eb",
-          paddingTop: 10,
-          marginTop: 6,
-          fontSize: 11,
-          color: "#4b5563",
-        }}
-      >
-        <div style={labelStyle}>Notes</div>
-        <ul style={{ margin: 0, paddingLeft: 16 }}>
-          <li>Use this for office-level planning.</li>
-          <li>Later: add production and call counts by office.</li>
-          <li>Click an office to see assigned underwriters.</li>
-        </ul>
-      </div>
-    </>
-  );
-
-  const kpiCards = (
-    <div
-      style={{
-        display: "flex",
-        gap: 12,
-        flexWrap: "wrap",
-      }}
-    >
-      <div style={cardStyle}>
-        <div style={kpiLabelStyle}>
-          Total Offices
-        </div>
-        <div style={kpiValueStyle}>
-          {totalOffices}
-        </div>
-        <div style={kpiSubtextStyle}>
-          In the database
-        </div>
-      </div>
-
-      <div style={cardStyle}>
-        <div style={kpiLabelStyle}>
-          Offices in View
-        </div>
-        <div style={kpiValueStyle}>
-          {officesInView}
-        </div>
-        <div style={kpiSubtextStyle}>
-          Matching current filters
-        </div>
-      </div>
-
-      <div style={cardStyle}>
-        <div style={kpiLabelStyle}>
-          Employees in View
-        </div>
-        <div style={kpiValueStyle}>
-          {employeesInView}
-        </div>
-        <div style={kpiSubtextStyle}>
-          Assigned to filtered offices
-        </div>
-      </div>
-    </div>
-  );
-
-  const listPanel = (
-    <section
-      style={{
-        ...panelStyle,
-        flex: 1.3,
-        minHeight: 320,
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "baseline",
-          marginBottom: 6,
-        }}
-      >
-        <div>
-          <div style={sectionHeadingStyle}>
-            Offices
-          </div>
-          <div style={sectionSubheadingStyle}>
-            Click a row to view office details and team
-          </div>
-        </div>
-        <div style={{ fontSize: 11, color: "#9ca3af" }}>
-          {filteredOffices.length} item
-          {filteredOffices.length === 1 ? "" : "s"} in view
-        </div>
-      </div>
-
-      <div style={tableContainerStyle}>
-        <table style={tableBaseStyle}>
-          <thead>
-            <tr>
-              <th style={tableHeaderStickyStyle}>
-                Code
-              </th>
-              <th style={tableHeaderStickyStyle}>
-                Name
-              </th>
-              <th style={tableHeaderStickyStyle}>
-                Employees
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredOffices.map((o) => {
-              const isSelected = selectedOffice && o.id === selectedOffice.id;
-              return (
-                <tr
-                  key={o.id}
-                  onClick={() => setSelectedOfficeId(o.id)}
-                  style={{
-                    cursor: "pointer",
-                    transition: "background-color 0.1s ease",
-                    backgroundColor: isSelected ? "#dbeafe" : "transparent",
-                  }}
-                >
-                  <td style={tableCellStyle}>
-                    {o.code}
-                  </td>
-                  <td style={tableCellStyle}>
-                    {o.name}
-                  </td>
-                  <td style={tableCellStyle}>
-                    {o.employees.length}
+      <div style={{ overflowY: "auto", flex: 1 }}>
+        <div style={tableContainerStyle}>
+          <table style={tableBaseStyle}>
+            <thead>
+              <tr>
+                <th style={tableHeaderStickyStyle}>Code</th>
+                <th style={tableHeaderStickyStyle}>Name</th>
+                <th style={{ ...tableHeaderStickyStyle, textAlign: "right" }}>Employees</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredOffices.length === 0 ? (
+                <tr>
+                  <td colSpan={3} style={{ ...tableCellStyle, textAlign: "center", color: "#9ca3af" }}>
+                    No offices found
                   </td>
                 </tr>
-              );
-            })}
-            {filteredOffices.length === 0 && (
-              <tr>
-                <td
-                  colSpan={3}
-                  style={{
-                    padding: "8px 8px",
-                    textAlign: "center",
-                    fontSize: 12,
-                    color: "#9ca3af",
-                  }}
-                >
-                  No offices match the current filters.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+              ) : (
+                filteredOffices.map((office) => {
+                  const empCount = employees.filter((e) => e.office_id === office.id).length;
+                  const isSelected = selectedOfficeId === office.id;
+                  return (
+                    <tr
+                      key={office.id}
+                      onClick={() => setSelectedOfficeId(office.id)}
+                      style={{
+                        cursor: "pointer",
+                        backgroundColor: isSelected ? "#eff6ff" : "transparent",
+                      }}
+                    >
+                      <td style={tableCellStyle}>
+                        <span
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/crm/offices/${office.id}`);
+                          }}
+                          style={{
+                            color: "#2563eb",
+                            cursor: "pointer",
+                            textDecoration: "underline",
+                            fontWeight: 600,
+                          }}
+                        >
+                          {office.code}
+                        </span>
+                      </td>
+                      <td style={tableCellStyle}>{office.name}</td>
+                      <td style={{ ...tableCellStyle, textAlign: "right" }}>{empCount}</td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
-    </section>
+
+      <div style={{ fontSize: 10, color: "#9ca3af", marginTop: 8 }}>
+        {filteredOffices.length} items in view
+      </div>
+    </>
   );
 
   const detailPanel = (
@@ -427,55 +313,7 @@ export const OfficesPage: React.FC = () => {
           </div>
         ) : (
           <>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-                gap: "8px 16px",
-              }}
-            >
-              <div>
-                <div
-                  style={{
-                    fontSize: 11,
-                    color: "#6b7280",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.06em",
-                    marginBottom: 2,
-                  }}
-                >
-                  Office Code
-                </div>
-                <div style={{ fontSize: 12, color: "#111827" }}>
-                  {selectedOffice.code}
-                </div>
-              </div>
-
-              <div>
-                <div
-                  style={{
-                    fontSize: 11,
-                    color: "#6b7280",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.06em",
-                    marginBottom: 2,
-                  }}
-                >
-                  Office Name
-                </div>
-                <div style={{ fontSize: 12, color: "#111827" }}>
-                  {selectedOffice.name}
-                </div>
-              </div>
-            </div>
-
-            <div
-              style={{
-                marginTop: 8,
-                paddingTop: 6,
-                borderTop: "1px dashed #e5e7eb",
-              }}
-            >
+            <div>
               <div
                 style={{
                   fontSize: 11,
@@ -495,7 +333,18 @@ export const OfficesPage: React.FC = () => {
               ) : (
                 <ul style={{ paddingLeft: 16, margin: 0 }}>
                   {selectedOffice.employees.map((e) => (
-                    <li key={e.id}>{e.name}</li>
+                    <li key={e.id} style={{ marginBottom: 4 }}>
+                      <span
+                        onClick={() => goToEmployee(e.id, e.name)}
+                        style={{
+                          color: "#2563eb",
+                          cursor: "pointer",
+                          textDecoration: "underline",
+                        }}
+                      >
+                        {e.name}
+                      </span>
+                    </li>
                   ))}
                 </ul>
               )}
@@ -887,12 +736,7 @@ export const OfficesPage: React.FC = () => {
         </div>
       )}
 
-      {kpiCards}
-
-      <div style={{ display: "flex", gap: 12, flex: 1, minHeight: 320 }}>
-        {listPanel}
-        {detailPanel}
-      </div>
+      {detailPanel}
     </>
   );
 

@@ -67,9 +67,6 @@ const CrmHomePage: React.FC = () => {
         setOffices(officesResp || []);
         setEmployees(employeesResp || []);
         setLogs(logsResp || []);
-        if (!selectedOfficeId && officesResp && officesResp.length > 0) {
-          setSelectedOfficeId(officesResp[0].id);
-        }
       } catch (err: any) {
         setError(err?.message || "Failed to load CRM data");
       } finally {
@@ -289,7 +286,7 @@ const CrmHomePage: React.FC = () => {
               {underwriterStats.length === 0 && (
                 <tr>
                   <td colSpan={3} style={{ ...tableCellStyle, textAlign: "center", fontSize: 12, color: "#6b7280" }}>
-                    No marketing logs found for the selected office yet.
+                    {selectedOfficeId ? "No marketing logs found for the selected office yet." : "No marketing logs found yet."}
                   </td>
                 </tr>
               )}

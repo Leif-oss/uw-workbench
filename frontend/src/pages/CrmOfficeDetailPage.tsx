@@ -397,7 +397,7 @@ import {
           </div>
 
           <div style={cardStyle}>
-            <details open>
+            <details>
               <summary style={{ fontSize: 13, fontWeight: 700, cursor: "pointer", marginBottom: 6 }}>Add New</summary>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 <input
