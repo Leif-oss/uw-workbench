@@ -1,8 +1,7 @@
 import os
-import json
-from typing import List, Dict, Optional
+from typing import List, Dict
 from pathlib import Path
-import httpx
+from openai import OpenAI
 from dotenv import load_dotenv
 
 # Load environment variables from .env file in backend directory
@@ -11,13 +10,15 @@ load_dotenv(dotenv_path=env_path)
 
 # Read configuration from environment
 AI_API_KEY = os.getenv("AI_API_KEY", "")
-AI_MODEL = os.getenv("AI_MODEL", "gpt-4o-mini")
-AI_ENDPOINT = os.getenv("AI_ENDPOINT", "https://api.openai.com/v1/chat/completions")
+AI_MODEL = os.getenv("AI_MODEL", "gpt-5.1")
+
+# Initialize OpenAI client
+client = OpenAI(api_key=AI_API_KEY)
 
 
 async def call_ai_chat(messages: List[Dict[str, str]], temperature: float = 0.7) -> str:
     """
-    Generic AI chat completion function.
+    AI chat completion function using new OpenAI SDK.
     
     Args:
         messages: List of message dicts with 'role' and 'content'
@@ -32,32 +33,14 @@ async def call_ai_chat(messages: List[Dict[str, str]], temperature: float = 0.7)
     if not AI_API_KEY:
         raise ValueError("AI_API_KEY environment variable is not set")
     
-    headers = {
-        "Authorization": f"Bearer {AI_API_KEY}",
-        "Content-Type": "application/json",
-    }
-    
-    payload = {
-        "model": AI_MODEL,
-        "messages": messages,
-        "temperature": temperature,
-    }
-    
-    async with httpx.AsyncClient(timeout=60.0) as client:
-        try:
-            response = await client.post(
-                AI_ENDPOINT,
-                headers=headers,
-                json=payload,
-            )
-            response.raise_for_status()
-            
-            data = response.json()
-            return data["choices"][0]["message"]["content"].strip()
-            
-        except httpx.HTTPStatusError as e:
-            error_detail = e.response.text if hasattr(e.response, "text") else str(e)
-            raise Exception(f"AI API error ({e.response.status_code}): {error_detail}")
-        except Exception as e:
-            raise Exception(f"AI client error: {str(e)}")
+    try:
+        response = client.chat.completions.create(
+            model="gpt-5.1",
+            messages=messages,
+            temperature=temperature
+        )
+        return response.choices[0].message.content.strip()
+        
+    except Exception as e:
+        raise Exception(f"AI client error: {str(e)}")
 
