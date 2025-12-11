@@ -9,16 +9,7 @@ export function AiAssistantPage() {
 
   // Property Details Form
   const [showPropertyForm, setShowPropertyForm] = useState(false);
-  const [propertyDetails, setPropertyDetails] = useState({
-    address: "",
-    buildingLimit: "",
-    constructionType: "",
-    constructionYear: "",
-    squareFeet: "",
-    occupancy: "",
-    protectionClass: "",
-    sprinkler: "",
-  });
+  const [propertyAddress, setPropertyAddress] = useState("");
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -33,9 +24,9 @@ export function AiAssistantPage() {
   const handleSend = () => {
     const context: any = { page: "ai-assistant-standalone" };
     
-    // Include property details if form is visible
-    if (showPropertyForm) {
-      context.propertyDetails = propertyDetails;
+    // Include property address if form is visible
+    if (showPropertyForm && propertyAddress) {
+      context.propertyAddress = propertyAddress;
     }
     
     sendMessage({ context });
@@ -52,16 +43,7 @@ export function AiAssistantPage() {
     if (confirm("Clear this conversation?")) {
       reset();
       setShowPropertyForm(false);
-      setPropertyDetails({
-        address: "",
-        buildingLimit: "",
-        constructionType: "",
-        constructionYear: "",
-        squareFeet: "",
-        occupancy: "",
-        protectionClass: "",
-        sprinkler: "",
-      });
+      setPropertyAddress("");
     }
   };
 
@@ -72,24 +54,53 @@ export function AiAssistantPage() {
   };
 
   const handlePropertyAnalysis = () => {
-    const propertyContext = Object.entries(propertyDetails)
-      .filter(([_, value]) => value)
-      .map(([key, value]) => `${key}: ${value}`)
-      .join(", ");
+    if (!propertyAddress.trim()) {
+      alert("Please enter a property address");
+      return;
+    }
 
-    const prompt = `Please provide a comprehensive property underwriting analysis for the following property:
+    const prompt = `I need a comprehensive commercial property underwriting analysis for the following address:
 
-${propertyContext}
+📍 ${propertyAddress}
 
-Please include:
-1. Risk Assessment (construction, occupancy, protection)
-2. Key Underwriting Considerations
-3. Recommended Coverage and Limits
-4. Potential Concerns or Red Flags
-5. Pricing Guidance`;
+Please research and analyze this property, then provide a detailed underwriting report with the following structure:
+
+🏢 PROPERTY OVERVIEW
+- Research and provide: Building type, construction, age, size, current use
+- Location characteristics and market context
+
+⚠️ RISK ASSESSMENT
+- Construction quality and fire resistance
+- Occupancy hazards and tenant profile
+- Protection features (fire department, sprinklers, alarms)
+- Natural hazard exposures (earthquake, flood, wind)
+- Age-related concerns
+
+💰 UNDERWRITING ANALYSIS
+- Estimated replacement cost and appropriate building limits
+- Key risk factors and exposure concerns
+- Required inspections or additional information needed
+- Coinsurance and valuation recommendations
+
+📋 COVERAGE RECOMMENDATIONS
+- Recommended building limit range
+- Suggested deductible based on risk profile
+- Additional coverages to consider (ordinance/law, business income, equipment breakdown)
+
+💵 PRICING GUIDANCE
+- Estimated rate range per $100 of building value
+- Rating factors (favorable and adverse)
+- Expected premium range
+
+🚨 RED FLAGS & CONCERNS
+- Any immediate concerns requiring special attention
+- Items requiring declination or specialized underwriting approval
+- Required risk mitigation measures
+
+Use your knowledge to research publicly available information about this property and location. If specific details aren't available, provide reasonable estimates based on the address, area, and typical building characteristics, clearly noting assumptions.`;
 
     setInput(prompt);
-    handleSend();
+    setTimeout(() => handleSend(), 100);
   };
 
   return (
@@ -295,7 +306,7 @@ Please include:
           </div>
         )}
 
-        {/* Property Details Form */}
+        {/* Property Address Input */}
         {showPropertyForm && (
           <div
             style={{
@@ -315,16 +326,27 @@ Please include:
                 marginBottom: 16,
               }}
             >
-              <h3
-                style={{
-                  margin: 0,
-                  fontSize: 16,
-                  fontWeight: 600,
-                  color: "#111827",
-                }}
-              >
-                🏗️ Property Details
-              </h3>
+              <div>
+                <h3
+                  style={{
+                    margin: 0,
+                    fontSize: 16,
+                    fontWeight: 600,
+                    color: "#111827",
+                  }}
+                >
+                  🏗️ Property Analysis
+                </h3>
+                <p
+                  style={{
+                    margin: "4px 0 0",
+                    fontSize: 12,
+                    color: "#6b7280",
+                  }}
+                >
+                  Enter a property address and AI will research and analyze it
+                </p>
+              </div>
               <button
                 onClick={() => setShowPropertyForm(false)}
                 style={{
@@ -341,287 +363,80 @@ Please include:
               </button>
             </div>
 
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-                gap: 12,
-              }}
-            >
-              <div>
-                <label
-                  style={{
-                    display: "block",
-                    fontSize: 12,
-                    fontWeight: 600,
-                    color: "#374151",
-                    marginBottom: 4,
-                  }}
-                >
-                  Address
-                </label>
-                <input
-                  type="text"
-                  value={propertyDetails.address}
-                  onChange={(e) =>
-                    setPropertyDetails({
-                      ...propertyDetails,
-                      address: e.target.value,
-                    })
+            <div style={{ marginBottom: 16 }}>
+              <label
+                style={{
+                  display: "block",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: "#374151",
+                  marginBottom: 8,
+                }}
+              >
+                Property Address *
+              </label>
+              <input
+                type="text"
+                value={propertyAddress}
+                onChange={(e) => setPropertyAddress(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handlePropertyAnalysis();
                   }
-                  placeholder="123 Main St, City, CA"
-                  style={{
-                    width: "100%",
-                    border: "1px solid #d1d5db",
-                    borderRadius: 6,
-                    padding: "8px 10px",
-                    fontSize: 13,
-                  }}
-                />
-              </div>
-
-              <div>
-                <label
-                  style={{
-                    display: "block",
-                    fontSize: 12,
-                    fontWeight: 600,
-                    color: "#374151",
-                    marginBottom: 4,
-                  }}
-                >
-                  Building Limit ($)
-                </label>
-                <input
-                  type="text"
-                  value={propertyDetails.buildingLimit}
-                  onChange={(e) =>
-                    setPropertyDetails({
-                      ...propertyDetails,
-                      buildingLimit: e.target.value,
-                    })
-                  }
-                  placeholder="1,000,000"
-                  style={{
-                    width: "100%",
-                    border: "1px solid #d1d5db",
-                    borderRadius: 6,
-                    padding: "8px 10px",
-                    fontSize: 13,
-                  }}
-                />
-              </div>
-
-              <div>
-                <label
-                  style={{
-                    display: "block",
-                    fontSize: 12,
-                    fontWeight: 600,
-                    color: "#374151",
-                    marginBottom: 4,
-                  }}
-                >
-                  Construction Type
-                </label>
-                <input
-                  type="text"
-                  value={propertyDetails.constructionType}
-                  onChange={(e) =>
-                    setPropertyDetails({
-                      ...propertyDetails,
-                      constructionType: e.target.value,
-                    })
-                  }
-                  placeholder="Frame, Masonry, Steel"
-                  style={{
-                    width: "100%",
-                    border: "1px solid #d1d5db",
-                    borderRadius: 6,
-                    padding: "8px 10px",
-                    fontSize: 13,
-                  }}
-                />
-              </div>
-
-              <div>
-                <label
-                  style={{
-                    display: "block",
-                    fontSize: 12,
-                    fontWeight: 600,
-                    color: "#374151",
-                    marginBottom: 4,
-                  }}
-                >
-                  Year Built
-                </label>
-                <input
-                  type="text"
-                  value={propertyDetails.constructionYear}
-                  onChange={(e) =>
-                    setPropertyDetails({
-                      ...propertyDetails,
-                      constructionYear: e.target.value,
-                    })
-                  }
-                  placeholder="2010"
-                  style={{
-                    width: "100%",
-                    border: "1px solid #d1d5db",
-                    borderRadius: 6,
-                    padding: "8px 10px",
-                    fontSize: 13,
-                  }}
-                />
-              </div>
-
-              <div>
-                <label
-                  style={{
-                    display: "block",
-                    fontSize: 12,
-                    fontWeight: 600,
-                    color: "#374151",
-                    marginBottom: 4,
-                  }}
-                >
-                  Square Feet
-                </label>
-                <input
-                  type="text"
-                  value={propertyDetails.squareFeet}
-                  onChange={(e) =>
-                    setPropertyDetails({
-                      ...propertyDetails,
-                      squareFeet: e.target.value,
-                    })
-                  }
-                  placeholder="50,000"
-                  style={{
-                    width: "100%",
-                    border: "1px solid #d1d5db",
-                    borderRadius: 6,
-                    padding: "8px 10px",
-                    fontSize: 13,
-                  }}
-                />
-              </div>
-
-              <div>
-                <label
-                  style={{
-                    display: "block",
-                    fontSize: 12,
-                    fontWeight: 600,
-                    color: "#374151",
-                    marginBottom: 4,
-                  }}
-                >
-                  Occupancy
-                </label>
-                <input
-                  type="text"
-                  value={propertyDetails.occupancy}
-                  onChange={(e) =>
-                    setPropertyDetails({
-                      ...propertyDetails,
-                      occupancy: e.target.value,
-                    })
-                  }
-                  placeholder="Office, Retail, etc."
-                  style={{
-                    width: "100%",
-                    border: "1px solid #d1d5db",
-                    borderRadius: 6,
-                    padding: "8px 10px",
-                    fontSize: 13,
-                  }}
-                />
-              </div>
-
-              <div>
-                <label
-                  style={{
-                    display: "block",
-                    fontSize: 12,
-                    fontWeight: 600,
-                    color: "#374151",
-                    marginBottom: 4,
-                  }}
-                >
-                  Protection Class
-                </label>
-                <input
-                  type="text"
-                  value={propertyDetails.protectionClass}
-                  onChange={(e) =>
-                    setPropertyDetails({
-                      ...propertyDetails,
-                      protectionClass: e.target.value,
-                    })
-                  }
-                  placeholder="1-10"
-                  style={{
-                    width: "100%",
-                    border: "1px solid #d1d5db",
-                    borderRadius: 6,
-                    padding: "8px 10px",
-                    fontSize: 13,
-                  }}
-                />
-              </div>
-
-              <div>
-                <label
-                  style={{
-                    display: "block",
-                    fontSize: 12,
-                    fontWeight: 600,
-                    color: "#374151",
-                    marginBottom: 4,
-                  }}
-                >
-                  Sprinkler Coverage
-                </label>
-                <input
-                  type="text"
-                  value={propertyDetails.sprinkler}
-                  onChange={(e) =>
-                    setPropertyDetails({
-                      ...propertyDetails,
-                      sprinkler: e.target.value,
-                    })
-                  }
-                  placeholder="100%, Partial, None"
-                  style={{
-                    width: "100%",
-                    border: "1px solid #d1d5db",
-                    borderRadius: 6,
-                    padding: "8px 10px",
-                    fontSize: 13,
-                  }}
-                />
+                }}
+                placeholder="e.g., 123 Main Street, Los Angeles, CA 90012"
+                autoFocus
+                style={{
+                  width: "100%",
+                  border: "2px solid #e5e7eb",
+                  borderRadius: 8,
+                  padding: "12px 16px",
+                  fontSize: 14,
+                  outline: "none",
+                  transition: "border-color 0.2s",
+                }}
+                onFocus={(e) => (e.target.style.borderColor = "#3b82f6")}
+                onBlur={(e) => (e.target.style.borderColor = "#e5e7eb")}
+              />
+              <div
+                style={{
+                  fontSize: 12,
+                  color: "#6b7280",
+                  marginTop: 6,
+                }}
+              >
+                💡 Include street address, city, and state for best results
               </div>
             </div>
 
             <button
               onClick={handlePropertyAnalysis}
-              disabled={isLoading}
+              disabled={isLoading || !propertyAddress.trim()}
               style={{
-                marginTop: 16,
-                background: "#10b981",
+                background:
+                  !propertyAddress.trim() || isLoading ? "#d1d5db" : "#10b981",
                 color: "#fff",
                 border: "none",
                 borderRadius: 8,
-                padding: "10px 20px",
+                padding: "12px 20px",
                 fontSize: 14,
                 fontWeight: 600,
-                cursor: isLoading ? "not-allowed" : "pointer",
+                cursor:
+                  !propertyAddress.trim() || isLoading
+                    ? "not-allowed"
+                    : "pointer",
                 width: "100%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
               }}
             >
-              🔍 Generate Property Analysis Report
+              <span>🔍</span>
+              {isLoading
+                ? "Researching property..."
+                : "Generate Property Analysis Report"}
             </button>
           </div>
         )}
