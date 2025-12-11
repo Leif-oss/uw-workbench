@@ -148,6 +148,10 @@ export const DocumentScrubberPage: React.FC = () => {
       
       const data = await response.json();
       console.log("Upload successful:", data);
+      console.log("DEBUG INFO:", data.debug_info);
+      console.log("Extracted fields:", data.extracted_fields);
+      console.log("Extracted fields keys:", Object.keys(data.extracted_fields || {}));
+      console.log("Number of fields:", Object.keys(data.extracted_fields || {}).length);
       
       setExtractedText(data.extracted_text || "");
       setExtractedFields(data.extracted_fields || {});
@@ -433,8 +437,26 @@ export const DocumentScrubberPage: React.FC = () => {
           </button>
         </div>
 
-        {/* Field Review & Verification Section */}
+        {/* Extraction Status */}
         {showReviewForm && Object.keys(editedFields).length > 0 && (
+          <div style={cardStyle}>
+            <div style={{ marginBottom: 16, padding: 12, background: "#f0f9ff", borderRadius: 8, border: "1px solid #0ea5e9" }}>
+              <div style={{ fontWeight: 600, marginBottom: 8 }}>📊 Extraction Status:</div>
+              <div style={{ fontSize: 13 }}>
+                Total fields returned: {Object.keys(editedFields).length}<br/>
+                Fields with values: {Object.values(editedFields).filter(v => v && v.trim()).length}<br/>
+                {Object.values(editedFields).filter(v => v && v.trim()).length === 0 && (
+                  <div style={{ color: "#dc2626", marginTop: 8, fontWeight: 600 }}>
+                    ⚠️ AI extracted text but found no specific fields. The document may not contain underwriting data, or the AI couldn't parse it.
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Field Review & Verification Section */}
+        {showReviewForm && Object.keys(editedFields).length > 0 && Object.values(editedFields).filter(v => v && v.trim()).length > 0 && (
           <div style={cardStyle}>
             <h3 style={{ fontSize: 16, fontWeight: 600, color: "#111827", marginBottom: 16 }}>
               ✅ Review & Verify Extracted Fields

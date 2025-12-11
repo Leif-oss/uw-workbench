@@ -345,16 +345,32 @@ async def upload_submission(
     
     # Use AI to extract structured fields
     extracted_fields = {}
+    
+    # Debug logging to file
+    import datetime
+    debug_log = f"[{datetime.datetime.now()}] Upload endpoint called\n"
+    debug_log += f"AI_API_KEY present: {bool(AI_API_KEY)}\n"
+    debug_log += f"AI_MODEL: {AI_MODEL}\n"
+    debug_log += f"Extracted text length: {len(extracted_text)} chars\n"
+    
     if AI_API_KEY:
-        print(f"[Document Scrubber] AI_API_KEY found, calling AI extraction...")
-        print(f"[Document Scrubber] Using model: {AI_MODEL}")
-        print(f"[Document Scrubber] Extracted text length: {len(extracted_text)} chars")
-        extracted_fields = extract_with_llm(extracted_text, AI_API_KEY)
-        print(f"[Document Scrubber] AI returned {len(extracted_fields)} fields")
-        if extracted_fields:
-            print(f"[Document Scrubber] Extracted fields: {list(extracted_fields.keys())}")
+        debug_log += "Calling AI extraction...\n"
+        try:
+            extracted_fields = extract_with_llm(extracted_text, AI_API_KEY)
+            debug_log += f"AI returned {len(extracted_fields)} fields\n"
+            non_empty = {k: v for k, v in extracted_fields.items() if v}
+            debug_log += f"Non-empty fields: {len(non_empty)}\n"
+            debug_log += f"Field keys: {list(non_empty.keys())}\n"
+        except Exception as e:
+            debug_log += f"ERROR in AI extraction: {type(e).__name__}: {str(e)}\n"
+            import traceback
+            debug_log += traceback.format_exc()
     else:
-        print("[Document Scrubber] WARNING: AI_API_KEY not found in environment!")
+        debug_log += "WARNING: AI_API_KEY not found!\n"
+    
+    # Write to debug file
+    with open("debug_extraction.log", "a") as f:
+        f.write(debug_log + "\n" + "="*80 + "\n")
     
     # Search for matching agencies
     producer_name = extracted_fields.get("producer_name")
@@ -362,6 +378,7 @@ async def upload_submission(
     agency_matches = search_agencies(producer_name, producer_code, db)
     
     # Prepare response
+    non_empty_fields = {k: v for k, v in extracted_fields.items() if v}
     return {
         "extracted_text": extracted_text[:2000],  # Preview only
         "extracted_fields": extracted_fields,
@@ -377,7 +394,14 @@ async def upload_submission(
             for a in agency_matches
         ],
         "original_filename": file.filename,
-        "file_type": file.content_type
+        "file_type": file.content_type,
+        "debug_info": {
+            "ai_key_present": bool(AI_API_KEY),
+            "ai_model": AI_MODEL,
+            "total_fields": len(extracted_fields),
+            "non_empty_fields": len(non_empty_fields),
+            "non_empty_keys": list(non_empty_fields.keys())
+        }
     }
 
 

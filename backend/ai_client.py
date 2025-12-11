@@ -8,7 +8,7 @@ env_path = Path(__file__).parent / '.env'
 load_dotenv(dotenv_path=env_path)
 
 AI_API_KEY = os.getenv("AI_API_KEY", "")
-AI_MODEL = os.getenv("AI_MODEL", "gpt-5.1")
+AI_MODEL = os.getenv("AI_MODEL", "gpt-4o")
 
 def get_client():
     if not AI_API_KEY:
