@@ -9,16 +9,26 @@ venv/
 ENV/
 .venv
 
-# Environment variables
+# Environment variables - NEVER COMMIT THESE!
 .env
 *.env
+!.env.example
 .env.local
 .env.*.local
+backend/.env
+frontend/.env
 
-# Database
+# Database files - contain sensitive data
 *.db
 *.sqlite
 *.sqlite3
+workbench.db
+uw_workbench.db
+
+# Log files - may contain sensitive info
+*.log
+debug_*.log
+uvicorn.*.log
 
 # IDEs
 .vscode/

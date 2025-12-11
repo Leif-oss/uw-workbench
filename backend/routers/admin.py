@@ -13,8 +13,14 @@ from .. import models, schemas, crud
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
-# Admin password from environment variable or default
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin123")
+# Admin password from environment variable - NO DEFAULT for security
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD")
+
+if not ADMIN_PASSWORD:
+    raise ValueError(
+        "ADMIN_PASSWORD environment variable must be set! "
+        "Add it to backend/.env file. Never use default passwords in production."
+    )
 
 
 # --- AUTHENTICATION ---
