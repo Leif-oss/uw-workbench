@@ -809,21 +809,42 @@ type Log = {
         {agency?.notes && <div style={{ fontSize: 12 }}>Notes: {agency.notes}</div>}
 
         {selectedContact && (
-          <div style={{ marginTop: 4, paddingTop: 6, borderTop: "1px solid #e5e7eb" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-              <div style={{ fontSize: 13, fontWeight: 600 }}>Contact Details</div>
-              <div style={{ display: "flex", gap: 6 }}>
+          <div 
+            style={{ 
+              marginTop: 16,
+              padding: "20px",
+              background: "linear-gradient(135deg, #f8fafc 0%, #ffffff 100%)",
+              borderRadius: 12,
+              border: "2px solid #e2e8f0",
+              boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                Contact Details
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
                 <button
                   type="button"
                   onClick={handleEditContact}
                   style={{
-                    padding: "4px 8px",
-                    borderRadius: 4,
+                    padding: "6px 12px",
+                    borderRadius: 6,
                     border: "1px solid #2563eb",
-                    background: "#fff",
+                    background: "#eff6ff",
                     color: "#2563eb",
                     cursor: "pointer",
-                    fontSize: 11,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    transition: "all 0.2s",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "#2563eb";
+                    e.currentTarget.style.color = "#fff";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "#eff6ff";
+                    e.currentTarget.style.color = "#2563eb";
                   }}
                 >
                   Edit
@@ -832,13 +853,23 @@ type Log = {
                   type="button"
                   onClick={handleDeleteContact}
                   style={{
-                    padding: "4px 8px",
-                    borderRadius: 4,
+                    padding: "6px 12px",
+                    borderRadius: 6,
                     border: "1px solid #ef4444",
-                    background: "#fff",
+                    background: "#fef2f2",
                     color: "#b91c1c",
                     cursor: "pointer",
-                    fontSize: 11,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    transition: "all 0.2s",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "#ef4444";
+                    e.currentTarget.style.color = "#fff";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "#fef2f2";
+                    e.currentTarget.style.color = "#b91c1c";
                   }}
                 >
                   Delete
@@ -908,59 +939,97 @@ type Log = {
               </div>
             ) : (
               <>
-                <div style={{ fontSize: 13 }}>{selectedContact.name}</div>
-            {selectedContact.title && (
-              <div style={{ fontSize: 12, color: "#6b7280" }}>{selectedContact.title}</div>
-            )}
-            {selectedContact.phone && (
-              <div style={{ fontSize: 12 }}>Phone: {selectedContact.phone}</div>
-            )}
-            {selectedContact.email && (
-              <div style={{ fontSize: 12 }}>
-                Email:{" "}
-                <a href={`mailto:${selectedContact.email}`} style={{ color: "#2563eb", textDecoration: "none" }}>
-                  {selectedContact.email}
-                </a>
-              </div>
-            )}
-            {selectedContact.linkedin_url && (
-              <div style={{ fontSize: 12 }}>
-                LinkedIn:{" "}
-                <a
-                  href={selectedContact.linkedin_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{ color: "#2563eb", textDecoration: "none" }}
-                >
-                  {selectedContact.linkedin_url}
-                </a>
-              </div>
-            )}
-                <div
-                  style={{
-                    fontSize: 12,
-                    marginTop: 8,
-                    paddingTop: 6,
-                    borderTop: "1px dashed #e5e7eb",
-                    whiteSpace: "pre-wrap",
-                  }}
-                >
-                  <strong>Contact Notes:</strong>{" "}
-                  {selectedContact.notes && selectedContact.notes.trim().length > 0
-                    ? selectedContact.notes
-                    : "No notes yet for this contact."}
+                {/* Name and Title */}
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ fontSize: 20, fontWeight: 700, color: "#111827", marginBottom: 4 }}>
+                    {selectedContact.name}
+                  </div>
+                  {selectedContact.title && (
+                    <div style={{ fontSize: 14, color: "#64748b", fontWeight: 500 }}>
+                      {selectedContact.title}
+                    </div>
+                  )}
                 </div>
 
+                {/* Contact Information Grid */}
+                <div style={{ 
+                  display: "grid", 
+                  gridTemplateColumns: "auto 1fr", 
+                  gap: "12px 16px",
+                  marginBottom: 16,
+                  padding: "16px",
+                  background: "#ffffff",
+                  borderRadius: 8,
+                  border: "1px solid #e2e8f0",
+                }}>
+                  {selectedContact.phone && (
+                    <>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: "#64748b" }}>📞</div>
+                      <div style={{ fontSize: 13, color: "#111827" }}>
+                        <a href={`tel:${selectedContact.phone}`} style={{ color: "#2563eb", textDecoration: "none" }}>
+                          {selectedContact.phone}
+                        </a>
+                      </div>
+                    </>
+                  )}
+                  {selectedContact.email && (
+                    <>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: "#64748b" }}>✉️</div>
+                      <div style={{ fontSize: 13, color: "#111827" }}>
+                        <a href={`mailto:${selectedContact.email}`} style={{ color: "#2563eb", textDecoration: "none" }}>
+                          {selectedContact.email}
+                        </a>
+                      </div>
+                    </>
+                  )}
+                  {selectedContact.linkedin_url && (
+                    <>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: "#64748b" }}>🔗</div>
+                      <div style={{ fontSize: 13, color: "#111827" }}>
+                        <a
+                          href={selectedContact.linkedin_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ color: "#2563eb", textDecoration: "none" }}
+                        >
+                          LinkedIn Profile
+                        </a>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {/* Contact Notes */}
+                {(selectedContact.notes && selectedContact.notes.trim().length > 0) && (
+                  <div
+                    style={{
+                      fontSize: 12,
+                      marginBottom: 16,
+                      padding: "12px",
+                      background: "#fffbeb",
+                      borderLeft: "3px solid #f59e0b",
+                      borderRadius: 6,
+                      whiteSpace: "pre-wrap",
+                      color: "#92400e",
+                    }}
+                  >
+                    <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", marginBottom: 6, color: "#b45309" }}>
+                      Notes
+                    </div>
+                    {selectedContact.notes}
+                  </div>
+                )}
+
+                {/* Marketing Calls Section */}
                 <div
                   style={{
                     fontSize: 12,
-                    marginTop: 12,
-                    paddingTop: 8,
-                    borderTop: "1px dashed #e5e7eb",
+                    paddingTop: 16,
+                    borderTop: "2px solid #e2e8f0",
                   }}
                 >
-                  <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>
-                    Marketing Calls for This Contact
+                  <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12, color: "#111827" }}>
+                    📞 Marketing Calls for This Contact
                   </div>
                   {(() => {
                     const logsForContact = logsForAgency
@@ -969,32 +1038,51 @@ type Log = {
                     
                     if (logsForContact.length === 0) {
                       return (
-                        <div style={{ fontSize: 12, color: "#6b7280" }}>
+                        <div style={{ 
+                          fontSize: 12, 
+                          color: "#94a3b8",
+                          padding: "16px",
+                          textAlign: "center",
+                          background: "#f8fafc",
+                          borderRadius: 8,
+                          border: "1px dashed #cbd5e1",
+                        }}>
                           No marketing calls yet for this contact.
                         </div>
                       );
                     }
                     
                     return (
-                      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                         {logsForContact.map((log) => (
                           <div
                             key={log.id}
                             style={{
                               fontSize: 12,
-                              padding: "4px 0",
-                              borderBottom: "1px solid #f1f5f9",
+                              padding: "12px",
+                              background: "#f8fafc",
+                              borderRadius: 8,
+                              border: "1px solid #e2e8f0",
                             }}
                           >
-                            <div style={{ display: "flex", gap: 8, marginBottom: 2 }}>
-                              <span style={{ fontWeight: 600 }}>{formatDateTime(log.datetime)}</span>
-                              <span style={{ color: "#6b7280" }}>·</span>
-                              <span>{log.user}</span>
-                              <span style={{ color: "#6b7280" }}>·</span>
-                              <span>{log.action}</span>
+                            <div style={{ display: "flex", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
+                              <span style={{ fontWeight: 600, color: "#111827" }}>{formatDateTime(log.datetime)}</span>
+                              <span style={{ color: "#cbd5e1" }}>•</span>
+                              <span style={{ color: "#64748b" }}>{log.user}</span>
+                              <span style={{ color: "#cbd5e1" }}>•</span>
+                              <span style={{ 
+                                padding: "2px 8px",
+                                background: "#dbeafe",
+                                color: "#1e40af",
+                                borderRadius: 4,
+                                fontSize: 11,
+                                fontWeight: 600,
+                              }}>
+                                {log.action}
+                              </span>
                             </div>
                             {log.notes && (
-                              <div style={{ color: "#6b7280", fontSize: 11 }}>
+                              <div style={{ color: "#475569", fontSize: 12, marginTop: 6, lineHeight: 1.5 }}>
                                 {log.notes.length > 80 ? `${log.notes.slice(0, 80)}...` : log.notes}
                               </div>
                             )}
