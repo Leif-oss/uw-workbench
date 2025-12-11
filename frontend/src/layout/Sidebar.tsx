@@ -33,16 +33,8 @@ const activeLinkStyles: React.CSSProperties = {
 type NavItem = {
   id: string;
   label: string;
-  to?: string;
-  path?: string;
+  path: string;
 };
-
-const defaultItems: NavItem[] = [
-  { to: "/dashboard", label: "Dashboard", id: "dashboard" },
-  { to: "/agencies", label: "CRM", id: "crm" },
-  { to: "/workbench", label: "Workbench", id: "workbench" },
-  { to: "/admin", label: "Admin", id: "admin" },
-];
 
 const crmItems: NavItem[] = [
   { id: "crm-offices", label: "Offices", path: "/crm/offices" },
@@ -51,42 +43,57 @@ const crmItems: NavItem[] = [
   { id: "crm-reports", label: "Marketing Tools", path: "/crm/reports" },
 ];
 
+const workbenchItems: NavItem[] = [
+  { id: "workbench-agencies", label: "Agencies", path: "/agencies" },
+  { id: "workbench-employees", label: "Employees", path: "/employees" },
+  { id: "workbench-offices", label: "Offices", path: "/offices" },
+  { id: "workbench-tasks", label: "Tasks", path: "/tasks" },
+];
+
 function Sidebar() {
   const location = useLocation();
   const isCrm = location.pathname.startsWith("/crm");
-  const itemsToRender = isCrm ? crmItems : defaultItems;
+  const isWorkbench = location.pathname.startsWith("/workbench") || 
+                      location.pathname === "/agencies" ||
+                      location.pathname === "/offices" ||
+                      location.pathname === "/tasks";
+  const isAdmin = location.pathname.startsWith("/admin");
+  
+  let itemsToRender: NavItem[] = [];
+  let sectionTitle = "UW Workbench";
+  
+  if (isCrm) {
+    itemsToRender = crmItems;
+    sectionTitle = "CRM";
+  } else if (isWorkbench) {
+    itemsToRender = workbenchItems;
+    sectionTitle = "Workbench";
+  } else if (isAdmin) {
+    itemsToRender = [];
+    sectionTitle = "Admin";
+  } else {
+    // Dashboard or other pages - show nothing or minimal info
+    itemsToRender = [];
+    sectionTitle = "Dashboard";
+  }
 
   return (
     <aside style={sidebarStyles}>
-      <div style={brandStyles}>UW Workbench</div>
+      <div style={brandStyles}>{sectionTitle}</div>
       <nav>
-        {itemsToRender.map((item) =>
-          isCrm && item.path ? (
-            <NavLink
-              key={item.id}
-              to={item.path}
-              style={({ isActive }) => ({
-                ...linkStyles,
-                ...(isActive ? activeLinkStyles : {}),
-              })}
-              end
-            >
-              {item.label}
-            </NavLink>
-          ) : (
-            <NavLink
-              key={item.to}
-              to={item.to || "/"}
-              style={({ isActive }) => ({
-                ...linkStyles,
-                ...(isActive ? activeLinkStyles : {}),
-              })}
-              end={item.to === "/dashboard"}
-            >
-              {item.label}
-            </NavLink>
-          ),
-        )}
+        {itemsToRender.map((item) => (
+          <NavLink
+            key={item.id}
+            to={item.path}
+            style={({ isActive }) => ({
+              ...linkStyles,
+              ...(isActive ? activeLinkStyles : {}),
+            })}
+            end
+          >
+            {item.label}
+          </NavLink>
+        ))}
       </nav>
     </aside>
   );

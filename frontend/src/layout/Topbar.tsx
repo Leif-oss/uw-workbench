@@ -37,12 +37,11 @@ function Topbar() {
   return (
     <header style={topbarStyles}>
       <div style={titleStyles}>{isCrm ? "CRM" : "Underwriting Workbench"}</div>
-      <div style={{ display: "flex", gap: 8 }}>
+      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
         {[
           { to: "/dashboard", label: "Dashboard" },
           { to: "/crm", label: "CRM" },
           { to: "/workbench", label: "Workbench" },
-          { to: "/admin", label: "Admin" },
         ].map((link) => (
           <NavLink
             key={link.to}
@@ -58,6 +57,21 @@ function Topbar() {
             {link.label}
           </NavLink>
         ))}
+        
+        {/* Admin button on far right */}
+        <NavLink
+          to="/admin"
+          style={({ isActive }) => ({
+            ...tabBaseStyle,
+            marginLeft: 16,
+            borderColor: "#dc2626",
+            backgroundColor: isActive ? "#dc2626" : "transparent",
+            color: isActive ? "#fff" : "#dc2626",
+            fontWeight: 600,
+          })}
+        >
+          Admin
+        </NavLink>
       </div>
     </header>
   );
