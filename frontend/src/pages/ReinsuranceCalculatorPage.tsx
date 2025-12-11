@@ -115,15 +115,19 @@ const ReinsuranceCalculatorPage: React.FC = () => {
     const g2Amt = Math.min(Math.max(tiv - g1Amt, 0), g2Cap);
     const g3Amt = Math.min(Math.max(tiv - g1Amt - g2Amt, 0), g3Cap);
 
-    // Calculate percentages with constraints
-    // G1% = G1 Amount / TIV (straightforward)
-    const g1Pct = Math.floor((g1Amt / tiv) * 1000) / 1000;
+    // Calculate percentages with constraints - MUST ROUND AT EACH STEP
+    // Step 1: Calculate and ROUND G1% (round to 3 decimals)
+    const g1Pct = Math.round((g1Amt / tiv) * 1000) / 1000;
     
-    // G2% = MIN(remaining %, 3 × G1%) - Excel formula: MIN(1-G1%, 3*G1%)
-    const g2PctCalculated = Math.floor(Math.min(1 - g1Pct, 3 * g1Pct) * 1000) / 1000;
+    // Step 2: Calculate G2% with constraint, then ROUND
+    // G2% = MIN(1 - ROUNDED_G1%, 3 × ROUNDED_G1%)
+    // Round the multiplier to avoid floating point errors
+    const g2Max = Math.round((3 * g1Pct) * 1000) / 1000;
+    const g2PctCalculated = Math.round(Math.min(1 - g1Pct, g2Max) * 1000) / 1000;
     
-    // G3% = remaining after G1 and G2, with 50% threshold check
-    const g3PctCalculated = Math.floor(Math.max(0, 1 - g1Pct - g2PctCalculated) * 1000) / 1000;
+    // Step 3: Calculate G3% from rounded G1 and G2
+    // G3% = MAX(0, 1 - ROUNDED_G1% - ROUNDED_G2%)
+    const g3PctCalculated = Math.round(Math.max(0, 1 - g1Pct - g2PctCalculated) * 1000) / 1000;
     
     let g3Pct: number | string = g3PctCalculated;
     let g3Warning = false;
@@ -204,15 +208,19 @@ const ReinsuranceCalculatorPage: React.FC = () => {
     const g2Amt = Math.min(Math.max(tiv - g1Amt, 0), g2Cap);
     const g3Amt = Math.min(Math.max(tiv - g1Amt - g2Amt, 0), g3Cap);
 
-    // Calculate percentages with constraints
-    // G1% = G1 Amount / TIV (straightforward)
-    const g1Pct = Math.floor((g1Amt / tiv) * 1000) / 1000;
+    // Calculate percentages with constraints - MUST ROUND AT EACH STEP
+    // Step 1: Calculate and ROUND G1% (round to 3 decimals)
+    const g1Pct = Math.round((g1Amt / tiv) * 1000) / 1000;
     
-    // G2% = MIN(remaining %, 2 × G1%) - Excel formula: MIN(1-G1%, 2*G1%)
-    const g2PctCalculated = Math.floor(Math.min(1 - g1Pct, 2 * g1Pct) * 1000) / 1000;
+    // Step 2: Calculate G2% with constraint, then ROUND
+    // G2% = MIN(1 - ROUNDED_G1%, 2 × ROUNDED_G1%)
+    // Round the multiplier to avoid floating point errors
+    const g2Max = Math.round((2 * g1Pct) * 1000) / 1000;
+    const g2PctCalculated = Math.round(Math.min(1 - g1Pct, g2Max) * 1000) / 1000;
     
-    // G3% = remaining after G1 and G2, with 70% threshold check
-    const g3PctCalculated = Math.floor(Math.max(0, 1 - g1Pct - g2PctCalculated) * 1000) / 1000;
+    // Step 3: Calculate G3% from rounded G1 and G2
+    // G3% = MAX(0, 1 - ROUNDED_G1% - ROUNDED_G2%)
+    const g3PctCalculated = Math.round(Math.max(0, 1 - g1Pct - g2PctCalculated) * 1000) / 1000;
     
     let g3Pct: number | string = g3PctCalculated;
     let g3Warning = false;
@@ -250,7 +258,12 @@ const ReinsuranceCalculatorPage: React.FC = () => {
 
   const formatPercent = (value: number | string) => {
     if (typeof value === 'string') return value;
-    return `${(value * 100).toFixed(1)}%`;
+    const pct = value * 100;
+    // Show whole number if it's a round number, otherwise 1 decimal
+    if (Math.abs(pct - Math.round(pct)) < 0.01) {
+      return `${Math.round(pct)}%`;
+    }
+    return `${pct.toFixed(1)}%`;
   };
 
   const renderCalculationSection = (
