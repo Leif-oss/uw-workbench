@@ -130,17 +130,23 @@ export const DocumentScrubberPage: React.FC = () => {
         formData.append("api_key", apiKey);
       }
       
+      console.log("Uploading file:", selectedFile.name);
+      
       const response = await fetch("http://127.0.0.1:8000/submissions/upload", {
         method: "POST",
         body: formData,
       });
       
+      console.log("Response status:", response.status);
+      
       if (!response.ok) {
         const errorData = await response.json().catch(() => null);
-        throw new Error(errorData?.detail || "Upload failed");
+        console.error("Upload error:", errorData);
+        throw new Error(errorData?.detail || `Upload failed: ${response.status} ${response.statusText}`);
       }
       
       const data = await response.json();
+      console.log("Upload successful:", data);
       
       setExtractedText(data.extracted_text || "");
       setExtractedFields(data.extracted_fields || {});
@@ -293,9 +299,9 @@ export const DocumentScrubberPage: React.FC = () => {
               border: "2px dashed #cbd5e1",
               borderRadius: 12,
               padding: 40,
-              textAlign: "center",
+              textAlign: "center" as const,
               background: "#f8fafc",
-              cursor: "pointer",
+              cursor: "pointer" as const,
               marginBottom: 16,
             }}
           >
