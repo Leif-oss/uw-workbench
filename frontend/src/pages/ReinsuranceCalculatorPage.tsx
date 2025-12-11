@@ -389,33 +389,6 @@ const ReinsuranceCalculatorPage: React.FC = () => {
       subtitle="Calculate reinsurance group participation based on TIV and hazard level"
     >
       <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-        {/* Calculation Rules Info */}
-        <div style={{ ...cardStyle, background: "#eff6ff", border: "2px solid #3b82f6" }}>
-          <h3 style={{ fontSize: 14, fontWeight: 700, color: "#1e40af", marginBottom: 12 }}>
-            📋 Calculation Rules
-          </h3>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, fontSize: 12, color: "#1e40af" }}>
-            <div>
-              <strong>Standard Reinsurance:</strong>
-              <ul style={{ marginTop: 6, paddingLeft: 20 }}>
-                <li>G1% = G1 Amount ÷ TIV</li>
-                <li>G2% = MIN(Remaining%, <strong>3 × G1%</strong>)</li>
-                <li>G3% = Remaining% (max <strong>50%</strong>)</li>
-                <li>G2 Capacity = <strong>3 × G1 Capacity</strong></li>
-              </ul>
-            </div>
-            <div>
-              <strong>Surplus Reinsurance:</strong>
-              <ul style={{ marginTop: 6, paddingLeft: 20 }}>
-                <li>G1% = G1 Amount ÷ TIV</li>
-                <li>G2% = MIN(Remaining%, <strong>2 × G1%</strong>)</li>
-                <li>G3% = Remaining% (max <strong>70%</strong>)</li>
-                <li>G2 Capacity = <strong>2 × G1 Capacity</strong></li>
-              </ul>
-            </div>
-          </div>
-        </div>
-
         {/* Standard Reinsurance */}
         {renderCalculationSection(
           "Standard Reinsurance",
@@ -507,6 +480,33 @@ const ReinsuranceCalculatorPage: React.FC = () => {
               })}
             </tbody>
           </table>
+        </div>
+
+        {/* Calculation Rules Info */}
+        <div style={{ ...cardStyle, background: "#eff6ff", border: "2px solid #3b82f6" }}>
+          <h3 style={{ fontSize: 14, fontWeight: 700, color: "#1e40af", marginBottom: 12 }}>
+            📋 Calculation Rules
+          </h3>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, fontSize: 12, color: "#1e40af" }}>
+            <div>
+              <strong>Standard Reinsurance:</strong>
+              <ul style={{ marginTop: 6, paddingLeft: 20 }}>
+                <li>G1% = G1 Amount ÷ TIV</li>
+                <li>G2% = MIN(Remaining%, <strong>3 × G1%</strong>)</li>
+                <li>G3% = Remaining% (max <strong>50%</strong>)</li>
+                <li>G2 Capacity = <strong>3 × G1 Capacity</strong></li>
+              </ul>
+            </div>
+            <div>
+              <strong>Surplus Reinsurance:</strong>
+              <ul style={{ marginTop: 6, paddingLeft: 20 }}>
+                <li>G1% = G1 Amount ÷ TIV</li>
+                <li>G2% = MIN(Remaining%, <strong>2 × G1%</strong>)</li>
+                <li>G3% = Remaining% (max <strong>70%</strong>)</li>
+                <li>G2 Capacity = <strong>2 × G1 Capacity</strong></li>
+              </ul>
+            </div>
+          </div>
         </div>
       </div>
     </WorkbenchLayout>
