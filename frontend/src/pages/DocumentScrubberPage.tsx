@@ -60,7 +60,6 @@ export const DocumentScrubberPage: React.FC = () => {
   const navigate = useNavigate();
   
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [apiKey, setApiKey] = useState("");
   const [isUploading, setIsUploading] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   
@@ -131,9 +130,6 @@ export const DocumentScrubberPage: React.FC = () => {
     try {
       const formData = new FormData();
       formData.append("file", selectedFile);
-      if (apiKey) {
-        formData.append("api_key", apiKey);
-      }
       
       console.log("Uploading file:", selectedFile.name);
       
@@ -422,20 +418,6 @@ export const DocumentScrubberPage: React.FC = () => {
                 Supported: PDF, DOCX, Excel, TXT
               </div>
             </label>
-          </div>
-          
-          <div style={{ marginBottom: 16 }}>
-            <label style={labelStyle}>OpenAI API Key (optional, for AI extraction)</label>
-            <input
-              type="password"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              placeholder="sk-..."
-              style={inputStyle}
-            />
-            <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>
-              Your API key is never stored. Used only for this extraction.
-            </div>
           </div>
           
           <button

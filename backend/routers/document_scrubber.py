@@ -1,14 +1,23 @@
 import io
 import json
 import re
+import os
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, Form
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
+from dotenv import load_dotenv
+from pathlib import Path
 
 from .. import models, schemas, crud
 from ..database import get_db
+
+# Load environment variables
+env_path = Path(__file__).parent.parent / '.env'
+load_dotenv(dotenv_path=env_path)
+
+AI_API_KEY = os.getenv("AI_API_KEY", "")
 
 # Optional imports for document processing
 try:
@@ -218,12 +227,12 @@ def search_contacts(
 @router.post("/upload")
 async def upload_submission(
     file: UploadFile = File(...),
-    api_key: Optional[str] = Form(None),
     db: Session = Depends(get_db)
 ):
     """
     Upload a document (PDF, DOCX, Excel, etc.) and extract data using AI.
     Returns extracted fields and suggested agency/contact matches.
+    Uses AI_API_KEY from backend environment variables.
     """
     if not PROCESSING_AVAILABLE:
         raise HTTPException(
@@ -242,8 +251,8 @@ async def upload_submission(
     
     # Use AI to extract structured fields
     extracted_fields = {}
-    if api_key:
-        extracted_fields = extract_with_llm(extracted_text, api_key)
+    if AI_API_KEY:
+        extracted_fields = extract_with_llm(extracted_text, AI_API_KEY)
     
     # Search for matching agencies
     producer_name = extracted_fields.get("producer_name")
