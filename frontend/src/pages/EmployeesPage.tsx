@@ -56,6 +56,20 @@ type Agency = {
   active_flag?: string | null;
 };
 
+type Production = {
+  id: number;
+  office: string;
+  agency_code: string;
+  agency_name: string;
+  active_flag: string | null;
+  month: string;
+  all_ytd_wp: number | null;
+  all_ytd_nb: number | null;
+  pytd_wp: number | null;
+  pytd_nb: number | null;
+  py_total_nb: number | null;
+};
+
 interface EmployeeWithOffice extends Employee {
   officeCode?: string;
   officeName?: string;
@@ -68,6 +82,7 @@ export const EmployeesPage: React.FC = () => {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [logs, setLogs] = useState<Log[]>([]);
   const [agencies, setAgencies] = useState<Agency[]>([]);
+  const [production, setProduction] = useState<Production[]>([]);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<number | null>(null);
 
   const [search, setSearch] = useState("");
@@ -82,17 +97,19 @@ export const EmployeesPage: React.FC = () => {
       setIsLoading(true);
       setError(null);
       try {
-        const [officesResp, employeesResp, logsResp, agenciesResp] = await Promise.all([
+        const [officesResp, employeesResp, logsResp, agenciesResp, productionResp] = await Promise.all([
           apiGet<Office[]>("/offices"),
           apiGet<Employee[]>("/employees"),
           apiGet<Log[]>("/logs"),
           apiGet<Agency[]>("/agencies"),
+          apiGet<Production[]>("/production"),
         ]);
 
         setOffices(officesResp || []);
         setEmployees(employeesResp || []);
         setLogs(logsResp || []);
         setAgencies(agenciesResp || []);
+        setProduction(productionResp || []);
       } catch (err) {
         console.error("Failed to load offices/employees", err);
         setError("Failed to load offices/employees");
@@ -272,6 +289,52 @@ export const EmployeesPage: React.FC = () => {
   }, [agencies, selectedEmployee]);
 
   const employeeAgenciesCount = employeeAgencies.length;
+
+  // Calculate production metrics for employee's agencies
+  const employeeProduction = useMemo(() => {
+    if (!selectedEmployee || employeeAgencies.length === 0) {
+      return {
+        currentYearTotal: 0,
+        priorYearTotal: 0,
+        percentChange: 0,
+        agencyCount: 0,
+      };
+    }
+
+    // Get agency codes for this employee
+    const agencyCodes = new Set(employeeAgencies.map((ag) => ag.code.trim().toUpperCase()));
+
+    // Get latest production data for each agency
+    const latestByAgency = new Map<string, Production>();
+    production.forEach((record) => {
+      const codeNorm = record.agency_code.trim().toUpperCase();
+      if (agencyCodes.has(codeNorm)) {
+        const existing = latestByAgency.get(codeNorm);
+        if (!existing || record.month > existing.month) {
+          latestByAgency.set(codeNorm, record);
+        }
+      }
+    });
+
+    let currentYearTotal = 0;
+    let priorYearTotal = 0;
+
+    latestByAgency.forEach((record) => {
+      currentYearTotal += record.all_ytd_nb || 0;
+      priorYearTotal += record.pytd_nb || 0;
+    });
+
+    const percentChange = priorYearTotal > 0 
+      ? ((currentYearTotal - priorYearTotal) / priorYearTotal) * 100 
+      : 0;
+
+    return {
+      currentYearTotal,
+      priorYearTotal,
+      percentChange,
+      agencyCount: latestByAgency.size,
+    };
+  }, [selectedEmployee, employeeAgencies, production]);
 
   const sidebar = (
     <>
@@ -543,34 +606,115 @@ export const EmployeesPage: React.FC = () => {
             </div>
           </div>
 
+          {/* Production Performance */}
+          <div style={{ ...panelStyle, padding: 20 }}>
+            <h3 style={{ margin: "0 0 16px 0", fontSize: 16, fontWeight: 600, color: "#111827" }}>
+              New Business Production (Assigned Agencies)
+            </h3>
+
+            {employeeProduction.agencyCount === 0 ? (
+              <div style={{ fontSize: 13, color: "#9ca3af", padding: 20, textAlign: "center" }}>
+                No production data available for this employee's agencies.
+              </div>
+            ) : (
+              <>
+                {/* Production Metrics */}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 20 }}>
+                  <div style={{ padding: 12, background: "#eff6ff", borderRadius: 8 }}>
+                    <div style={{ fontSize: 11, color: "#1e40af", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>
+                      Current Year YTD
+                    </div>
+                    <div style={{ fontSize: 20, fontWeight: 700, color: "#1e40af" }}>
+                      ${(employeeProduction.currentYearTotal / 1000).toFixed(0)}k
+                    </div>
+                  </div>
+                  <div style={{ padding: 12, background: "#f3f4f6", borderRadius: 8 }}>
+                    <div style={{ fontSize: 11, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>
+                      Prior Year YTD
+                    </div>
+                    <div style={{ fontSize: 20, fontWeight: 700, color: "#6b7280" }}>
+                      ${(employeeProduction.priorYearTotal / 1000).toFixed(0)}k
+                    </div>
+                  </div>
+                  <div style={{ padding: 12, background: employeeProduction.percentChange >= 0 ? "#ecfdf5" : "#fef2f2", borderRadius: 8 }}>
+                    <div style={{ fontSize: 11, color: employeeProduction.percentChange >= 0 ? "#059669" : "#dc2626", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>
+                      Year-over-Year
+                    </div>
+                    <div style={{ fontSize: 20, fontWeight: 700, color: employeeProduction.percentChange >= 0 ? "#059669" : "#dc2626" }}>
+                      {employeeProduction.percentChange >= 0 ? "+" : ""}{employeeProduction.percentChange.toFixed(1)}%
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bar Graph Comparison */}
+                <div style={{ display: "flex", gap: 40, alignItems: "flex-end", height: 200 }}>
+                  {/* Prior Year Bar */}
+                  <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+                    <div style={{ flex: 1, display: "flex", alignItems: "flex-end", width: "100%" }}>
+                      <div
+                        style={{
+                          width: "100%",
+                          height: `${employeeProduction.priorYearTotal > 0 ? (employeeProduction.priorYearTotal / Math.max(employeeProduction.currentYearTotal, employeeProduction.priorYearTotal)) * 100 : 0}%`,
+                          minHeight: 40,
+                          background: "linear-gradient(180deg, #6b7280 0%, #9ca3af 100%)",
+                          borderRadius: "8px 8px 0 0",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          color: "#fff",
+                          fontWeight: 700,
+                          fontSize: 14,
+                        }}
+                      >
+                        ${(employeeProduction.priorYearTotal / 1000).toFixed(0)}k
+                      </div>
+                    </div>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: "#6b7280" }}>
+                      Prior Year YTD
+                    </div>
+                  </div>
+
+                  {/* Current Year Bar */}
+                  <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+                    <div style={{ flex: 1, display: "flex", alignItems: "flex-end", width: "100%" }}>
+                      <div
+                        style={{
+                          width: "100%",
+                          height: `${employeeProduction.currentYearTotal > 0 ? (employeeProduction.currentYearTotal / Math.max(employeeProduction.currentYearTotal, employeeProduction.priorYearTotal)) * 100 : 0}%`,
+                          minHeight: 40,
+                          background: "linear-gradient(180deg, #1e40af 0%, #3b82f6 100%)",
+                          borderRadius: "8px 8px 0 0",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          color: "#fff",
+                          fontWeight: 700,
+                          fontSize: 14,
+                        }}
+                      >
+                        ${(employeeProduction.currentYearTotal / 1000).toFixed(0)}k
+                      </div>
+                    </div>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: "#1e40af" }}>
+                      Current Year YTD
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ marginTop: 12, fontSize: 12, color: "#6b7280", textAlign: "center" }}>
+                  Based on {employeeProduction.agencyCount} {employeeProduction.agencyCount === 1 ? "agency" : "agencies"} with production data
+                </div>
+              </>
+            )}
+          </div>
+
           {/* Recent Activity */}
           <div style={{ ...panelStyle, padding: 16 }}>
             <h3 style={{ margin: "0 0 12px 0", fontSize: 16, fontWeight: 600, color: "#111827" }}>
               Recent Marketing Calls
             </h3>
-            </div>
 
-            <div
-              style={{
-                marginTop: 8,
-                paddingTop: 6,
-                borderTop: "1px dashed #e5e7eb",
-              }}
-            >
-              <div
-                style={{
-                  fontSize: 11,
-                  fontWeight: 600,
-                  textTransform: "uppercase",
-                  color: "#6b7280",
-                  letterSpacing: "0.06em",
-                  marginBottom: 4,
-                }}
-              >
-                Marketing Activity
-              </div>
-
-              {employeeTotalLogs === 0 ? (
+            {employeeTotalLogs === 0 ? (
               <div style={{ fontSize: 13, color: "#9ca3af", padding: 20, textAlign: "center" }}>
                 No marketing calls found for this employee yet.
               </div>
