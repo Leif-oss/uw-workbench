@@ -70,6 +70,17 @@ type Production = {
   py_total_nb: number | null;
 };
 
+type Contact = {
+  id: number;
+  name: string;
+  title: string | null;
+  email: string | null;
+  phone: string | null;
+  linkedin_url: string | null;
+  notes: string | null;
+  agency_id: number;
+};
+
 interface EmployeeWithOffice extends Employee {
   officeCode?: string;
   officeName?: string;
@@ -83,6 +94,7 @@ export const EmployeesPage: React.FC = () => {
   const [logs, setLogs] = useState<Log[]>([]);
   const [agencies, setAgencies] = useState<Agency[]>([]);
   const [production, setProduction] = useState<Production[]>([]);
+  const [contacts, setContacts] = useState<Contact[]>([]);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<number | null>(null);
 
   const [search, setSearch] = useState("");
@@ -97,12 +109,13 @@ export const EmployeesPage: React.FC = () => {
       setIsLoading(true);
       setError(null);
       try {
-        const [officesResp, employeesResp, logsResp, agenciesResp, productionResp] = await Promise.all([
+        const [officesResp, employeesResp, logsResp, agenciesResp, productionResp, contactsResp] = await Promise.all([
           apiGet<Office[]>("/offices"),
           apiGet<Employee[]>("/employees"),
           apiGet<Log[]>("/logs"),
           apiGet<Agency[]>("/agencies"),
           apiGet<Production[]>("/production"),
+          apiGet<Contact[]>("/contacts"),
         ]);
 
         setOffices(officesResp || []);
@@ -110,6 +123,7 @@ export const EmployeesPage: React.FC = () => {
         setLogs(logsResp || []);
         setAgencies(agenciesResp || []);
         setProduction(productionResp || []);
+        setContacts(contactsResp || []);
       } catch (err) {
         console.error("Failed to load offices/employees", err);
         setError("Failed to load offices/employees");
@@ -362,6 +376,61 @@ export const EmployeesPage: React.FC = () => {
       monthlyData,
     };
   }, [selectedEmployee, employeeAgencies, production]);
+
+  // Calculate contacts needing attention (not contacted in 90+ days or never)
+  const contactsNeedingAttention = useMemo(() => {
+    if (!selectedEmployee || employeeAgencies.length === 0) return [];
+
+    const agencyIds = new Set(employeeAgencies.map((ag) => ag.id));
+    const now = Date.now();
+    const ninetyDaysMs = 90 * 24 * 60 * 60 * 1000;
+
+    // Get all contacts for employee's agencies
+    const employeeContacts = contacts.filter((contact) => agencyIds.has(contact.agency_id));
+
+    // For each contact, find the most recent log for their agency
+    const contactsWithLastContact = employeeContacts.map((contact) => {
+      const agencyLogs = logs.filter((log) => log.agency_id === contact.agency_id);
+      
+      let mostRecentLog: Log | null = null;
+      let mostRecentTime = 0;
+
+      agencyLogs.forEach((log) => {
+        const logTime = new Date(log.datetime).getTime();
+        if (!Number.isNaN(logTime) && logTime > mostRecentTime) {
+          mostRecentTime = logTime;
+          mostRecentLog = log;
+        }
+      });
+
+      const agency = agencies.find((ag) => ag.id === contact.agency_id);
+
+      return {
+        contact,
+        agency,
+        lastContactDate: mostRecentLog ? new Date(mostRecentLog.datetime) : null,
+        daysSinceContact: mostRecentLog ? Math.floor((now - mostRecentTime) / (24 * 60 * 60 * 1000)) : Infinity,
+      };
+    });
+
+    // Filter to only contacts that need attention (>90 days or never)
+    const needsAttention = contactsWithLastContact.filter(
+      (item) => item.daysSinceContact > 90 || item.daysSinceContact === Infinity
+    );
+
+    // Sort by agency name, then contact name
+    return needsAttention.sort((a, b) => {
+      const agencyA = (a.agency?.name || "").toLowerCase();
+      const agencyB = (b.agency?.name || "").toLowerCase();
+      if (agencyA < agencyB) return -1;
+      if (agencyA > agencyB) return 1;
+      const nameA = (a.contact.name || "").toLowerCase();
+      const nameB = (b.contact.name || "").toLowerCase();
+      if (nameA < nameB) return -1;
+      if (nameA > nameB) return 1;
+      return 0;
+    });
+  }, [selectedEmployee, employeeAgencies, contacts, logs, agencies]);
 
   const sidebar = (
     <>
@@ -816,6 +885,95 @@ export const EmployeesPage: React.FC = () => {
                   Based on {employeeProduction.agencyCount} {employeeProduction.agencyCount === 1 ? "agency" : "agencies"} with production data
                 </div>
               </>
+            )}
+          </div>
+
+          {/* Contacts Needing Attention */}
+          <div style={{ ...panelStyle, padding: 16 }}>
+            <h3 style={{ margin: "0 0 12px 0", fontSize: 16, fontWeight: 600, color: "#111827" }}>
+              Contacts Needing Attention
+              <span style={{ marginLeft: 8, fontSize: 13, fontWeight: 400, color: "#6b7280" }}>
+                (Not contacted in 90+ days or never contacted)
+              </span>
+            </h3>
+
+            {contactsNeedingAttention.length === 0 ? (
+              <div style={{ fontSize: 13, color: "#9ca3af", padding: 20, textAlign: "center" }}>
+                All contacts for this employee's agencies have been contacted recently. Great work!
+              </div>
+            ) : (
+              <div style={{ maxHeight: 400, overflowY: "auto" }}>
+                <table style={{ width: "100%", fontSize: 13, borderCollapse: "collapse" }}>
+                  <thead style={{ position: "sticky", top: 0, background: "#f9fafb" }}>
+                    <tr style={{ borderBottom: "2px solid #e5e7eb" }}>
+                      <th style={{ padding: "8px 12px", textAlign: "left", fontWeight: 600, color: "#6b7280" }}>Agency</th>
+                      <th style={{ padding: "8px 12px", textAlign: "left", fontWeight: 600, color: "#6b7280" }}>Contact</th>
+                      <th style={{ padding: "8px 12px", textAlign: "left", fontWeight: 600, color: "#6b7280" }}>Title</th>
+                      <th style={{ padding: "8px 12px", textAlign: "left", fontWeight: 600, color: "#6b7280" }}>Email</th>
+                      <th style={{ padding: "8px 12px", textAlign: "left", fontWeight: 600, color: "#6b7280" }}>Phone</th>
+                      <th style={{ padding: "8px 12px", textAlign: "left", fontWeight: 600, color: "#6b7280" }}>Last Contact</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {contactsNeedingAttention.map((item) => (
+                      <tr 
+                        key={item.contact.id} 
+                        onClick={() => {
+                          if (item.agency) {
+                            window.location.href = `/crm/agencies/${item.agency.id}`;
+                          }
+                        }}
+                        style={{ 
+                          borderBottom: "1px solid #f3f4f6",
+                          cursor: "pointer",
+                          transition: "background-color 0.1s ease",
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = "#f9fafb";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = "transparent";
+                        }}
+                      >
+                        <td style={{ padding: "8px 12px", fontWeight: 500 }}>
+                          {item.agency?.name || "—"}
+                        </td>
+                        <td style={{ padding: "8px 12px" }}>
+                          {item.contact.name}
+                        </td>
+                        <td style={{ padding: "8px 12px", color: "#6b7280" }}>
+                          {item.contact.title || "—"}
+                        </td>
+                        <td style={{ padding: "8px 12px" }}>
+                          {item.contact.email ? (
+                            <a 
+                              href={`mailto:${item.contact.email}`} 
+                              style={{ color: "#2563eb", textDecoration: "none" }}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {item.contact.email}
+                            </a>
+                          ) : "—"}
+                        </td>
+                        <td style={{ padding: "8px 12px" }}>
+                          {item.contact.phone || "—"}
+                        </td>
+                        <td style={{ padding: "8px 12px", whiteSpace: "nowrap" }}>
+                          {item.lastContactDate ? (
+                            <span style={{ color: "#dc2626" }}>
+                              {item.lastContactDate.toLocaleDateString()} ({item.daysSinceContact} days ago)
+                            </span>
+                          ) : (
+                            <span style={{ color: "#dc2626", fontWeight: 600 }}>
+                              Never contacted
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
 
