@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { WorkbenchLayout } from "../components/WorkbenchLayout";
-import { cardStyle, buttonPrimaryStyle, buttonSecondaryStyle, inputStyle, labelStyle, selectStyle } from "../ui/designSystem";
+import { cardStyle, primaryButtonStyle, secondaryButtonStyle, inputStyle, labelStyle, selectStyle } from "../ui/designSystem";
 
 type ExtractedFields = {
   effective_date?: string;
@@ -335,7 +335,7 @@ export const DocumentScrubberPage: React.FC = () => {
             onClick={handleUpload}
             disabled={!selectedFile || isUploading}
             style={{
-              ...buttonPrimaryStyle,
+              ...primaryButtonStyle,
               opacity: !selectedFile || isUploading ? 0.5 : 1,
               cursor: !selectedFile || isUploading ? "not-allowed" : "pointer",
             }}
@@ -435,7 +435,7 @@ export const DocumentScrubberPage: React.FC = () => {
                 <button
                   onClick={() => setShowContactForm(!showContactForm)}
                   style={{
-                    ...buttonSecondaryStyle,
+                    ...secondaryButtonStyle,
                     marginTop: 8,
                   }}
                 >
@@ -450,7 +450,7 @@ export const DocumentScrubberPage: React.FC = () => {
                 {!showContactForm && (
                   <button
                     onClick={() => setShowContactForm(true)}
-                    style={buttonPrimaryStyle}
+                    style={primaryButtonStyle}
                   >
                     + Add New Contact
                   </button>
@@ -509,7 +509,7 @@ export const DocumentScrubberPage: React.FC = () => {
                     onClick={handleCreateContact}
                     disabled={!newContactName}
                     style={{
-                      ...buttonPrimaryStyle,
+                      ...primaryButtonStyle,
                       opacity: !newContactName ? 0.5 : 1,
                       cursor: !newContactName ? "not-allowed" : "pointer",
                     }}
@@ -518,7 +518,7 @@ export const DocumentScrubberPage: React.FC = () => {
                   </button>
                   <button
                     onClick={() => setShowContactForm(false)}
-                    style={buttonSecondaryStyle}
+                    style={secondaryButtonStyle}
                   >
                     Cancel
                   </button>
@@ -555,7 +555,7 @@ export const DocumentScrubberPage: React.FC = () => {
                   onClick={handleSaveSubmission}
                   disabled={isProcessing}
                   style={{
-                    ...buttonPrimaryStyle,
+                    ...primaryButtonStyle,
                     width: "100%",
                     opacity: isProcessing ? 0.5 : 1,
                     cursor: isProcessing ? "not-allowed" : "pointer",
