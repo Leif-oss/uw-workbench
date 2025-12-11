@@ -12,6 +12,7 @@ import CrmUnderwritersPage from "./pages/CrmUnderwritersPage";
 import CrmReportsPage from "./pages/CrmReportsPage";
 import CrmOfficeDetailPage from "./pages/CrmOfficeDetailPage";
 import CrmAgencyDetailPage from "./pages/CrmAgencyDetailPage";
+import ReinsuranceCalculatorPage from "./pages/ReinsuranceCalculatorPage";
 
 function App() {
   return (
@@ -31,6 +32,7 @@ function App() {
         <Route path="/employees" element={<Navigate to="/crm/employees" replace />} />
         <Route path="/offices" element={<OfficesPage />} />
         <Route path="/workbench" element={<WorkbenchPage />} />
+        <Route path="/workbench/reinsurance-calculator" element={<ReinsuranceCalculatorPage />} />
         <Route path="/tasks" element={<TasksPage />} />
         <Route path="/admin" element={<AdminPage />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />

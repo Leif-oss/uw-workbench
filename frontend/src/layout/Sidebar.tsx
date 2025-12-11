@@ -48,6 +48,7 @@ const workbenchItems: NavItem[] = [
   { id: "workbench-employees", label: "Employees", path: "/employees" },
   { id: "workbench-offices", label: "Offices", path: "/offices" },
   { id: "workbench-tasks", label: "Tasks", path: "/tasks" },
+  { id: "workbench-reinsurance", label: "Reinsurance Calc", path: "/workbench/reinsurance-calculator" },
 ];
 
 function Sidebar() {

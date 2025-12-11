@@ -4,7 +4,7 @@ interface WorkbenchLayoutProps {
   title: string;
   subtitle?: string;
   rightNote?: string;
-  sidebar: ReactNode;
+  sidebar?: ReactNode;
   children: ReactNode;
 }
 
@@ -51,20 +51,22 @@ export const WorkbenchLayout: React.FC<WorkbenchLayoutProps> = ({
           minHeight: "calc(100vh - 56px)",
         }}
       >
-        <aside
-          style={{
-            width: 260,
-            background: "#ffffff",
-            borderRadius: 12,
-            padding: 14,
-            boxShadow: "0 1px 3px rgba(15, 23, 42, 0.08)",
-            display: "flex",
-            flexDirection: "column",
-            gap: 12,
-          }}
-        >
-          {sidebar}
-        </aside>
+        {sidebar && (
+          <aside
+            style={{
+              width: 260,
+              background: "#ffffff",
+              borderRadius: 12,
+              padding: 14,
+              boxShadow: "0 1px 3px rgba(15, 23, 42, 0.08)",
+              display: "flex",
+              flexDirection: "column",
+              gap: 12,
+            }}
+          >
+            {sidebar}
+          </aside>
+        )}
 
         <section style={{ flex: 1, display: "flex", flexDirection: "column", gap: 12 }}>
           {children}
