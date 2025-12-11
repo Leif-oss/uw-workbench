@@ -298,13 +298,27 @@ export const EmployeesPage: React.FC = () => {
         priorYearTotal: 0,
         percentChange: 0,
         agencyCount: 0,
+        monthlyData: [],
       };
     }
 
     // Get agency codes for this employee
     const agencyCodes = new Set(employeeAgencies.map((ag) => ag.code.trim().toUpperCase()));
 
-    // Get latest production data for each agency
+    // Group production records by month and aggregate
+    const monthlyMap = new Map<string, { currentYear: number, priorYear: number }>();
+    
+    production.forEach((record) => {
+      const codeNorm = record.agency_code.trim().toUpperCase();
+      if (agencyCodes.has(codeNorm)) {
+        const existing = monthlyMap.get(record.month) || { currentYear: 0, priorYear: 0 };
+        existing.currentYear += record.all_ytd_nb || 0;
+        existing.priorYear += record.pytd_nb || 0;
+        monthlyMap.set(record.month, existing);
+      }
+    });
+
+    // Get latest production data for YTD totals
     const latestByAgency = new Map<string, Production>();
     production.forEach((record) => {
       const codeNorm = record.agency_code.trim().toUpperCase();
@@ -328,11 +342,24 @@ export const EmployeesPage: React.FC = () => {
       ? ((currentYearTotal - priorYearTotal) / priorYearTotal) * 100 
       : 0;
 
+    // Create monthly data for line graph (sorted by month, last 12 months)
+    const sortedMonths = Array.from(monthlyMap.keys()).sort();
+    const monthlyData = sortedMonths.slice(-12).map((month) => {
+      const data = monthlyMap.get(month)!;
+      const monthLabel = new Date(month + '-01').toLocaleDateString('en-US', { month: 'short' });
+      return {
+        month: monthLabel,
+        currentYear: data.currentYear,
+        priorYear: data.priorYear,
+      };
+    });
+
     return {
       currentYearTotal,
       priorYearTotal,
       percentChange,
       agencyCount: latestByAgency.size,
+      monthlyData,
     };
   }, [selectedEmployee, employeeAgencies, production]);
 
@@ -646,60 +673,144 @@ export const EmployeesPage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Bar Graph Comparison */}
-                <div style={{ display: "flex", gap: 40, alignItems: "flex-end", height: 200 }}>
-                  {/* Prior Year Bar */}
-                  <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
-                    <div style={{ flex: 1, display: "flex", alignItems: "flex-end", width: "100%" }}>
-                      <div
-                        style={{
-                          width: "100%",
-                          height: `${employeeProduction.priorYearTotal > 0 ? (employeeProduction.priorYearTotal / Math.max(employeeProduction.currentYearTotal, employeeProduction.priorYearTotal)) * 100 : 0}%`,
-                          minHeight: 40,
-                          background: "linear-gradient(180deg, #6b7280 0%, #9ca3af 100%)",
-                          borderRadius: "8px 8px 0 0",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          color: "#fff",
-                          fontWeight: 700,
-                          fontSize: 14,
-                        }}
-                      >
-                        ${(employeeProduction.priorYearTotal / 1000).toFixed(0)}k
-                      </div>
-                    </div>
-                    <div style={{ fontSize: 14, fontWeight: 600, color: "#6b7280" }}>
-                      Prior Year YTD
-                    </div>
+                {/* Legend */}
+                <div style={{ display: "flex", gap: 24, justifyContent: "center", fontSize: 12, marginBottom: 12 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <div style={{ width: 24, height: 3, background: "#3b82f6", borderRadius: 2 }}></div>
+                    <span style={{ color: "#374151", fontWeight: 600 }}>Current Year</span>
                   </div>
-
-                  {/* Current Year Bar */}
-                  <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
-                    <div style={{ flex: 1, display: "flex", alignItems: "flex-end", width: "100%" }}>
-                      <div
-                        style={{
-                          width: "100%",
-                          height: `${employeeProduction.currentYearTotal > 0 ? (employeeProduction.currentYearTotal / Math.max(employeeProduction.currentYearTotal, employeeProduction.priorYearTotal)) * 100 : 0}%`,
-                          minHeight: 40,
-                          background: "linear-gradient(180deg, #1e40af 0%, #3b82f6 100%)",
-                          borderRadius: "8px 8px 0 0",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          color: "#fff",
-                          fontWeight: 700,
-                          fontSize: 14,
-                        }}
-                      >
-                        ${(employeeProduction.currentYearTotal / 1000).toFixed(0)}k
-                      </div>
-                    </div>
-                    <div style={{ fontSize: 14, fontWeight: 600, color: "#1e40af" }}>
-                      Current Year YTD
-                    </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <div style={{ width: 24, height: 3, background: "#9ca3af", borderRadius: 2 }}></div>
+                    <span style={{ color: "#374151", fontWeight: 600 }}>Prior Year</span>
                   </div>
                 </div>
+
+                {/* Line Graph */}
+                {employeeProduction.monthlyData.length > 0 ? (
+                  <div style={{ position: "relative", height: 240 }}>
+                    <svg 
+                      width="100%" 
+                      height="100%" 
+                      style={{ overflow: "visible" }}
+                      viewBox="0 0 600 200"
+                      preserveAspectRatio="none"
+                    >
+                      {/* Grid lines */}
+                      {[0, 25, 50, 75, 100].map((percent) => (
+                        <line
+                          key={percent}
+                          x1="0"
+                          y1={200 - (percent * 2)}
+                          x2="600"
+                          y2={200 - (percent * 2)}
+                          stroke="#e5e7eb"
+                          strokeWidth="1"
+                          vectorEffect="non-scaling-stroke"
+                        />
+                      ))}
+
+                      {(() => {
+                        const maxValue = Math.max(
+                          ...employeeProduction.monthlyData.flatMap(d => [d.currentYear, d.priorYear])
+                        );
+                        const stepX = 600 / (employeeProduction.monthlyData.length - 1 || 1);
+
+                        // Prior Year line
+                        const priorYearPath = employeeProduction.monthlyData
+                          .map((data, i) => {
+                            const x = i * stepX;
+                            const y = 200 - (maxValue > 0 ? (data.priorYear / maxValue) * 200 : 0);
+                            return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
+                          })
+                          .join(' ');
+
+                        // Current Year line
+                        const currentYearPath = employeeProduction.monthlyData
+                          .map((data, i) => {
+                            const x = i * stepX;
+                            const y = 200 - (maxValue > 0 ? (data.currentYear / maxValue) * 200 : 0);
+                            return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
+                          })
+                          .join(' ');
+
+                        return (
+                          <>
+                            {/* Prior Year Line */}
+                            <path
+                              d={priorYearPath}
+                              fill="none"
+                              stroke="#9ca3af"
+                              strokeWidth="3"
+                              vectorEffect="non-scaling-stroke"
+                            />
+
+                            {/* Current Year Line */}
+                            <path
+                              d={currentYearPath}
+                              fill="none"
+                              stroke="#3b82f6"
+                              strokeWidth="3"
+                              vectorEffect="non-scaling-stroke"
+                            />
+
+                            {/* Data points for Prior Year */}
+                            {employeeProduction.monthlyData.map((data, i) => {
+                              const x = i * stepX;
+                              const y = 200 - (maxValue > 0 ? (data.priorYear / maxValue) * 200 : 0);
+                              return (
+                                <circle
+                                  key={`prior-${i}`}
+                                  cx={x}
+                                  cy={y}
+                                  r="4"
+                                  fill="#9ca3af"
+                                  stroke="#fff"
+                                  strokeWidth="2"
+                                  vectorEffect="non-scaling-stroke"
+                                  style={{ cursor: "pointer" }}
+                                >
+                                  <title>{`${data.month}: $${(data.priorYear / 1000).toFixed(0)}k`}</title>
+                                </circle>
+                              );
+                            })}
+
+                            {/* Data points for Current Year */}
+                            {employeeProduction.monthlyData.map((data, i) => {
+                              const x = i * stepX;
+                              const y = 200 - (maxValue > 0 ? (data.currentYear / maxValue) * 200 : 0);
+                              return (
+                                <circle
+                                  key={`current-${i}`}
+                                  cx={x}
+                                  cy={y}
+                                  r="4"
+                                  fill="#3b82f6"
+                                  stroke="#fff"
+                                  strokeWidth="2"
+                                  vectorEffect="non-scaling-stroke"
+                                  style={{ cursor: "pointer" }}
+                                >
+                                  <title>{`${data.month}: $${(data.currentYear / 1000).toFixed(0)}k`}</title>
+                                </circle>
+                              );
+                            })}
+                          </>
+                        );
+                      })()}
+                    </svg>
+
+                    {/* Month labels */}
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#6b7280", marginTop: 8 }}>
+                      {employeeProduction.monthlyData.map((data, i) => (
+                        <span key={i}>{data.month}</span>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 13, color: "#9ca3af", padding: 40, textAlign: "center" }}>
+                    No monthly production data available
+                  </div>
+                )}
 
                 <div style={{ marginTop: 12, fontSize: 12, color: "#6b7280", textAlign: "center" }}>
                   Based on {employeeProduction.agencyCount} {employeeProduction.agencyCount === 1 ? "agency" : "agencies"} with production data
