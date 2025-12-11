@@ -21,6 +21,10 @@ export function AiAssistantPage() {
   const [ownershipAddress, setOwnershipAddress] = useState("");
   const [tenantName, setTenantName] = useState("");
 
+  // Business Hazard Research Form
+  const [showHazardForm, setShowHazardForm] = useState(false);
+  const [businessQuery, setBusinessQuery] = useState("");
+
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -60,6 +64,8 @@ export function AiAssistantPage() {
       setNamedInsured("");
       setOwnershipAddress("");
       setTenantName("");
+      setShowHazardForm(false);
+      setBusinessQuery("");
     }
   };
 
@@ -384,6 +390,194 @@ Property: **${ownershipAddress}**${tenantInfo ? `  \nTenant: **${tenantName}**` 
       });
   };
 
+  const handleCopyAndOpenChatGPTForHazard = () => {
+    if (!businessQuery.trim()) {
+      alert("Please enter a business class or specific business name");
+      return;
+    }
+
+    const fullPrompt = `You are an Insurance Underwriting Risk Analyst specializing in operational hazards, fire risks, and business classification analysis.
+
+**OBJECTIVE:** Provide comprehensive underwriting intelligence about the specified business to help evaluate fire risk, operational hazards, chemical exposures, and loss potential.
+
+---
+
+**BUSINESS TO RESEARCH:**
+
+${businessQuery}
+
+---
+
+**RESEARCH REQUIREMENTS:**
+
+## 1. Business Classification & Description
+- ISO classification code (if applicable)
+- NAICS code
+- Industry category (manufacturing, retail, service, etc.)
+- Common business names/types in this class
+- Typical operations and scope of work
+- Business model and revenue streams
+
+## 2. Fire & Explosion Hazards 🔥
+**CRITICAL for underwriting**
+- Fire hazard severity rating (Low / Medium / High / Severe)
+- Primary fire ignition sources
+- Combustible materials present
+- Fire load (BTU per sq ft estimates)
+- Explosion hazards (dust, vapor, gas)
+- Historical fire loss data for this class
+- Notable fire incidents (with sources/links)
+
+## 3. Operational Processes & Equipment
+- Step-by-step process description
+- Key equipment and machinery used
+- Heat-producing equipment (ovens, furnaces, dryers, etc.)
+- Open flame operations (welding, cutting, heating)
+- Electrical load and potential hazards
+- Material handling and storage
+- Waste generation and disposal
+
+## 4. Chemical & Hazardous Material Exposures ⚠️
+List all potentially present chemicals/materials:
+- Flammable liquids (flash points, quantities)
+- Combustible liquids (oils, solvents)
+- Gases (propane, natural gas, acetylene, etc.)
+- Solvents and cleaners
+- Paints, coatings, finishes
+- Adhesives and glues
+- Hazardous waste
+- Dust-producing operations
+- Chemical storage requirements (flammable cabinets, etc.)
+
+## 5. Protection & Safety Systems
+Typical for this business class:
+- Sprinkler systems (required? common?)
+- Fire alarm systems
+- Suppression systems (hood systems, special hazard)
+- Ventilation requirements
+- Hazmat storage compliance
+- Fire department access needs
+- ISO PPC considerations
+
+## 6. Common Underwriting Concerns
+- Loss frequency and severity patterns
+- Target underwriting risks (what to avoid)
+- Preferred risk characteristics (what to accept)
+- Red flags and declination triggers
+- Seasonal or cyclical risks
+- Supply chain vulnerabilities
+- Catastrophic loss potential
+
+## 7. Regulatory & Compliance
+- OSHA requirements
+- EPA regulations
+- Fire code requirements (NFPA, IFC)
+- Permit requirements (APCD, hazmat, CUP)
+- Industry-specific regulations
+- Required inspections and certifications
+
+## 8. Occupancy-Specific Loss Prevention
+- Best practices for this business type
+- Critical loss control measures
+- Housekeeping requirements
+- Hot work procedures
+- Maintenance programs
+- Employee training needs
+
+## 9. Exposure to Premises & Surrounding Properties
+- Typical building construction for this occupancy
+- Separation requirements from other occupancies
+- Impact on neighboring properties if fire occurs
+- Smoke, odor, or contamination potential
+- Utility requirements and risks
+
+## 10. Real-World Examples (if applicable)
+If a specific business name was provided:
+- Research the actual business operations
+- Location-specific hazards
+- Online reviews mentioning safety/hazards
+- Photos of operations (if publicly available)
+- News articles about incidents
+- LinkedIn employee descriptions of processes
+
+---
+
+**OUTPUT FORMAT:**
+
+### Summary: Underwriting Risk Profile
+[Start with clear risk rating: Low / Medium / High / Severe]
+
+### Business Overview
+- Classification codes
+- Typical operations
+- Industry position
+
+### Fire & Explosion Risk Analysis 🔥
+[Detailed fire hazard assessment]
+- Ignition sources
+- Fuel sources
+- Fire severity potential
+- Historical loss data
+
+### Chemical & Hazardous Materials ⚠️
+[Complete list with quantities, flash points, storage]
+
+### Operational Processes
+[Step-by-step with equipment and hazards]
+
+### Protection Systems
+[What's typical or required for this class]
+
+### Underwriting Recommendations
+- **Accept / Decline / Conditional**
+- Required protections
+- Coverage limits guidance
+- Pricing considerations
+- Loss control requirements
+- Information needed for proper evaluation
+
+### Red Flags 🚩
+[Specific conditions that would trigger declination]
+
+### Preferred Risk Characteristics ✅
+[What makes this a good underwriting risk]
+
+### Sources & References
+[Clickable links to sources]
+
+---
+
+**CRITICAL RULES:**
+- ✅ Provide specific, actionable underwriting guidance
+- ✅ Cite industry sources (NFPA, OSHA, insurance loss data)
+- ✅ Include flash points and chemical quantities
+- ✅ Identify all ignition and fuel sources
+- ✅ Rate fire hazard severity (Low/Medium/High/Severe)
+- ✅ List declination triggers clearly
+- ❌ NEVER downplay hazards
+- ❌ NEVER fabricate loss statistics
+- 🔍 If specific data unavailable, state: "Typically varies by operation"
+- 🎯 Focus on **fire, explosion, and chemical hazards** most relevant to property underwriting
+
+---
+
+**BEGIN HAZARD ANALYSIS:**
+
+Business/Class: **${businessQuery}**`;
+
+    // Copy to clipboard
+    navigator.clipboard.writeText(fullPrompt)
+      .then(() => {
+        // Open ChatGPT in new window
+        window.open('https://chat.openai.com', '_blank');
+        alert('✅ Business hazard research prompt copied!\n\n1. ChatGPT is opening in a new window\n2. Paste (Ctrl+V) into ChatGPT\n3. Hit Enter to get comprehensive hazard analysis');
+      })
+      .catch((err) => {
+        alert('Failed to copy to clipboard. Please try again.');
+        console.error('Clipboard error:', err);
+      });
+  };
+
   return (
     <div
       style={{
@@ -520,13 +714,12 @@ Property: **${ownershipAddress}**${tenantInfo ? `  \nTenant: **${tenantName}**` 
                 />
                 <SuggestionCard
                   icon="📋"
-                  title="Coverage Recommendations"
-                  example="Determine appropriate coverage and limits"
-                  onClick={() =>
-                    handleSuggestionClick(
-                      "Help me determine appropriate coverage recommendations. Please provide guidance on: 1) Matching coverage to specific risk exposures, 2) Calculating appropriate limits based on property values and loss potential, 3) Coinsurance considerations and recommendations, 4) Deductible options and impact on pricing, 5) Additional coverage options (ordinance/law, business income, etc.)"
-                    )
-                  }
+                  title="Business Hazard Research"
+                  example="Research fire risk, chemicals, processes via ChatGPT"
+                  onClick={() => {
+                    setShowHazardForm(true);
+                    textareaRef.current?.focus();
+                  }}
                 />
               </div>
             </div>
@@ -1055,6 +1248,137 @@ Property: **${ownershipAddress}**${tenantInfo ? `  \nTenant: **${tenantName}**` 
                   fontWeight: 600,
                   cursor:
                     !namedInsured.trim() || !ownershipAddress.trim() ? "not-allowed" : "pointer",
+                  width: "100%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                }}
+              >
+                <span>🚀</span>
+                Copy Prompt & Open ChatGPT
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Business Hazard Research Input */}
+        {showHazardForm && (
+          <div
+            style={{
+              background: "#ffffff",
+              borderRadius: 12,
+              padding: "20px",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+              marginBottom: 16,
+              border: "2px solid #ef4444",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 16,
+              }}
+            >
+              <div>
+                <h3
+                  style={{
+                    margin: 0,
+                    fontSize: 16,
+                    fontWeight: 600,
+                    color: "#111827",
+                  }}
+                >
+                  📋 Business Hazard Research
+                </h3>
+                <p
+                  style={{
+                    margin: "4px 0 0",
+                    fontSize: 12,
+                    color: "#6b7280",
+                  }}
+                >
+                  ChatGPT will research fire risk, chemicals, processes, and hazards
+                </p>
+              </div>
+              <button
+                onClick={() => setShowHazardForm(false)}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  color: "#6b7280",
+                  fontSize: 20,
+                  cursor: "pointer",
+                  padding: "0 4px",
+                }}
+                title="Close form"
+              >
+                ×
+              </button>
+            </div>
+
+            <div style={{ marginBottom: 16 }}>
+              <label
+                style={{
+                  display: "block",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: "#374151",
+                  marginBottom: 8,
+                }}
+              >
+                Business Class or Specific Business Name
+              </label>
+              <input
+                type="text"
+                value={businessQuery}
+                onChange={(e) => setBusinessQuery(e.target.value)}
+                onKeyPress={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    handleCopyAndOpenChatGPTForHazard();
+                  }
+                }}
+                style={{
+                  width: "100%",
+                  padding: "10px 12px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: 6,
+                  fontSize: 14,
+                  fontFamily: "inherit",
+                  boxSizing: "border-box",
+                }}
+                placeholder='e.g., "Auto Body Shop" or "Joe\'s Collision Center, 123 Main St"'
+              />
+              <p
+                style={{
+                  margin: "8px 0 0",
+                  fontSize: 12,
+                  color: "#6b7280",
+                  fontStyle: "italic",
+                }}
+              >
+                💡 Examples: "Woodworking Shop", "Paint Spray Booth Operations", "Chemical Manufacturing", or a specific business name
+              </p>
+            </div>
+
+            <div>
+              <button
+                onClick={handleCopyAndOpenChatGPTForHazard}
+                disabled={!businessQuery.trim()}
+                style={{
+                  background:
+                    !businessQuery.trim() ? "#d1d5db" : "#ef4444",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 8,
+                  padding: "12px 20px",
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor:
+                    !businessQuery.trim() ? "not-allowed" : "pointer",
                   width: "100%",
                   display: "flex",
                   alignItems: "center",
