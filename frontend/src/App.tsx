@@ -25,9 +25,10 @@ function App() {
         <Route path="/crm/agencies" element={<AgenciesPage />} />
         <Route path="/crm/agencies/:agencyId" element={<CrmAgencyDetailPage />} />
         <Route path="/crm/underwriters" element={<CrmUnderwritersPage />} />
+        <Route path="/crm/employees" element={<EmployeesPage />} />
         <Route path="/crm/reports" element={<CrmReportsPage />} />
         <Route path="/agencies" element={<AgenciesPage />} />
-        <Route path="/employees" element={<EmployeesPage />} />
+        <Route path="/employees" element={<Navigate to="/crm/employees" replace />} />
         <Route path="/offices" element={<OfficesPage />} />
         <Route path="/workbench" element={<WorkbenchPage />} />
         <Route path="/tasks" element={<TasksPage />} />

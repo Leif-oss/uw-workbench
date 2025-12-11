@@ -70,7 +70,7 @@ export const OfficesPage: React.FC = () => {
     const params = new URLSearchParams();
     if (employeeId) params.set("employeeId", String(employeeId));
     if (employeeName) params.set("employeeName", employeeName || "");
-    navigate(`/employees?${params.toString()}`);
+    navigate(`/crm/employees?${params.toString()}`);
   };
 
   useEffect(() => {

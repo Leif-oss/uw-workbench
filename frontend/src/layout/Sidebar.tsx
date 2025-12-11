@@ -48,6 +48,7 @@ const crmItems: NavItem[] = [
   { id: "crm-offices", label: "Offices", path: "/crm/offices" },
   { id: "crm-underwriters", label: "Underwriters", path: "/crm/underwriters" },
   { id: "crm-agencies", label: "Agencies", path: "/crm/agencies" },
+  { id: "crm-employees", label: "Employees", path: "/crm/employees" },
   { id: "crm-reports", label: "Marketing Tools", path: "/crm/reports" },
 ];
 
