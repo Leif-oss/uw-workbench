@@ -154,8 +154,7 @@ async def import_production(
         
         # Delete existing production records for this office+month
         delete_stmt = delete(models.Production).where(
-            models.Production.office == office,
-            models.Production.month == month
+            (models.Production.office == office) & (models.Production.month == month)
         )
         db.execute(delete_stmt)
         
