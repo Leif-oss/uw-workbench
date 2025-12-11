@@ -18,6 +18,7 @@ env_path = Path(__file__).parent.parent / '.env'
 load_dotenv(dotenv_path=env_path)
 
 AI_API_KEY = os.getenv("AI_API_KEY", "")
+AI_MODEL = os.getenv("AI_MODEL", "gpt-4o")  # Use same model as AI Assistant
 
 # Optional imports for document processing
 try:
@@ -93,7 +94,7 @@ def extract_text_from_file(filename: str, file_bytes: bytes) -> str:
 
 # ========== AI Extraction with OpenAI ==========
 
-def extract_with_llm(full_text: str, api_key: str, model: str = "gpt-4o-mini") -> Dict[str, Any]:
+def extract_with_llm(full_text: str, api_key: str, model: str = None) -> Dict[str, Any]:
     """Use OpenAI to extract structured fields from document text."""
     if not PROCESSING_AVAILABLE:
         return {}
@@ -101,10 +102,14 @@ def extract_with_llm(full_text: str, api_key: str, model: str = "gpt-4o-mini") -
     if not api_key or not full_text:
         return {}
     
+    # Use model from environment or fallback
+    if model is None:
+        model = AI_MODEL
+    
     client = OpenAI(api_key=api_key)
     
-    # Limit text to avoid token overrun (12k characters ~ 3k tokens)
-    truncated = full_text[:12000]
+    # Limit text to avoid token overrun (increased for better model)
+    truncated = full_text[:20000]
     
     schema_fields = [
         "effective_date", "expiration_date",
@@ -124,26 +129,95 @@ def extract_with_llm(full_text: str, api_key: str, model: str = "gpt-4o-mini") -
     ]
     
     system = (
-        "You are an underwriting intake assistant. "
-        "Extract the requested fields from the provided text. "
-        "Return JSON ONLY with the listed keys. "
-        "Use empty string for unknown fields. Do not add extra keys. "
-        "Guidelines: "
-        "- Producer name is the insurance agency/broker submitting the quote request. "
-        "- Insured name is the business/property owner being insured. "
-        "- Contact info (name, phone, email) is for the person submitting or managing the application. "
-        "- Location address is the property being insured (split street number from street name). "
-        "- Building limit is the TIV (Total Insured Value) for the property. "
-        "- Additional limits: Rents = Business Income, Ordinance = Increased Cost of Construction. "
-        "- Construction types: Frame, Joisted Masonry, Non-Combustible, Masonry Non-Combustible, Modified Fire Resistive, Fire Resistive. "
-        "- Keep all monetary values as strings with commas (e.g., '1,000,000'). "
-        "- For dates, prefer MM/DD/YYYY format."
+        "You are an expert commercial property insurance underwriting assistant with 20+ years of experience reviewing submissions.\n\n"
+        
+        "YOUR TASK: Extract ALL relevant underwriting data from the provided document. Be thorough and aggressive in finding information.\n\n"
+        
+        "CRITICAL FIELDS TO EXTRACT:\n\n"
+        
+        "**DATES & POLICY INFO:**\n"
+        "- effective_date: Policy start date (MM/DD/YYYY)\n"
+        "- expiration_date: Policy end date (MM/DD/YYYY)\n"
+        "- Look for: 'Effective', 'Policy Period', 'Coverage Dates', 'Bind Date', 'Inception Date'\n\n"
+        
+        "**PRODUCER/AGENCY:**\n"
+        "- producer_name: Insurance agency/broker name submitting this (NOT the insured)\n"
+        "- producer_code: Agency code (usually 6 digits like '010233')\n"
+        "- Look for: 'Producer', 'Agent', 'Broker', 'Submitted by', 'Agency', letterheads, email signatures\n\n"
+        
+        "**INSURED/NAMED INSURED:**\n"
+        "- insured_name: The business/entity being insured (the customer)\n"
+        "- additional_insured_names: Any additional insured parties listed\n"
+        "- Look for: 'Named Insured', 'Insured', 'Applicant', 'Customer', 'Business Name', 'Entity Name'\n\n"
+        
+        "**CONTACT INFORMATION:**\n"
+        "- contact_name: Primary contact person (producer contact or insured contact)\n"
+        "- contact_phone: Phone number (format: 10 digits or formatted)\n"
+        "- contact_email: Email address\n"
+        "- mailing_address: Mailing address if different from property location\n"
+        "- Look for: 'Contact', 'Submitted by', email signatures, phone numbers in headers/footers\n\n"
+        
+        "**PROPERTY LOCATION (CRITICAL):**\n"
+        "- location_street_number: Street number ONLY (e.g., '123' or '123-125')\n"
+        "- location_street_name: Street name and type (e.g., 'Main Street' or 'Oak Avenue')\n"
+        "- location_suite: Suite/Unit number if applicable (e.g., 'Suite 200', '#5')\n"
+        "- location_city: City name\n"
+        "- location_state: State (2-letter code preferred: CA, NY, TX, etc.)\n"
+        "- location_zip: ZIP code (5 or 9 digits)\n"
+        "- Look for: 'Property Address', 'Location', 'Risk Address', 'Building Address', 'Schedule of Locations'\n\n"
+        
+        "**FINANCIAL/COVERAGE:**\n"
+        "- building_limit: Total Insured Value (TIV) for the building (e.g., '2,500,000')\n"
+        "- deductible: Policy deductible amount (e.g., '5,000' or '1%')\n"
+        "- additional_limits_rents: Business Income / Rental Income limit\n"
+        "- additional_limits_ordinance: Ordinance or Law / Increased Cost of Construction\n"
+        "- additional_limits_demolition: Demolition Cost coverage\n"
+        "- additional_limits_eqsl: Earthquake Sprinkler Leakage or similar\n"
+        "- Look for: 'Building Limit', 'TIV', 'Insured Value', 'Coverage A', 'Limits', 'Deductible', 'Business Income', 'Ordinance'\n\n"
+        
+        "**ADDITIONAL PARTIES:**\n"
+        "- additional_insured: Additional insured parties (separate from named insured)\n"
+        "- mortgagee: Mortgage holder / lender information\n"
+        "- loss_payee: Loss payee if different from mortgagee\n"
+        "- Look for: 'Additional Insured', 'Mortgagee', 'Loss Payee', 'Lender', 'Bank', 'Lienholder'\n\n"
+        
+        "**BUILDING CHARACTERISTICS:**\n"
+        "- construction_type: Frame, Joisted Masonry, Non-Combustible, Masonry Non-Combustible, Modified Fire Resistive, Fire Resistive\n"
+        "- construction_year: Year built (4 digits: e.g., '1985', '2020')\n"
+        "- square_feet: Building square footage (e.g., '10,000')\n"
+        "- sprinkler_percent: Percentage of building with sprinklers (e.g., '100%', '0%', '50%')\n"
+        "- protection_class: ISO Protection Class / Fire District (e.g., '3', 'Class 4', 'ISO 2')\n"
+        "- Look for: 'Construction', 'Year Built', 'Square Feet', 'SF', 'SqFt', 'Sprinkler', 'Protection Class', 'ISO', 'Fire District'\n\n"
+        
+        "**BUSINESS/OCCUPANCY:**\n"
+        "- line_of_business: Type of business or occupancy (e.g., 'Office Building', 'Retail', 'Restaurant', 'Manufacturing')\n"
+        "- Look for: 'Occupancy', 'Business Type', 'Operations', 'Use', 'Classification', 'Industry'\n\n"
+        
+        "**NOTES:**\n"
+        "- notes: Any important underwriting notes, special conditions, loss history, hazards, or relevant comments\n"
+        "- Look for: 'Notes', 'Comments', 'Loss History', 'Special Conditions', 'Underwriting Notes', 'Remarks'\n\n"
+        
+        "**EXTRACTION RULES:**\n"
+        "1. Be aggressive - extract data even if field names don't match exactly\n"
+        "2. Look in headers, footers, email signatures, and margins\n"
+        "3. For monetary values: use commas, no dollar signs (e.g., '1,000,000' not '$1000000')\n"
+        "4. For dates: use MM/DD/YYYY format (e.g., '01/15/2025')\n"
+        "5. For addresses: split street number from street name carefully\n"
+        "6. If multiple values exist for a field, use the most prominent/recent one\n"
+        "7. Use empty string \"\" ONLY if field truly cannot be found\n"
+        "8. Return ONLY valid JSON with exactly the requested keys\n"
+        "9. DO NOT add extra keys or explanations\n\n"
+        
+        "**OUTPUT FORMAT:**\n"
+        "Return a JSON object with EXACTLY these keys (even if empty):\n"
+        f"{', '.join(schema_fields)}"
     )
     
     user = (
-        f"Extract these fields: {', '.join(schema_fields)}. "
-        "Return a JSON object with exactly these keys. "
-        "Document text:\n" + truncated
+        "Extract all underwriting data from this submission document. "
+        "Be thorough and look carefully for every field. "
+        "Return JSON with exactly the keys specified.\n\n"
+        "DOCUMENT TEXT:\n\n" + truncated
     )
     
     try:
