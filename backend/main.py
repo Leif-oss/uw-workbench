@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from .database import engine, Base, get_db
 from . import models  # noqa: F401
-from .routers import offices, employees, agencies, contacts, logs, tasks, production, admin
+from .routers import offices, employees, agencies, contacts, logs, tasks, production, admin, document_scrubber
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -39,6 +39,7 @@ app.include_router(logs.router)
 app.include_router(tasks.router)
 app.include_router(production.router)
 app.include_router(admin.router)
+app.include_router(document_scrubber.router)
 
 
 @app.get("/")

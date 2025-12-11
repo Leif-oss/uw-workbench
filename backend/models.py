@@ -106,3 +106,73 @@ class Production(Base):
     pytd_wp = Column(Integer, nullable=True)
     pytd_nb = Column(Integer, nullable=True)
     py_total_nb = Column(Integer, nullable=True)
+
+
+class Submission(Base):
+    __tablename__ = "submissions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    created_at = Column(DateTime, nullable=False)
+    updated_at = Column(DateTime, nullable=True)
+    
+    # File information
+    original_filename = Column(String(500), nullable=True)
+    file_type = Column(String(50), nullable=True)
+    extracted_text = Column(Text, nullable=True)
+    
+    # Extracted fields from submission
+    effective_date = Column(String(50), nullable=True)
+    expiration_date = Column(String(50), nullable=True)
+    producer_name = Column(String(255), nullable=True)
+    producer_code = Column(String(50), nullable=True)
+    insured_name = Column(String(255), nullable=True)
+    additional_insured_names = Column(Text, nullable=True)
+    
+    # Linked CRM entities
+    agency_id = Column(Integer, ForeignKey("agencies.id", ondelete="SET NULL"), nullable=True)
+    contact_id = Column(Integer, ForeignKey("contacts.id", ondelete="SET NULL"), nullable=True)
+    
+    # Contact information from submission
+    contact_name = Column(String(255), nullable=True)
+    contact_phone = Column(String(50), nullable=True)
+    contact_email = Column(String(255), nullable=True)
+    
+    # Mailing address
+    mailing_address = Column(Text, nullable=True)
+    
+    # Location address
+    location_street_number = Column(String(50), nullable=True)
+    location_street_name = Column(String(255), nullable=True)
+    location_suite = Column(String(50), nullable=True)
+    location_city = Column(String(100), nullable=True)
+    location_state = Column(String(2), nullable=True)
+    location_zip = Column(String(20), nullable=True)
+    
+    # Limits and coverages
+    building_limit = Column(String(50), nullable=True)
+    deductible = Column(String(50), nullable=True)
+    additional_limits_rents = Column(String(50), nullable=True)
+    additional_limits_ordinance = Column(String(50), nullable=True)
+    additional_limits_demolition = Column(String(50), nullable=True)
+    additional_limits_eqsl = Column(String(50), nullable=True)
+    additional_insured = Column(Text, nullable=True)
+    mortgagee = Column(Text, nullable=True)
+    loss_payee = Column(Text, nullable=True)
+    
+    # Property details
+    construction_type = Column(String(100), nullable=True)
+    construction_year = Column(String(10), nullable=True)
+    square_feet = Column(String(20), nullable=True)
+    sprinkler_percent = Column(String(20), nullable=True)
+    protection_class = Column(String(20), nullable=True)
+    
+    # Additional fields
+    line_of_business = Column(String(100), nullable=True)
+    notes = Column(Text, nullable=True)
+    
+    # Status tracking
+    status = Column(String(50), nullable=True, default="pending")  # pending, reviewed, exported
+    reviewed_by = Column(String(255), nullable=True)
+    
+    agency = relationship("Agency")
+    contact = relationship("Contact")

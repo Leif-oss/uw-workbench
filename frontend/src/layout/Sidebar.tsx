@@ -45,6 +45,7 @@ const crmItems: NavItem[] = [
 
 const workbenchItems: NavItem[] = [
   { id: "workbench-reinsurance", label: "Reinsurance Calc", path: "/workbench/reinsurance-calculator" },
+  { id: "workbench-scrubber", label: "Document Scrubber", path: "/workbench/document-scrubber" },
 ];
 
 function Sidebar() {

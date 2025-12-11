@@ -186,3 +186,110 @@ class ProductionCreate(ProductionBase):
 
 class Production(ProductionBase, OrmModel):
     id: int
+
+
+# Submission schemas
+class SubmissionBase(BaseModel):
+    effective_date: Optional[str] = None
+    expiration_date: Optional[str] = None
+    producer_name: Optional[str] = None
+    producer_code: Optional[str] = None
+    insured_name: Optional[str] = None
+    additional_insured_names: Optional[str] = None
+    
+    agency_id: Optional[int] = None
+    contact_id: Optional[int] = None
+    
+    contact_name: Optional[str] = None
+    contact_phone: Optional[str] = None
+    contact_email: Optional[str] = None
+    
+    mailing_address: Optional[str] = None
+    
+    location_street_number: Optional[str] = None
+    location_street_name: Optional[str] = None
+    location_suite: Optional[str] = None
+    location_city: Optional[str] = None
+    location_state: Optional[str] = None
+    location_zip: Optional[str] = None
+    
+    building_limit: Optional[str] = None
+    deductible: Optional[str] = None
+    additional_limits_rents: Optional[str] = None
+    additional_limits_ordinance: Optional[str] = None
+    additional_limits_demolition: Optional[str] = None
+    additional_limits_eqsl: Optional[str] = None
+    additional_insured: Optional[str] = None
+    mortgagee: Optional[str] = None
+    loss_payee: Optional[str] = None
+    
+    construction_type: Optional[str] = None
+    construction_year: Optional[str] = None
+    square_feet: Optional[str] = None
+    sprinkler_percent: Optional[str] = None
+    protection_class: Optional[str] = None
+    
+    line_of_business: Optional[str] = None
+    notes: Optional[str] = None
+    status: Optional[str] = "pending"
+
+
+class SubmissionCreate(SubmissionBase):
+    original_filename: Optional[str] = None
+    file_type: Optional[str] = None
+    extracted_text: Optional[str] = None
+
+
+class SubmissionUpdate(BaseModel):
+    effective_date: Optional[str] = None
+    expiration_date: Optional[str] = None
+    producer_name: Optional[str] = None
+    producer_code: Optional[str] = None
+    insured_name: Optional[str] = None
+    additional_insured_names: Optional[str] = None
+    
+    agency_id: Optional[int] = None
+    contact_id: Optional[int] = None
+    
+    contact_name: Optional[str] = None
+    contact_phone: Optional[str] = None
+    contact_email: Optional[str] = None
+    
+    mailing_address: Optional[str] = None
+    
+    location_street_number: Optional[str] = None
+    location_street_name: Optional[str] = None
+    location_suite: Optional[str] = None
+    location_city: Optional[str] = None
+    location_state: Optional[str] = None
+    location_zip: Optional[str] = None
+    
+    building_limit: Optional[str] = None
+    deductible: Optional[str] = None
+    additional_limits_rents: Optional[str] = None
+    additional_limits_ordinance: Optional[str] = None
+    additional_limits_demolition: Optional[str] = None
+    additional_limits_eqsl: Optional[str] = None
+    additional_insured: Optional[str] = None
+    mortgagee: Optional[str] = None
+    loss_payee: Optional[str] = None
+    
+    construction_type: Optional[str] = None
+    construction_year: Optional[str] = None
+    square_feet: Optional[str] = None
+    sprinkler_percent: Optional[str] = None
+    protection_class: Optional[str] = None
+    
+    line_of_business: Optional[str] = None
+    notes: Optional[str] = None
+    status: Optional[str] = None
+
+
+class Submission(SubmissionBase, OrmModel):
+    id: int
+    created_at: str
+    updated_at: Optional[str] = None
+    original_filename: Optional[str] = None
+    file_type: Optional[str] = None
+    extracted_text: Optional[str] = None
+    reviewed_by: Optional[str] = None
