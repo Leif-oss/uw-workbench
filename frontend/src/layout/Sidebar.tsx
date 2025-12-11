@@ -44,20 +44,13 @@ const crmItems: NavItem[] = [
 ];
 
 const workbenchItems: NavItem[] = [
-  { id: "workbench-agencies", label: "Agencies", path: "/agencies" },
-  { id: "workbench-employees", label: "Employees", path: "/employees" },
-  { id: "workbench-offices", label: "Offices", path: "/offices" },
-  { id: "workbench-tasks", label: "Tasks", path: "/tasks" },
   { id: "workbench-reinsurance", label: "Reinsurance Calc", path: "/workbench/reinsurance-calculator" },
 ];
 
 function Sidebar() {
   const location = useLocation();
   const isCrm = location.pathname.startsWith("/crm");
-  const isWorkbench = location.pathname.startsWith("/workbench") || 
-                      location.pathname === "/agencies" ||
-                      location.pathname === "/offices" ||
-                      location.pathname === "/tasks";
+  const isWorkbench = location.pathname.startsWith("/workbench");
   const isAdmin = location.pathname.startsWith("/admin");
   
   let itemsToRender: NavItem[] = [];
