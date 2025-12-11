@@ -104,50 +104,80 @@ export const EmployeesPage: React.FC = () => {
     load();
   }, []);
 
-  const employeesWithOffice: EmployeeWithOffice[] = useMemo(() => {
+  interface GroupedEmployee {
+    name: string;
+    employeeIds: number[];
+    officeIds: number[];
+    officeCodes: string[];
+    officeNames: string[];
+  }
+
+  const groupedEmployees: GroupedEmployee[] = useMemo(() => {
     const officeById = new Map<number, Office>();
     offices.forEach((o) => {
       officeById.set(o.id, o);
     });
 
-    return employees.map((e) => {
-      const office = e.office_id ? officeById.get(e.office_id) : undefined;
-      return {
-        ...e,
-        officeCode: office?.code,
-        officeName: office?.name,
-      };
+    const groups = new Map<string, GroupedEmployee>();
+    
+    employees.forEach((emp) => {
+      if (!groups.has(emp.name)) {
+        groups.set(emp.name, {
+          name: emp.name,
+          employeeIds: [],
+          officeIds: [],
+          officeCodes: [],
+          officeNames: [],
+        });
+      }
+      const group = groups.get(emp.name)!;
+      group.employeeIds.push(emp.id);
+      group.officeIds.push(emp.office_id);
+      
+      const office = officeById.get(emp.office_id);
+      if (office) {
+        group.officeCodes.push(office.code);
+        group.officeNames.push(office.name);
+      }
     });
+    
+    return Array.from(groups.values()).sort((a, b) => a.name.localeCompare(b.name));
   }, [employees, offices]);
 
   const filteredEmployees = useMemo(() => {
-    let result = employeesWithOffice;
+    let result = groupedEmployees;
 
     if (search.trim()) {
       const needle = search.trim().toLowerCase();
-      result = result.filter((e) => {
-        const haystack = `${e.name} ${e.officeName || ""} ${e.officeCode || ""}`.toLowerCase();
+      result = result.filter((group) => {
+        const haystack = `${group.name} ${group.officeNames.join(" ")} ${group.officeCodes.join(" ")}`.toLowerCase();
         return haystack.includes(needle);
       });
     }
 
     if (officeFilter !== "all") {
-      result = result.filter((e) => String(e.office_id || "") === officeFilter);
+      result = result.filter((group) => 
+        group.officeIds.some((id) => String(id) === officeFilter)
+      );
     }
 
     // statusFilter is a placeholder for now; everyone is treated as "active"
     // Later, when is_active is in the schema, we can filter accordingly.
 
     return result;
-  }, [employeesWithOffice, search, officeFilter, statusFilter]);
+  }, [groupedEmployees, search, officeFilter, statusFilter]);
 
-  const totalEmployees = employees.length;
+  const totalEmployees = groupedEmployees.length;
   const totalInView = filteredEmployees.length;
-  const officesInView = new Set(filteredEmployees.map((e) => e.officeCode || "")).size;
+  const officesInView = new Set(filteredEmployees.flatMap((g) => g.officeCodes)).size;
 
-  const selectedEmployee = filteredEmployees.find((e) => e.id === selectedEmployeeId)
-    || filteredEmployees[0]
-    || null;
+  const selectedEmployee = useMemo(() => {
+    if (!selectedEmployeeId) {
+      return filteredEmployees[0] || null;
+    }
+    // Find the group that contains the selected employee ID
+    return filteredEmployees.find((group) => group.employeeIds.includes(selectedEmployeeId)) || filteredEmployees[0] || null;
+  }, [selectedEmployeeId, filteredEmployees]);
 
   useEffect(() => {
     const idParam = searchParams.get("employeeId");
@@ -177,14 +207,14 @@ export const EmployeesPage: React.FC = () => {
 
   useEffect(() => {
     if (!selectedEmployee && filteredEmployees.length > 0) {
-      setSelectedEmployeeId(filteredEmployees[0].id);
+      setSelectedEmployeeId(filteredEmployees[0].employeeIds[0]);
     }
   }, [filteredEmployees, selectedEmployee]);
 
   const employeeLogs = useMemo(() => {
     if (!selectedEmployee) return [];
 
-    const name = (selectedEmployee.name || "").trim().toLowerCase();
+    const name = selectedEmployee.name.trim().toLowerCase();
     if (!name) return [];
 
     return logs
@@ -215,13 +245,13 @@ export const EmployeesPage: React.FC = () => {
   const employeeAgencies = useMemo(() => {
     if (!selectedEmployee) return [];
 
-    const empId = selectedEmployee.id;
-    const empName = (selectedEmployee.name || "").trim().toLowerCase();
+    const empIds = selectedEmployee.employeeIds;
+    const empName = selectedEmployee.name.trim().toLowerCase();
 
     return agencies
       .filter((ag) => {
         const matchesId =
-          typeof ag.primary_underwriter_id === "number" && ag.primary_underwriter_id === empId;
+          typeof ag.primary_underwriter_id === "number" && empIds.includes(ag.primary_underwriter_id);
 
         const matchesName =
           (ag.primary_underwriter || "").trim().toLowerCase() === empName;
@@ -396,12 +426,16 @@ export const EmployeesPage: React.FC = () => {
             </tr>
           </thead>
           <tbody>
-            {filteredEmployees.map((e) => {
-              const isSelected = selectedEmployee && e.id === selectedEmployee.id;
+            {filteredEmployees.map((group) => {
+              const isSelected = selectedEmployee && selectedEmployee.name === group.name;
+              const officeDisplay = group.officeCodes.length > 0 
+                ? group.officeCodes.join(", ") 
+                : "Unassigned";
+              
               return (
                 <tr
-                  key={e.id}
-                  onClick={() => setSelectedEmployeeId(e.id)}
+                  key={group.name}
+                  onClick={() => setSelectedEmployeeId(group.employeeIds[0])}
                   style={{
                     cursor: "pointer",
                     transition: "background-color 0.1s ease",
@@ -409,10 +443,10 @@ export const EmployeesPage: React.FC = () => {
                   }}
                 >
                   <td style={tableCellStyle}>
-                    {e.name}
+                    {group.name}
                   </td>
                   <td style={tableCellStyle}>
-                    {e.officeCode ? `${e.officeCode} - ${e.officeName}` : "Unassigned"}
+                    {officeDisplay}
                   </td>
                 </tr>
               );

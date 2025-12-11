@@ -38,10 +38,10 @@ export const AdminPage: React.FC = () => {
   // Employee form state
   const [showAddEmployee, setShowAddEmployee] = useState(false);
   const [newEmployeeName, setNewEmployeeName] = useState("");
-  const [newEmployeeOfficeId, setNewEmployeeOfficeId] = useState<number | null>(null);
+  const [newEmployeeOfficeIds, setNewEmployeeOfficeIds] = useState<number[]>([]);
   
-  const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
-  const [editEmployeeOfficeId, setEditEmployeeOfficeId] = useState<number | null>(null);
+  const [editingEmployeeName, setEditingEmployeeName] = useState<string | null>(null);
+  const [editEmployeeOfficeIds, setEditEmployeeOfficeIds] = useState<number[]>([]);
 
   // Production import state
   const [importOffice, setImportOffice] = useState<string>("");
@@ -89,15 +89,18 @@ export const AdminPage: React.FC = () => {
 
   const handleAddEmployee = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newEmployeeName || !newEmployeeOfficeId) {
-      setMessage({ type: "error", text: "Name and office are required" });
+    if (!newEmployeeName || newEmployeeOfficeIds.length === 0) {
+      setMessage({ type: "error", text: "Name and at least one office are required" });
       return;
     }
     try {
-      await apiPost("/employees", { name: newEmployeeName, office_id: newEmployeeOfficeId });
+      // Create one employee record per office
+      for (const officeId of newEmployeeOfficeIds) {
+        await apiPost("/employees", { name: newEmployeeName, office_id: officeId });
+      }
       setMessage({ type: "success", text: "Employee added successfully" });
       setNewEmployeeName("");
-      setNewEmployeeOfficeId(null);
+      setNewEmployeeOfficeIds([]);
       setShowAddEmployee(false);
       fetchData();
     } catch (err: any) {
@@ -107,25 +110,48 @@ export const AdminPage: React.FC = () => {
 
   const handleUpdateEmployee = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingEmployee || !editEmployeeOfficeId) return;
+    if (!editingEmployeeName || editEmployeeOfficeIds.length === 0) {
+      setMessage({ type: "error", text: "Name and at least one office are required" });
+      return;
+    }
+    
     try {
-      await apiPut(`/employees/${editingEmployee.id}`, {
-        name: editingEmployee.name,
-        office_id: editEmployeeOfficeId,
-      });
+      // Find all employee records for this name
+      const existingEmployees = employees.filter((emp) => emp.name === editingEmployeeName);
+      const existingIds = existingEmployees.map((e) => e.id);
+      const existingOfficeIds = existingEmployees.map((e) => e.office_id);
+      
+      // Delete offices that were removed
+      const officesToRemove = existingOfficeIds.filter((id) => !editEmployeeOfficeIds.includes(id));
+      for (const officeId of officesToRemove) {
+        const empToDelete = existingEmployees.find((e) => e.office_id === officeId);
+        if (empToDelete) {
+          await apiDelete(`/admin/employees/${empToDelete.id}`);
+        }
+      }
+      
+      // Add new offices
+      const officesToAdd = editEmployeeOfficeIds.filter((id) => !existingOfficeIds.includes(id));
+      for (const officeId of officesToAdd) {
+        await apiPost("/employees", { name: editingEmployeeName, office_id: officeId });
+      }
+      
       setMessage({ type: "success", text: "Employee updated successfully" });
-      setEditingEmployee(null);
-      setEditEmployeeOfficeId(null);
+      setEditingEmployeeName(null);
+      setEditEmployeeOfficeIds([]);
       fetchData();
     } catch (err: any) {
       setMessage({ type: "error", text: err.message || "Failed to update employee" });
     }
   };
 
-  const handleDeleteEmployee = async (employeeId: number) => {
-    if (!confirm("Are you sure you want to delete this employee?")) return;
+  const handleDeleteEmployee = async (employeeGroup: GroupedEmployee) => {
+    if (!confirm(`Are you sure you want to delete ${employeeGroup.name} from all offices?`)) return;
     try {
-      await apiDelete(`/admin/employees/${employeeId}`);
+      // Delete all employee records for this person
+      for (const employeeId of employeeGroup.employeeIds) {
+        await apiDelete(`/admin/employees/${employeeId}`);
+      }
       setMessage({ type: "success", text: "Employee deleted successfully" });
       fetchData();
     } catch (err: any) {
@@ -192,6 +218,32 @@ export const AdminPage: React.FC = () => {
   const filteredAgenciesForDelete = deleteOfficeFilter
     ? agencies.filter((a) => a.office_id === deleteOfficeFilter)
     : agencies;
+
+  // Group employees by name with all their offices
+  interface GroupedEmployee {
+    name: string;
+    employeeIds: number[];
+    officeIds: number[];
+  }
+
+  const groupedEmployees: GroupedEmployee[] = React.useMemo(() => {
+    const groups = new Map<string, GroupedEmployee>();
+    
+    employees.forEach((emp) => {
+      if (!groups.has(emp.name)) {
+        groups.set(emp.name, {
+          name: emp.name,
+          employeeIds: [],
+          officeIds: [],
+        });
+      }
+      const group = groups.get(emp.name)!;
+      group.employeeIds.push(emp.id);
+      group.officeIds.push(emp.office_id);
+    });
+    
+    return Array.from(groups.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [employees]);
 
   const sidebar = (
     <>
@@ -300,7 +352,7 @@ export const AdminPage: React.FC = () => {
         <div style={{ ...cardStyle, padding: 20 }}>
           <h3 style={{ margin: "0 0 16px 0", fontSize: 16, fontWeight: 600 }}>Employee Management</h3>
 
-          {!showAddEmployee && !editingEmployee && (
+          {!showAddEmployee && !editingEmployeeName && (
             <button
               onClick={() => setShowAddEmployee(true)}
               style={{
@@ -332,19 +384,26 @@ export const AdminPage: React.FC = () => {
                 />
               </div>
               <div style={{ marginBottom: 12 }}>
-                <label style={{ display: "block", fontSize: 12, marginBottom: 4, fontWeight: 500 }}>Office</label>
-                <select
-                  value={newEmployeeOfficeId || ""}
-                  onChange={(e) => setNewEmployeeOfficeId(Number(e.target.value))}
-                  style={{ width: "100%", padding: "6px 8px", borderRadius: 4, border: "1px solid #d1d5db", fontSize: 13 }}
-                >
-                  <option value="">Select office...</option>
+                <label style={{ display: "block", fontSize: 12, marginBottom: 4, fontWeight: 500 }}>Offices (select all that apply)</label>
+                <div style={{ border: "1px solid #d1d5db", borderRadius: 4, padding: 8, maxHeight: 200, overflowY: "auto", background: "#fff" }}>
                   {offices.map((office) => (
-                    <option key={office.id} value={office.id}>
+                    <label key={office.id} style={{ display: "block", marginBottom: 6, fontSize: 13, cursor: "pointer" }}>
+                      <input
+                        type="checkbox"
+                        checked={newEmployeeOfficeIds.includes(office.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setNewEmployeeOfficeIds([...newEmployeeOfficeIds, office.id]);
+                          } else {
+                            setNewEmployeeOfficeIds(newEmployeeOfficeIds.filter((id) => id !== office.id));
+                          }
+                        }}
+                        style={{ marginRight: 8 }}
+                      />
                       {office.code} - {office.name}
-                    </option>
+                    </label>
                   ))}
-                </select>
+                </div>
               </div>
               <div style={{ display: "flex", gap: 8 }}>
                 <button
@@ -367,7 +426,7 @@ export const AdminPage: React.FC = () => {
                   onClick={() => {
                     setShowAddEmployee(false);
                     setNewEmployeeName("");
-                    setNewEmployeeOfficeId(null);
+                    setNewEmployeeOfficeIds([]);
                   }}
                   style={{
                     padding: "6px 12px",
@@ -386,32 +445,30 @@ export const AdminPage: React.FC = () => {
             </form>
           )}
 
-          {editingEmployee && (
+          {editingEmployeeName && (
             <form onSubmit={handleUpdateEmployee} style={{ marginBottom: 20, padding: 16, background: "#f9fafb", borderRadius: 8 }}>
-              <h4 style={{ margin: "0 0 12px 0", fontSize: 14, fontWeight: 600 }}>Edit Employee</h4>
+              <h4 style={{ margin: "0 0 12px 0", fontSize: 14, fontWeight: 600 }}>Edit Employee: {editingEmployeeName}</h4>
               <div style={{ marginBottom: 12 }}>
-                <label style={{ display: "block", fontSize: 12, marginBottom: 4, fontWeight: 500 }}>Name</label>
-                <input
-                  type="text"
-                  value={editingEmployee.name}
-                  onChange={(e) => setEditingEmployee({ ...editingEmployee, name: e.target.value })}
-                  style={{ width: "100%", padding: "6px 8px", borderRadius: 4, border: "1px solid #d1d5db", fontSize: 13 }}
-                />
-              </div>
-              <div style={{ marginBottom: 12 }}>
-                <label style={{ display: "block", fontSize: 12, marginBottom: 4, fontWeight: 500 }}>Office</label>
-                <select
-                  value={editEmployeeOfficeId || ""}
-                  onChange={(e) => setEditEmployeeOfficeId(Number(e.target.value))}
-                  style={{ width: "100%", padding: "6px 8px", borderRadius: 4, border: "1px solid #d1d5db", fontSize: 13 }}
-                >
-                  <option value="">Select office...</option>
+                <label style={{ display: "block", fontSize: 12, marginBottom: 4, fontWeight: 500 }}>Offices (select all that apply)</label>
+                <div style={{ border: "1px solid #d1d5db", borderRadius: 4, padding: 8, maxHeight: 200, overflowY: "auto", background: "#fff" }}>
                   {offices.map((office) => (
-                    <option key={office.id} value={office.id}>
+                    <label key={office.id} style={{ display: "block", marginBottom: 6, fontSize: 13, cursor: "pointer" }}>
+                      <input
+                        type="checkbox"
+                        checked={editEmployeeOfficeIds.includes(office.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setEditEmployeeOfficeIds([...editEmployeeOfficeIds, office.id]);
+                          } else {
+                            setEditEmployeeOfficeIds(editEmployeeOfficeIds.filter((id) => id !== office.id));
+                          }
+                        }}
+                        style={{ marginRight: 8 }}
+                      />
                       {office.code} - {office.name}
-                    </option>
+                    </label>
                   ))}
-                </select>
+                </div>
               </div>
               <div style={{ display: "flex", gap: 8 }}>
                 <button
@@ -432,8 +489,8 @@ export const AdminPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => {
-                    setEditingEmployee(null);
-                    setEditEmployeeOfficeId(null);
+                    setEditingEmployeeName(null);
+                    setEditEmployeeOfficeIds([]);
                   }}
                   style={{
                     padding: "6px 12px",
@@ -457,22 +514,29 @@ export const AdminPage: React.FC = () => {
               <thead>
                 <tr style={{ borderBottom: "2px solid #e5e7eb" }}>
                   <th style={{ textAlign: "left", padding: "8px 12px", fontWeight: 600, color: "#6b7280" }}>Name</th>
-                  <th style={{ textAlign: "left", padding: "8px 12px", fontWeight: 600, color: "#6b7280" }}>Office</th>
+                  <th style={{ textAlign: "left", padding: "8px 12px", fontWeight: 600, color: "#6b7280" }}>Offices</th>
                   <th style={{ textAlign: "right", padding: "8px 12px", fontWeight: 600, color: "#6b7280" }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {employees.map((emp) => {
-                  const office = offices.find((o) => o.id === emp.office_id);
+                {groupedEmployees.map((group) => {
+                  const officeNames = group.officeIds
+                    .map((officeId) => {
+                      const office = offices.find((o) => o.id === officeId);
+                      return office ? office.code : null;
+                    })
+                    .filter(Boolean)
+                    .join(", ");
+                  
                   return (
-                    <tr key={emp.id} style={{ borderBottom: "1px solid #e5e7eb" }}>
-                      <td style={{ padding: "8px 12px" }}>{emp.name}</td>
-                      <td style={{ padding: "8px 12px" }}>{office ? `${office.code} - ${office.name}` : "—"}</td>
+                    <tr key={group.name} style={{ borderBottom: "1px solid #e5e7eb" }}>
+                      <td style={{ padding: "8px 12px" }}>{group.name}</td>
+                      <td style={{ padding: "8px 12px" }}>{officeNames || "—"}</td>
                       <td style={{ padding: "8px 12px", textAlign: "right" }}>
                         <button
                           onClick={() => {
-                            setEditingEmployee(emp);
-                            setEditEmployeeOfficeId(emp.office_id);
+                            setEditingEmployeeName(group.name);
+                            setEditEmployeeOfficeIds([...group.officeIds]);
                             setShowAddEmployee(false);
                           }}
                           style={{
@@ -490,7 +554,7 @@ export const AdminPage: React.FC = () => {
                           Edit
                         </button>
                         <button
-                          onClick={() => handleDeleteEmployee(emp.id)}
+                          onClick={() => handleDeleteEmployee(group)}
                           style={{
                             padding: "4px 10px",
                             background: "#fee",
