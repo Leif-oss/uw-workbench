@@ -64,6 +64,78 @@ export function AiAssistantPage() {
     sendCustomMessage(message, { propertyAddress });
   };
 
+  const handleCopyAndOpenChatGPT = () => {
+    if (!propertyAddress.trim()) {
+      alert("Please enter a property address");
+      return;
+    }
+
+    const fullPrompt = `You are an Elite Insurance Underwriting Reconnaissance Analyst. Your job is to produce exceptionally detailed, accurate, location-specific underwriting intelligence with strong reasoning and verifiable detail. You NEVER hallucinate.
+
+Use only credible public signals, reasonable inference, and visible data. If unknown, state "cannot be confirmed."
+
+Always output:
+
+Google Maps (overhead): https://www.google.com/maps/place/[ADDRESS_ENCODED]
+
+## 1. Basic Property Snapshot
+- Exact address
+- Property classification
+- Estimated year built
+- Building & lot SF (reasonable inference allowed)
+- Visible site & structure details
+
+## 2. Construction, Protection & Access
+(Concrete, tilt-up, roof, hydrants, fire station distance, access paths, fire apparatus turning, etc.)
+
+## 3. Occupancy & Tenants
+Identify real tenants whenever possible (e.g., Fix Auto Poway). Include historic occupants if clearly identifiable.
+
+## 4. Surrounding Area & Exposure Analysis
+(Adjacent occupancies, wildfire interface, drainage, roadway risks, neighboring hazards.)
+
+## 5. Permit & Update History
+Include:
+- CUP permits
+- CEQA findings
+- APCD permits (spray booth)
+- Pressure vessel registrations
+If none: state so.
+
+## 6. Listings & Market Information
+Active / off-market / archived listings with SF, lot, updates, and links.
+
+## 7. Underwriting Positives & Red Flags
+Specific to THIS property only.
+
+## 8. Data Gaps & Uncertainties
+List ONLY what cannot be verified.
+
+Style:
+- Clean underwriting tone
+- Bullet points
+- Conservative inference
+- No generic boilerplate
+
+---
+
+Generate a full underwriting reconnaissance report for:
+
+${propertyAddress}`;
+
+    // Copy to clipboard
+    navigator.clipboard.writeText(fullPrompt)
+      .then(() => {
+        // Open ChatGPT in new window
+        window.open('https://chat.openai.com', '_blank');
+        alert('✅ Prompt copied to clipboard!\n\n1. ChatGPT is opening in a new window\n2. Paste (Ctrl+V) into ChatGPT\n3. Hit Enter to get your report');
+      })
+      .catch((err) => {
+        alert('Failed to copy to clipboard. Please try again.');
+        console.error('Clipboard error:', err);
+      });
+  };
+
   return (
     <div
       style={{
@@ -371,34 +443,61 @@ export function AiAssistantPage() {
               </div>
             </div>
 
-            <button
-              onClick={handlePropertyAnalysis}
-              disabled={isLoading || !propertyAddress.trim()}
-              style={{
-                background:
-                  !propertyAddress.trim() || isLoading ? "#d1d5db" : "#10b981",
-                color: "#fff",
-                border: "none",
-                borderRadius: 8,
-                padding: "12px 20px",
-                fontSize: 14,
-                fontWeight: 600,
-                cursor:
-                  !propertyAddress.trim() || isLoading
-                    ? "not-allowed"
-                    : "pointer",
-                width: "100%",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 8,
-              }}
-            >
-              <span>🔍</span>
-              {isLoading
-                ? "Researching property..."
-                : "Generate Property Analysis Report"}
-            </button>
+            <div style={{ display: "flex", gap: 12 }}>
+              <button
+                onClick={handlePropertyAnalysis}
+                disabled={isLoading || !propertyAddress.trim()}
+                style={{
+                  background:
+                    !propertyAddress.trim() || isLoading ? "#d1d5db" : "#10b981",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 8,
+                  padding: "12px 20px",
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor:
+                    !propertyAddress.trim() || isLoading
+                      ? "not-allowed"
+                      : "pointer",
+                  flex: 1,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                }}
+              >
+                <span>🔍</span>
+                {isLoading
+                  ? "Researching property..."
+                  : "Analyze Here (Limited)"}
+              </button>
+
+              <button
+                onClick={handleCopyAndOpenChatGPT}
+                disabled={!propertyAddress.trim()}
+                style={{
+                  background:
+                    !propertyAddress.trim() ? "#d1d5db" : "#2563eb",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 8,
+                  padding: "12px 20px",
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor:
+                    !propertyAddress.trim() ? "not-allowed" : "pointer",
+                  flex: 1,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                }}
+              >
+                <span>🚀</span>
+                Copy & Open ChatGPT
+              </button>
+            </div>
           </div>
         )}
 
