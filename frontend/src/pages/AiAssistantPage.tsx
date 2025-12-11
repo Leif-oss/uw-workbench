@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { useAiAssistant, AiMessage } from "../hooks/useAiAssistant";
 
 export function AiAssistantPage() {
-  const { messages, input, setInput, sendMessage, reset, isLoading, error } =
+  const { messages, input, setInput, sendMessage, sendCustomMessage, reset, isLoading, error } =
     useAiAssistant();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -59,10 +59,9 @@ export function AiAssistantPage() {
       return;
     }
 
-    const prompt = `Generate an underwriting reconnaissance report for:\n\n${propertyAddress}`;
-
-    setInput(prompt);
-    setTimeout(() => handleSend(), 100);
+    // Send directly without showing prompt in input
+    const message = `Generate an underwriting reconnaissance report for:\n\n${propertyAddress}`;
+    sendCustomMessage(message, { propertyAddress });
   };
 
   return (

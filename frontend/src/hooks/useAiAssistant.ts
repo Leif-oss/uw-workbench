@@ -79,6 +79,66 @@ export function useAiAssistant() {
     [input, messages]
   );
 
+  const sendCustomMessage = useCallback(
+    async (messageContent: string, options?: SendMessageOptions) => {
+      if (!messageContent.trim()) return;
+
+      const userMessage: AiMessage = {
+        role: "user",
+        content: messageContent,
+      };
+
+      // Add user message immediately
+      setMessages((prev) => [...prev, userMessage]);
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/ai/chat`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            message: messageContent,
+            context: options?.context || null,
+            history: messages,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+
+        if (data.error) {
+          throw new Error(data.error);
+        }
+
+        // Add assistant response
+        const assistantMessage: AiMessage = {
+          role: "assistant",
+          content: data.answer,
+        };
+
+        setMessages((prev) => [...prev, assistantMessage]);
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error
+            ? err.message
+            : "AI service is currently unavailable. Please try again later.";
+        setError(errorMessage);
+
+        // Remove the user message since we failed
+        setMessages((prev) => prev.slice(0, -1));
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [messages]
+  );
+
   const reset = useCallback(() => {
     setMessages([]);
     setInput("");
@@ -91,6 +151,7 @@ export function useAiAssistant() {
     input,
     setInput,
     sendMessage,
+    sendCustomMessage,
     reset,
     isLoading,
     error,
