@@ -14,6 +14,7 @@ import CrmOfficeDetailPage from "./pages/CrmOfficeDetailPage";
 import CrmAgencyDetailPage from "./pages/CrmAgencyDetailPage";
 import ReinsuranceCalculatorPage from "./pages/ReinsuranceCalculatorPage";
 import DocumentScrubberPage from "./pages/DocumentScrubberPage";
+import AiAssistantPage from "./pages/AiAssistantPage";
 
 function App() {
   return (
@@ -35,6 +36,7 @@ function App() {
         <Route path="/workbench" element={<WorkbenchPage />} />
         <Route path="/workbench/reinsurance-calculator" element={<ReinsuranceCalculatorPage />} />
         <Route path="/workbench/document-scrubber" element={<DocumentScrubberPage />} />
+        <Route path="/workbench/ai-assistant" element={<AiAssistantPage />} />
         <Route path="/tasks" element={<TasksPage />} />
         <Route path="/admin" element={<AdminPage />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
