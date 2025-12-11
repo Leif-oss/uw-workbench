@@ -867,7 +867,7 @@ const AgenciesPage: React.FC = () => {
 
     if (employeeName) params.set("employeeName", employeeName || "");
 
-    navigate(`/employees?${params.toString()}`);
+    navigate(`/crm/employees?${params.toString()}`);
 
   };
 
