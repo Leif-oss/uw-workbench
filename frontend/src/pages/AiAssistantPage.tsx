@@ -15,6 +15,12 @@ export function AiAssistantPage() {
   const [showAgencyForm, setShowAgencyForm] = useState(false);
   const [agencySearchQuery, setAgencySearchQuery] = useState("");
 
+  // Ownership Research Form
+  const [showOwnershipForm, setShowOwnershipForm] = useState(false);
+  const [namedInsured, setNamedInsured] = useState("");
+  const [ownershipAddress, setOwnershipAddress] = useState("");
+  const [tenantName, setTenantName] = useState("");
+
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -50,6 +56,10 @@ export function AiAssistantPage() {
       setPropertyAddress("");
       setShowAgencyForm(false);
       setAgencySearchQuery("");
+      setShowOwnershipForm(false);
+      setNamedInsured("");
+      setOwnershipAddress("");
+      setTenantName("");
     }
   };
 
@@ -228,6 +238,152 @@ Begin research for: ${agencySearchQuery}`;
       });
   };
 
+  const handleCopyAndOpenChatGPTForOwnership = () => {
+    if (!namedInsured.trim() || !ownershipAddress.trim()) {
+      alert("Please enter both Named Insured and Property Address");
+      return;
+    }
+
+    const tenantInfo = tenantName.trim() 
+      ? `\n**Known Tenant:** ${tenantName}` 
+      : "";
+
+    const fullPrompt = `You are an Insurance Underwriting Risk Analyst specializing in identifying common ownership and related party relationships.
+
+**OBJECTIVE:** Investigate whether there is common ownership or control between the property owner and tenant(s) at the specified location. This is critical for underwriting as common ownership can indicate increased risk exposure.
+
+---
+
+**PROPERTY INFORMATION:**
+
+**Named Insured (Owner):** ${namedInsured}
+**Property Address:** ${ownershipAddress}${tenantInfo}
+
+---
+
+**RESEARCH REQUIREMENTS:**
+
+## 1. Property Ownership Verification
+- Confirm the legal owner of the property at the address
+- Identify ownership structure (individual, LLC, corporation, trust, etc.)
+- Find any DBA names or alternate business names
+- Property deed information (if publicly available)
+- Ownership history (if relevant)
+
+## 2. Tenant Identification & Research
+${tenantName.trim() 
+  ? `- Research the provided tenant: **${tenantName}**
+- Find additional tenants at this address (if multi-tenant)` 
+  : `- Identify all current tenants at this property
+- Business names, operating names, DBAs`}
+- Tenant business type/industry
+- Tenant ownership structure
+- Tenant principal officers/owners
+
+## 3. Common Ownership Analysis ⚠️ **CRITICAL**
+Investigate connections between owner and tenant(s):
+- **Same individuals** as owners/officers/members?
+- **Family relationships** (spouses, relatives) between owners?
+- **Shared addresses** (business or residential)?
+- **Cross-ownership** (owner owns tenant business or vice versa)?
+- **Shared management** or board members?
+- **Historical connections** (previous businesses, partnerships)?
+- **Corporate structure relationships** (parent/subsidiary, sister companies)?
+
+## 4. Business Entity Research
+For BOTH owner and tenant(s):
+- Corporate/LLC registration details
+- Registered agent
+- Principal officers and their roles
+- Formation date
+- Registered business address
+- DBA filings
+
+## 5. Public Records & Data Sources
+Search across:
+- Property records / tax assessor
+- Secretary of State business registrations
+- LinkedIn profiles (officers, owners, employees)
+- Court records (partnerships, lawsuits)
+- News articles, press releases
+- Social media (business pages)
+- BBB listings, Yelp, Google Business
+
+## 6. Red Flags & Risk Indicators
+Explicitly identify:
+- ✅ **CONFIRMED common ownership** (with evidence)
+- ⚠️ **LIKELY related parties** (circumstantial evidence)
+- ⚠️ **POSSIBLE connections** (requires further investigation)
+- ❌ **NO connection found** (appears independent)
+- 🔍 **UNCERTAIN** (insufficient public data)
+
+---
+
+**OUTPUT FORMAT:**
+
+### Summary: Common Ownership Assessment
+[Start with clear YES/NO/LIKELY/UNCERTAIN]
+
+### Property Owner Details
+- Legal entity name
+- Structure type
+- Key individuals
+- Business address
+- Sources: [links]
+
+### Tenant Details
+- Business name(s)
+- Structure type  
+- Key individuals
+- Sources: [links]
+
+### Common Ownership Findings
+[Detailed analysis of any connections found]
+- List specific connections (names, roles, relationships)
+- Provide evidence and sources
+- Rate confidence level (Confirmed / Likely / Possible / None)
+
+### Supporting Evidence
+- Links to sources
+- Specific data points (names matching, addresses matching, etc.)
+- Timeline of relationships (if applicable)
+
+### Underwriting Recommendation
+- Risk level: [Low / Medium / High]
+- Rationale
+- Suggested follow-up actions (if any)
+
+---
+
+**CRITICAL RULES:**
+- ✅ Cite sources with clickable URLs
+- ✅ Distinguish between confirmed facts and reasonable inferences
+- ✅ Mark speculation clearly: "(unverified)" or "(possible)"
+- ❌ NEVER fabricate ownership information
+- ❌ NEVER guess at relationships without evidence
+- 🔍 If data is limited, state: "Insufficient public records to confirm"
+- 🎯 Focus on **verifiable connections** between owner and tenant
+
+---
+
+**BEGIN OWNERSHIP INVESTIGATION:**
+
+Named Insured: **${namedInsured}**  
+Property: **${ownershipAddress}**${tenantInfo ? `  \nTenant: **${tenantName}**` : ""}`;
+
+    // Copy to clipboard
+    navigator.clipboard.writeText(fullPrompt)
+      .then(() => {
+        // Open ChatGPT in new window
+        window.open('https://chat.openai.com', '_blank');
+        alert('✅ Ownership research prompt copied!\n\n1. ChatGPT is opening in a new window\n2. Paste (Ctrl+V) into ChatGPT\n3. Hit Enter to get ownership analysis');
+      })
+      .catch((err) => {
+        alert('Failed to copy to clipboard. Please try again.');
+        console.error('Clipboard error:', err);
+      });
+  };
+
   return (
     <div
       style={{
@@ -355,13 +511,12 @@ Begin research for: ${agencySearchQuery}`;
                 />
                 <SuggestionCard
                   icon="⚠️"
-                  title="Risk Assessment"
-                  example="Identify and evaluate key risk factors"
-                  onClick={() =>
-                    handleSuggestionClick(
-                      "I need help conducting a thorough risk assessment. Please guide me through: 1) Identifying primary and secondary risk factors, 2) Evaluating hazard severity and probability, 3) Mitigation strategies and controls, 4) Risk appetite and tolerance levels, 5) Decision-making framework for acceptance or declination."
-                    )
-                  }
+                  title="Ownership Research"
+                  example="Check for common ownership via ChatGPT"
+                  onClick={() => {
+                    setShowOwnershipForm(true);
+                    textareaRef.current?.focus();
+                  }}
                 />
                 <SuggestionCard
                   icon="📋"
@@ -709,6 +864,197 @@ Begin research for: ${agencySearchQuery}`;
                   fontWeight: 600,
                   cursor:
                     !agencySearchQuery.trim() ? "not-allowed" : "pointer",
+                  width: "100%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                }}
+              >
+                <span>🚀</span>
+                Copy Prompt & Open ChatGPT
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Ownership Research Input */}
+        {showOwnershipForm && (
+          <div
+            style={{
+              background: "#ffffff",
+              borderRadius: 12,
+              padding: "20px",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+              marginBottom: 16,
+              border: "2px solid #f59e0b",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 16,
+              }}
+            >
+              <div>
+                <h3
+                  style={{
+                    margin: 0,
+                    fontSize: 16,
+                    fontWeight: 600,
+                    color: "#111827",
+                  }}
+                >
+                  ⚠️ Ownership Research
+                </h3>
+                <p
+                  style={{
+                    margin: "4px 0 0",
+                    fontSize: 12,
+                    color: "#6b7280",
+                  }}
+                >
+                  ChatGPT will investigate common ownership between owner and tenant(s)
+                </p>
+              </div>
+              <button
+                onClick={() => setShowOwnershipForm(false)}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  color: "#6b7280",
+                  fontSize: 20,
+                  cursor: "pointer",
+                  padding: "0 4px",
+                }}
+                title="Close form"
+              >
+                ×
+              </button>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: "#374151",
+                    marginBottom: 8,
+                  }}
+                >
+                  Named Insured (Property Owner) *
+                </label>
+                <input
+                  type="text"
+                  value={namedInsured}
+                  onChange={(e) => setNamedInsured(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "10px 12px",
+                    border: "1px solid #d1d5db",
+                    borderRadius: 6,
+                    fontSize: 14,
+                    fontFamily: "inherit",
+                    boxSizing: "border-box",
+                  }}
+                  placeholder="e.g., 'John Smith' or 'ABC Properties LLC'"
+                />
+              </div>
+
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: "#374151",
+                    marginBottom: 8,
+                  }}
+                >
+                  Property Address *
+                </label>
+                <input
+                  type="text"
+                  value={ownershipAddress}
+                  onChange={(e) => setOwnershipAddress(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "10px 12px",
+                    border: "1px solid #d1d5db",
+                    borderRadius: 6,
+                    fontSize: 14,
+                    fontFamily: "inherit",
+                    boxSizing: "border-box",
+                  }}
+                  placeholder="e.g., '123 Main St, Anytown, CA 12345'"
+                />
+              </div>
+
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: "#374151",
+                    marginBottom: 8,
+                  }}
+                >
+                  Tenant Name (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={tenantName}
+                  onChange={(e) => setTenantName(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      handleCopyAndOpenChatGPTForOwnership();
+                    }
+                  }}
+                  style={{
+                    width: "100%",
+                    padding: "10px 12px",
+                    border: "1px solid #d1d5db",
+                    borderRadius: 6,
+                    fontSize: 14,
+                    fontFamily: "inherit",
+                    boxSizing: "border-box",
+                  }}
+                  placeholder="e.g., 'XYZ Manufacturing Inc.' (leave blank to find all tenants)"
+                />
+                <p
+                  style={{
+                    margin: "8px 0 0",
+                    fontSize: 12,
+                    color: "#6b7280",
+                    fontStyle: "italic",
+                  }}
+                >
+                  💡 Tip: If you know a tenant name, include it. Otherwise, ChatGPT will search for all tenants.
+                </p>
+              </div>
+            </div>
+
+            <div style={{ marginTop: 16 }}>
+              <button
+                onClick={handleCopyAndOpenChatGPTForOwnership}
+                disabled={!namedInsured.trim() || !ownershipAddress.trim()}
+                style={{
+                  background:
+                    !namedInsured.trim() || !ownershipAddress.trim() ? "#d1d5db" : "#f59e0b",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 8,
+                  padding: "12px 20px",
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor:
+                    !namedInsured.trim() || !ownershipAddress.trim() ? "not-allowed" : "pointer",
                   width: "100%",
                   display: "flex",
                   alignItems: "center",
