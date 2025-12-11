@@ -1350,7 +1350,7 @@ Business/Class: **${businessQuery}**`;
                   fontFamily: "inherit",
                   boxSizing: "border-box",
                 }}
-                placeholder='e.g., "Auto Body Shop" or "Joe\'s Collision Center, 123 Main St"'
+                placeholder='e.g., "Auto Body Shop" or "Joes Collision Center, 123 Main St"'
               />
               <p
                 style={{
