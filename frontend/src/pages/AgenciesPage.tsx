@@ -562,40 +562,49 @@ const AgenciesPage: React.FC = () => {
         currentYearTotal: 0,
         priorYearTotal: 0,
         percentChange: 0,
+        monthlyData: [],
       };
     }
 
-    // Find latest production record for this agency
+    // Get all production records for this agency
     const agencyCode = selectedAgency.code.trim().toUpperCase();
-    let latestRecord: Production | null = null;
-    
-    production.forEach((record) => {
+    const agencyRecords = production.filter((record) => {
       const codeNorm = record.agency_code.trim().toUpperCase();
-      if (codeNorm === agencyCode) {
-        if (!latestRecord || record.month > latestRecord.month) {
-          latestRecord = record;
-        }
-      }
-    });
+      return codeNorm === agencyCode;
+    }).sort((a, b) => a.month.localeCompare(b.month));
 
-    if (!latestRecord) {
+    if (agencyRecords.length === 0) {
       return {
         currentYearTotal: 0,
         priorYearTotal: 0,
         percentChange: 0,
+        monthlyData: [],
       };
     }
 
+    // Get the latest record for YTD totals
+    const latestRecord = agencyRecords[agencyRecords.length - 1];
     const currentYearTotal = latestRecord.all_ytd_nb || 0;
     const priorYearTotal = latestRecord.pytd_nb || 0;
     const percentChange = priorYearTotal > 0 
       ? ((currentYearTotal - priorYearTotal) / priorYearTotal) * 100 
       : 0;
 
+    // Create monthly data for line graph (last 12 months or available data)
+    const monthlyData = agencyRecords.slice(-12).map((record) => {
+      const monthLabel = new Date(record.month + '-01').toLocaleDateString('en-US', { month: 'short' });
+      return {
+        month: monthLabel,
+        currentYear: record.all_ytd_nb || 0,
+        priorYear: record.pytd_nb || 0,
+      };
+    });
+
     return {
       currentYearTotal,
       priorYearTotal,
       percentChange,
+      monthlyData,
     };
   }, [selectedAgency, production]);
 
@@ -1493,11 +1502,11 @@ const AgenciesPage: React.FC = () => {
 
                     style={{
 
-                      display: "flex",
+                      display: "grid",
 
-                      justifyContent: "space-between",
+                      gridTemplateColumns: "1fr 1.5fr",
 
-                      alignItems: "baseline",
+                      gap: 16,
 
                       marginBottom: 4,
 
@@ -1505,6 +1514,7 @@ const AgenciesPage: React.FC = () => {
 
                   >
 
+                    {/* Left Column: Agency Info */}
                     <div>
 
                       <div
@@ -1586,80 +1596,156 @@ const AgenciesPage: React.FC = () => {
                         </button>
                       </div>
 
-                      {/* Production Graph */}
-                      <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid #e5e7eb" }}>
-                        <h3 style={{ fontSize: 13, fontWeight: 600, color: "#111827", marginBottom: 12 }}>
-                          New Business Production
-                        </h3>
+                    </div>
 
-                        {agencyProduction.currentYearTotal === 0 && agencyProduction.priorYearTotal === 0 ? (
-                          <div style={{ fontSize: 12, color: "#9ca3af", padding: 16, textAlign: "center", background: "#f9fafb", borderRadius: 8 }}>
-                            No production data available for this agency.
+                    {/* Right Column: Production Line Graph */}
+                    <div style={{ border: "1px solid #e5e7eb", borderRadius: 8, padding: 16, background: "#ffffff" }}>
+                      <h3 style={{ fontSize: 13, fontWeight: 600, color: "#111827", marginBottom: 12 }}>
+                        New Business Production Trend
+                      </h3>
+
+                      {agencyProduction.monthlyData.length === 0 ? (
+                        <div style={{ fontSize: 12, color: "#9ca3af", padding: 40, textAlign: "center", background: "#f9fafb", borderRadius: 8 }}>
+                          No production data available
+                        </div>
+                      ) : (
+                        <>
+                          {/* Legend */}
+                          <div style={{ display: "flex", gap: 16, justifyContent: "center", fontSize: 11, marginBottom: 12 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                              <div style={{ width: 20, height: 2, background: "#3b82f6" }}></div>
+                              <span style={{ color: "#374151", fontWeight: 600 }}>Current Year</span>
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                              <div style={{ width: 20, height: 2, background: "#9ca3af" }}></div>
+                              <span style={{ color: "#374151", fontWeight: 600 }}>Prior Year</span>
+                            </div>
                           </div>
-                        ) : (
-                          <>
-                            {/* Bar Graph Comparison */}
-                            <div style={{ display: "flex", gap: 20, alignItems: "flex-end", height: 150 }}>
-                              {/* Prior Year Bar */}
-                              <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-                                <div style={{ flex: 1, display: "flex", alignItems: "flex-end", width: "100%" }}>
-                                  <div
-                                    style={{
-                                      width: "100%",
-                                      height: `${agencyProduction.priorYearTotal > 0 ? (agencyProduction.priorYearTotal / Math.max(agencyProduction.currentYearTotal, agencyProduction.priorYearTotal)) * 100 : 0}%`,
-                                      minHeight: 30,
-                                      background: "linear-gradient(180deg, #6b7280 0%, #9ca3af 100%)",
-                                      borderRadius: "8px 8px 0 0",
-                                      display: "flex",
-                                      alignItems: "center",
-                                      justifyContent: "center",
-                                      color: "#fff",
-                                      fontWeight: 700,
-                                      fontSize: 12,
-                                    }}
-                                  >
-                                    ${(agencyProduction.priorYearTotal / 1000).toFixed(0)}k
-                                  </div>
-                                </div>
-                                <div style={{ fontSize: 11, fontWeight: 600, color: "#6b7280" }}>
-                                  Prior Year
-                                </div>
-                              </div>
 
-                              {/* Current Year Bar */}
-                              <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-                                <div style={{ flex: 1, display: "flex", alignItems: "flex-end", width: "100%" }}>
-                                  <div
-                                    style={{
-                                      width: "100%",
-                                      height: `${agencyProduction.currentYearTotal > 0 ? (agencyProduction.currentYearTotal / Math.max(agencyProduction.currentYearTotal, agencyProduction.priorYearTotal)) * 100 : 0}%`,
-                                      minHeight: 30,
-                                      background: "linear-gradient(180deg, #1e40af 0%, #3b82f6 100%)",
-                                      borderRadius: "8px 8px 0 0",
-                                      display: "flex",
-                                      alignItems: "center",
-                                      justifyContent: "center",
-                                      color: "#fff",
-                                      fontWeight: 700,
-                                      fontSize: 12,
-                                    }}
-                                  >
-                                    ${(agencyProduction.currentYearTotal / 1000).toFixed(0)}k
-                                  </div>
-                                </div>
-                                <div style={{ fontSize: 11, fontWeight: 600, color: "#1e40af" }}>
-                                  Current Year
-                                </div>
-                              </div>
-                            </div>
+                          {/* Line Graph */}
+                          <div style={{ position: "relative", height: 180 }}>
+                            <svg 
+                              width="100%" 
+                              height="100%" 
+                              style={{ overflow: "visible" }}
+                              viewBox="0 0 400 160"
+                              preserveAspectRatio="none"
+                            >
+                              {/* Grid lines */}
+                              {[0, 25, 50, 75, 100].map((percent) => (
+                                <line
+                                  key={percent}
+                                  x1="0"
+                                  y1={160 - (percent * 1.6)}
+                                  x2="400"
+                                  y2={160 - (percent * 1.6)}
+                                  stroke="#e5e7eb"
+                                  strokeWidth="1"
+                                  vectorEffect="non-scaling-stroke"
+                                />
+                              ))}
 
-                            <div style={{ marginTop: 10, fontSize: 11, color: "#6b7280", textAlign: "center" }}>
-                              YTD New Business Premium {agencyProduction.percentChange >= 0 ? "+" : ""}{agencyProduction.percentChange.toFixed(1)}% vs. Prior Year
-                            </div>
-                          </>
-                        )}
-                      </div>
+                              {(() => {
+                                const maxValue = Math.max(
+                                  ...agencyProduction.monthlyData.flatMap(d => [d.currentYear, d.priorYear])
+                                );
+                                const stepX = 400 / (agencyProduction.monthlyData.length - 1 || 1);
 
+                                // Prior Year line
+                                const priorYearPath = agencyProduction.monthlyData
+                                  .map((data, i) => {
+                                    const x = i * stepX;
+                                    const y = 160 - (maxValue > 0 ? (data.priorYear / maxValue) * 160 : 0);
+                                    return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
+                                  })
+                                  .join(' ');
+
+                                // Current Year line
+                                const currentYearPath = agencyProduction.monthlyData
+                                  .map((data, i) => {
+                                    const x = i * stepX;
+                                    const y = 160 - (maxValue > 0 ? (data.currentYear / maxValue) * 160 : 0);
+                                    return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
+                                  })
+                                  .join(' ');
+
+                                return (
+                                  <>
+                                    {/* Prior Year Line */}
+                                    <path
+                                      d={priorYearPath}
+                                      fill="none"
+                                      stroke="#9ca3af"
+                                      strokeWidth="2"
+                                      vectorEffect="non-scaling-stroke"
+                                    />
+
+                                    {/* Current Year Line */}
+                                    <path
+                                      d={currentYearPath}
+                                      fill="none"
+                                      stroke="#3b82f6"
+                                      strokeWidth="2"
+                                      vectorEffect="non-scaling-stroke"
+                                    />
+
+                                    {/* Data points for Prior Year */}
+                                    {agencyProduction.monthlyData.map((data, i) => {
+                                      const x = i * stepX;
+                                      const y = 160 - (maxValue > 0 ? (data.priorYear / maxValue) * 160 : 0);
+                                      return (
+                                        <circle
+                                          key={`prior-${i}`}
+                                          cx={x}
+                                          cy={y}
+                                          r="3"
+                                          fill="#9ca3af"
+                                          stroke="#fff"
+                                          strokeWidth="2"
+                                          vectorEffect="non-scaling-stroke"
+                                        >
+                                          <title>{`${data.month}: $${(data.priorYear / 1000).toFixed(0)}k`}</title>
+                                        </circle>
+                                      );
+                                    })}
+
+                                    {/* Data points for Current Year */}
+                                    {agencyProduction.monthlyData.map((data, i) => {
+                                      const x = i * stepX;
+                                      const y = 160 - (maxValue > 0 ? (data.currentYear / maxValue) * 160 : 0);
+                                      return (
+                                        <circle
+                                          key={`current-${i}`}
+                                          cx={x}
+                                          cy={y}
+                                          r="3"
+                                          fill="#3b82f6"
+                                          stroke="#fff"
+                                          strokeWidth="2"
+                                          vectorEffect="non-scaling-stroke"
+                                        >
+                                          <title>{`${data.month}: $${(data.currentYear / 1000).toFixed(0)}k`}</title>
+                                        </circle>
+                                      );
+                                    })}
+                                  </>
+                                );
+                              })()}
+                            </svg>
+                          </div>
+
+                          {/* Month labels */}
+                          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#6b7280", marginTop: 8 }}>
+                            {agencyProduction.monthlyData.map((data, i) => (
+                              <span key={i}>{data.month}</span>
+                            ))}
+                          </div>
+
+                          <div style={{ marginTop: 10, fontSize: 11, color: "#6b7280", textAlign: "center" }}>
+                            YTD: ${(agencyProduction.currentYearTotal / 1000).toFixed(0)}k ({agencyProduction.percentChange >= 0 ? "+" : ""}{agencyProduction.percentChange.toFixed(1)}% vs. Prior Year)
+                          </div>
+                        </>
+                      )}
                     </div>
 
                   </div>
