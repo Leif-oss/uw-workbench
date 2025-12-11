@@ -9,6 +9,10 @@ venv/
 ENV/
 .venv
 
+# Private folder - CONTAINS ALL SENSITIVE DATA
+private/
+private/**/*
+
 # Environment variables - NEVER COMMIT THESE!
 .env
 *.env

@@ -13,8 +13,8 @@ from pathlib import Path
 from .. import models, schemas, crud
 from ..database import get_db
 
-# Load environment variables
-env_path = Path(__file__).parent.parent / '.env'
+# Load environment variables from private folder (outside Git tracking)
+env_path = Path(__file__).parent.parent.parent / 'private' / '.env'
 load_dotenv(dotenv_path=env_path)
 
 AI_API_KEY = os.getenv("AI_API_KEY", "")

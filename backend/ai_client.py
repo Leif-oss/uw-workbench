@@ -4,7 +4,8 @@ from openai import OpenAI
 from dotenv import load_dotenv
 from pathlib import Path
 
-env_path = Path(__file__).parent / '.env'
+# Load .env from private folder (outside Git tracking)
+env_path = Path(__file__).parent.parent / 'private' / '.env'
 load_dotenv(dotenv_path=env_path)
 
 AI_API_KEY = os.getenv("AI_API_KEY", "")

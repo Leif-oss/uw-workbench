@@ -2,8 +2,8 @@ import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 
-# Prefer env var; default to SQLite for easy local startup.
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./workbench.db")
+# Prefer env var; default to SQLite in private folder (not tracked by Git)
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./private/databases/workbench.db")
 
 connect_args = {}
 if DATABASE_URL.startswith("sqlite"):
