@@ -7,6 +7,19 @@ export function AiAssistantPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  // Property Details Form
+  const [showPropertyForm, setShowPropertyForm] = useState(false);
+  const [propertyDetails, setPropertyDetails] = useState({
+    address: "",
+    buildingLimit: "",
+    constructionType: "",
+    constructionYear: "",
+    squareFeet: "",
+    occupancy: "",
+    protectionClass: "",
+    sprinkler: "",
+  });
+
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -18,7 +31,14 @@ export function AiAssistantPage() {
   }, []);
 
   const handleSend = () => {
-    sendMessage({ context: { page: "ai-assistant-standalone" } });
+    const context: any = { page: "ai-assistant-standalone" };
+    
+    // Include property details if form is visible
+    if (showPropertyForm) {
+      context.propertyDetails = propertyDetails;
+    }
+    
+    sendMessage({ context });
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -31,7 +51,45 @@ export function AiAssistantPage() {
   const handleReset = () => {
     if (confirm("Clear this conversation?")) {
       reset();
+      setShowPropertyForm(false);
+      setPropertyDetails({
+        address: "",
+        buildingLimit: "",
+        constructionType: "",
+        constructionYear: "",
+        squareFeet: "",
+        occupancy: "",
+        protectionClass: "",
+        sprinkler: "",
+      });
     }
+  };
+
+  const handleSuggestionClick = (prompt: string, showForm: boolean = false) => {
+    setInput(prompt);
+    setShowPropertyForm(showForm);
+    textareaRef.current?.focus();
+  };
+
+  const handlePropertyAnalysis = () => {
+    const propertyContext = Object.entries(propertyDetails)
+      .filter(([_, value]) => value)
+      .map(([key, value]) => `${key}: ${value}`)
+      .join(", ");
+
+    const prompt = `Please provide a comprehensive property underwriting analysis for the following property:
+
+${propertyContext}
+
+Please include:
+1. Risk Assessment (construction, occupancy, protection)
+2. Key Underwriting Considerations
+3. Recommended Coverage and Limits
+4. Potential Concerns or Red Flags
+5. Pricing Guidance`;
+
+    setInput(prompt);
+    handleSend();
   };
 
   return (
@@ -142,24 +200,43 @@ export function AiAssistantPage() {
                 }}
               >
                 <SuggestionCard
-                  icon="🏢"
-                  title="Agency Questions"
-                  example="What should I consider when underwriting for a large agency?"
-                />
-                <SuggestionCard
                   icon="🏗️"
-                  title="Property Analysis"
-                  example="What are key risk factors for commercial properties?"
+                  title="Property Analysis Report"
+                  example="Get a comprehensive underwriting analysis"
+                  onClick={() => {
+                    setShowPropertyForm(true);
+                    textareaRef.current?.focus();
+                  }}
                 />
                 <SuggestionCard
-                  icon="📊"
-                  title="Market Insights"
-                  example="What trends should I watch in the current market?"
+                  icon="🏢"
+                  title="Agency Risk Profile"
+                  example="Evaluate agency performance and risk"
+                  onClick={() =>
+                    handleSuggestionClick(
+                      "Please provide a comprehensive agency risk profile analysis. Include: 1) Agency stability and reputation factors, 2) Historical loss ratios and claims patterns, 3) Geographic concentration risks, 4) Line of business mix evaluation, 5) Recommended underwriting guidelines and limits."
+                    )
+                  }
+                />
+                <SuggestionCard
+                  icon="⚠️"
+                  title="Risk Assessment"
+                  example="Identify and evaluate key risk factors"
+                  onClick={() =>
+                    handleSuggestionClick(
+                      "I need help conducting a thorough risk assessment. Please guide me through: 1) Identifying primary and secondary risk factors, 2) Evaluating hazard severity and probability, 3) Mitigation strategies and controls, 4) Risk appetite and tolerance levels, 5) Decision-making framework for acceptance or declination."
+                    )
+                  }
                 />
                 <SuggestionCard
                   icon="📋"
-                  title="Process Help"
-                  example="Walk me through the underwriting workflow"
+                  title="Coverage Recommendations"
+                  example="Determine appropriate coverage and limits"
+                  onClick={() =>
+                    handleSuggestionClick(
+                      "Help me determine appropriate coverage recommendations. Please provide guidance on: 1) Matching coverage to specific risk exposures, 2) Calculating appropriate limits based on property values and loss potential, 3) Coinsurance considerations and recommendations, 4) Deductible options and impact on pricing, 5) Additional coverage options (ordinance/law, business income, etc.)"
+                    )
+                  }
                 />
               </div>
             </div>
@@ -215,6 +292,337 @@ export function AiAssistantPage() {
             }}
           >
             ⚠️ {error}
+          </div>
+        )}
+
+        {/* Property Details Form */}
+        {showPropertyForm && (
+          <div
+            style={{
+              background: "#ffffff",
+              borderRadius: 12,
+              padding: "20px",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+              marginBottom: 16,
+              border: "2px solid #3b82f6",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 16,
+              }}
+            >
+              <h3
+                style={{
+                  margin: 0,
+                  fontSize: 16,
+                  fontWeight: 600,
+                  color: "#111827",
+                }}
+              >
+                🏗️ Property Details
+              </h3>
+              <button
+                onClick={() => setShowPropertyForm(false)}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  color: "#6b7280",
+                  fontSize: 20,
+                  cursor: "pointer",
+                  padding: "0 4px",
+                }}
+                title="Close form"
+              >
+                ×
+              </button>
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+                gap: 12,
+              }}
+            >
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: "#374151",
+                    marginBottom: 4,
+                  }}
+                >
+                  Address
+                </label>
+                <input
+                  type="text"
+                  value={propertyDetails.address}
+                  onChange={(e) =>
+                    setPropertyDetails({
+                      ...propertyDetails,
+                      address: e.target.value,
+                    })
+                  }
+                  placeholder="123 Main St, City, CA"
+                  style={{
+                    width: "100%",
+                    border: "1px solid #d1d5db",
+                    borderRadius: 6,
+                    padding: "8px 10px",
+                    fontSize: 13,
+                  }}
+                />
+              </div>
+
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: "#374151",
+                    marginBottom: 4,
+                  }}
+                >
+                  Building Limit ($)
+                </label>
+                <input
+                  type="text"
+                  value={propertyDetails.buildingLimit}
+                  onChange={(e) =>
+                    setPropertyDetails({
+                      ...propertyDetails,
+                      buildingLimit: e.target.value,
+                    })
+                  }
+                  placeholder="1,000,000"
+                  style={{
+                    width: "100%",
+                    border: "1px solid #d1d5db",
+                    borderRadius: 6,
+                    padding: "8px 10px",
+                    fontSize: 13,
+                  }}
+                />
+              </div>
+
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: "#374151",
+                    marginBottom: 4,
+                  }}
+                >
+                  Construction Type
+                </label>
+                <input
+                  type="text"
+                  value={propertyDetails.constructionType}
+                  onChange={(e) =>
+                    setPropertyDetails({
+                      ...propertyDetails,
+                      constructionType: e.target.value,
+                    })
+                  }
+                  placeholder="Frame, Masonry, Steel"
+                  style={{
+                    width: "100%",
+                    border: "1px solid #d1d5db",
+                    borderRadius: 6,
+                    padding: "8px 10px",
+                    fontSize: 13,
+                  }}
+                />
+              </div>
+
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: "#374151",
+                    marginBottom: 4,
+                  }}
+                >
+                  Year Built
+                </label>
+                <input
+                  type="text"
+                  value={propertyDetails.constructionYear}
+                  onChange={(e) =>
+                    setPropertyDetails({
+                      ...propertyDetails,
+                      constructionYear: e.target.value,
+                    })
+                  }
+                  placeholder="2010"
+                  style={{
+                    width: "100%",
+                    border: "1px solid #d1d5db",
+                    borderRadius: 6,
+                    padding: "8px 10px",
+                    fontSize: 13,
+                  }}
+                />
+              </div>
+
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: "#374151",
+                    marginBottom: 4,
+                  }}
+                >
+                  Square Feet
+                </label>
+                <input
+                  type="text"
+                  value={propertyDetails.squareFeet}
+                  onChange={(e) =>
+                    setPropertyDetails({
+                      ...propertyDetails,
+                      squareFeet: e.target.value,
+                    })
+                  }
+                  placeholder="50,000"
+                  style={{
+                    width: "100%",
+                    border: "1px solid #d1d5db",
+                    borderRadius: 6,
+                    padding: "8px 10px",
+                    fontSize: 13,
+                  }}
+                />
+              </div>
+
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: "#374151",
+                    marginBottom: 4,
+                  }}
+                >
+                  Occupancy
+                </label>
+                <input
+                  type="text"
+                  value={propertyDetails.occupancy}
+                  onChange={(e) =>
+                    setPropertyDetails({
+                      ...propertyDetails,
+                      occupancy: e.target.value,
+                    })
+                  }
+                  placeholder="Office, Retail, etc."
+                  style={{
+                    width: "100%",
+                    border: "1px solid #d1d5db",
+                    borderRadius: 6,
+                    padding: "8px 10px",
+                    fontSize: 13,
+                  }}
+                />
+              </div>
+
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: "#374151",
+                    marginBottom: 4,
+                  }}
+                >
+                  Protection Class
+                </label>
+                <input
+                  type="text"
+                  value={propertyDetails.protectionClass}
+                  onChange={(e) =>
+                    setPropertyDetails({
+                      ...propertyDetails,
+                      protectionClass: e.target.value,
+                    })
+                  }
+                  placeholder="1-10"
+                  style={{
+                    width: "100%",
+                    border: "1px solid #d1d5db",
+                    borderRadius: 6,
+                    padding: "8px 10px",
+                    fontSize: 13,
+                  }}
+                />
+              </div>
+
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: "#374151",
+                    marginBottom: 4,
+                  }}
+                >
+                  Sprinkler Coverage
+                </label>
+                <input
+                  type="text"
+                  value={propertyDetails.sprinkler}
+                  onChange={(e) =>
+                    setPropertyDetails({
+                      ...propertyDetails,
+                      sprinkler: e.target.value,
+                    })
+                  }
+                  placeholder="100%, Partial, None"
+                  style={{
+                    width: "100%",
+                    border: "1px solid #d1d5db",
+                    borderRadius: 6,
+                    padding: "8px 10px",
+                    fontSize: 13,
+                  }}
+                />
+              </div>
+            </div>
+
+            <button
+              onClick={handlePropertyAnalysis}
+              disabled={isLoading}
+              style={{
+                marginTop: 16,
+                background: "#10b981",
+                color: "#fff",
+                border: "none",
+                borderRadius: 8,
+                padding: "10px 20px",
+                fontSize: 14,
+                fontWeight: 600,
+                cursor: isLoading ? "not-allowed" : "pointer",
+                width: "100%",
+              }}
+            >
+              🔍 Generate Property Analysis Report
+            </button>
           </div>
         )}
 
@@ -304,28 +712,58 @@ function SuggestionCard({
   icon,
   title,
   example,
+  onClick,
 }: {
   icon: string;
   title: string;
   example: string;
+  onClick: () => void;
 }) {
   return (
     <div
+      onClick={onClick}
       style={{
         background: "#f9fafb",
-        border: "1px solid #e5e7eb",
+        border: "2px solid #e5e7eb",
         borderRadius: 8,
         padding: 16,
+        cursor: "pointer",
+        transition: "all 0.2s",
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.borderColor = "#3b82f6";
+        e.currentTarget.style.background = "#eff6ff";
+        e.currentTarget.style.transform = "translateY(-2px)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.borderColor = "#e5e7eb";
+        e.currentTarget.style.background = "#f9fafb";
+        e.currentTarget.style.transform = "translateY(0)";
       }}
     >
       <div style={{ fontSize: 24, marginBottom: 8 }}>{icon}</div>
       <div
-        style={{ fontSize: 14, fontWeight: 600, color: "#111827", marginBottom: 4 }}
+        style={{
+          fontSize: 14,
+          fontWeight: 600,
+          color: "#111827",
+          marginBottom: 4,
+        }}
       >
         {title}
       </div>
-      <div style={{ fontSize: 12, color: "#6b7280", fontStyle: "italic" }}>
-        "{example}"
+      <div style={{ fontSize: 12, color: "#6b7280" }}>
+        {example}
+      </div>
+      <div
+        style={{
+          marginTop: 8,
+          fontSize: 11,
+          color: "#3b82f6",
+          fontWeight: 600,
+        }}
+      >
+        Click to start →
       </div>
     </div>
   );
