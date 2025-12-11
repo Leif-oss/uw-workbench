@@ -59,45 +59,7 @@ export function AiAssistantPage() {
       return;
     }
 
-    const prompt = `I need a comprehensive commercial property underwriting analysis for the following address:
-
-📍 ${propertyAddress}
-
-Please research and analyze this property, then provide a detailed underwriting report with the following structure:
-
-🏢 PROPERTY OVERVIEW
-- Research and provide: Building type, construction, age, size, current use
-- Location characteristics and market context
-
-⚠️ RISK ASSESSMENT
-- Construction quality and fire resistance
-- Occupancy hazards and tenant profile
-- Protection features (fire department, sprinklers, alarms)
-- Natural hazard exposures (earthquake, flood, wind)
-- Age-related concerns
-
-💰 UNDERWRITING ANALYSIS
-- Estimated replacement cost and appropriate building limits
-- Key risk factors and exposure concerns
-- Required inspections or additional information needed
-- Coinsurance and valuation recommendations
-
-📋 COVERAGE RECOMMENDATIONS
-- Recommended building limit range
-- Suggested deductible based on risk profile
-- Additional coverages to consider (ordinance/law, business income, equipment breakdown)
-
-💵 PRICING GUIDANCE
-- Estimated rate range per $100 of building value
-- Rating factors (favorable and adverse)
-- Expected premium range
-
-🚨 RED FLAGS & CONCERNS
-- Any immediate concerns requiring special attention
-- Items requiring declination or specialized underwriting approval
-- Required risk mitigation measures
-
-Use your knowledge to research publicly available information about this property and location. If specific details aren't available, provide reasonable estimates based on the address, area, and typical building characteristics, clearly noting assumptions.`;
+    const prompt = `Generate an underwriting reconnaissance report for:\n\n${propertyAddress}`;
 
     setInput(prompt);
     setTimeout(() => handleSend(), 100);
