@@ -260,17 +260,94 @@ export const DocumentScrubberPage: React.FC = () => {
     }
   };
 
+  const getVerifiedData = (): Partial<ExtractedFields> => {
+    // Only include verified (checked) fields
+    const verifiedData: Partial<ExtractedFields> = {};
+    Object.keys(editedFields).forEach((key) => {
+      if (verifiedFields[key]) {
+        verifiedData[key as keyof ExtractedFields] = editedFields[key as keyof ExtractedFields];
+      }
+    });
+    return verifiedData;
+  };
+
+  const handleExportCSV = () => {
+    const verifiedData = getVerifiedData();
+    
+    // AS400 format - all fields in specific order
+    const columns = [
+      "effective_date", "expiration_date", "notes",
+      "producer_name", "producer_code",
+      "insured_name", "additional_insured_names",
+      "mailing_address",
+      "contact_name", "contact_phone", "contact_email",
+      "location_street_number", "location_street_name", "location_suite",
+      "location_city", "location_state", "location_zip",
+      "building_limit", "deductible",
+      "additional_limits_rents", "additional_limits_ordinance",
+      "additional_limits_demolition", "additional_limits_eqsl",
+      "additional_insured", "mortgagee", "loss_payee",
+      "construction_type", "construction_year", "square_feet",
+      "sprinkler_percent", "protection_class",
+      "line_of_business"
+    ];
+    
+    const headers = columns.join(",");
+    const values = columns.map(col => {
+      const val = verifiedData[col as keyof ExtractedFields] || "";
+      // Escape commas and quotes for CSV
+      return val.includes(",") || val.includes('"') ? `"${val.replace(/"/g, '""')}"` : val;
+    }).join(",");
+    
+    const csvContent = `${headers}\n${values}`;
+    const blob = new Blob([csvContent], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `as400_upload_${Date.now()}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportTXT = () => {
+    const verifiedData = getVerifiedData();
+    
+    let txtContent = "UNDERWRITING SUBMISSION\n";
+    txtContent += "=".repeat(50) + "\n\n";
+    
+    Object.keys(verifiedData).forEach((key) => {
+      const label = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+      const value = verifiedData[key as keyof ExtractedFields];
+      txtContent += `${label}: ${value}\n`;
+    });
+    
+    const blob = new Blob([txtContent], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `submission_${Date.now()}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportJSON = () => {
+    const verifiedData = getVerifiedData();
+    
+    const jsonContent = JSON.stringify(verifiedData, null, 2);
+    const blob = new Blob([jsonContent], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `submission_${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const handleSaveSubmission = async () => {
     setIsProcessing(true);
     
     try {
-      // Only include verified (checked) fields
-      const verifiedData: Partial<ExtractedFields> = {};
-      Object.keys(editedFields).forEach((key) => {
-        if (verifiedFields[key]) {
-          verifiedData[key as keyof ExtractedFields] = editedFields[key as keyof ExtractedFields];
-        }
-      });
+      const verifiedData = getVerifiedData();
       
       const response = await fetch("http://127.0.0.1:8000/submissions/", {
         method: "POST",
@@ -788,6 +865,54 @@ export const DocumentScrubberPage: React.FC = () => {
                 ✓ {Object.values(verifiedFields).filter(Boolean).length} of {Object.keys(editedFields).filter(k => editedFields[k as keyof ExtractedFields]).length} fields verified
               </div>
             </div>
+
+            {/* Quick Export Section */}
+            <div style={{ marginTop: 16, padding: 16, background: "#f8fafc", borderRadius: 8, border: "1px solid #e2e8f0" }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "#111827", marginBottom: 12 }}>
+                📥 Export Verified Data
+              </div>
+              <div style={{ fontSize: 12, color: "#64748b", marginBottom: 12 }}>
+                Export only the fields you've checked above
+              </div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <button
+                  onClick={handleExportCSV}
+                  style={{
+                    ...secondaryButtonStyle,
+                    background: "#f0fdf4",
+                    border: "1px solid #22c55e",
+                    color: "#15803d",
+                    fontWeight: 600,
+                  }}
+                >
+                  📄 CSV (AS400)
+                </button>
+                <button
+                  onClick={handleExportTXT}
+                  style={{
+                    ...secondaryButtonStyle,
+                    background: "#fef3c7",
+                    border: "1px solid #f59e0b",
+                    color: "#92400e",
+                    fontWeight: 600,
+                  }}
+                >
+                  📝 TXT
+                </button>
+                <button
+                  onClick={handleExportJSON}
+                  style={{
+                    ...secondaryButtonStyle,
+                    background: "#ede9fe",
+                    border: "1px solid #8b5cf6",
+                    color: "#6b21a8",
+                    fontWeight: 600,
+                  }}
+                >
+                  🔗 JSON
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
@@ -975,11 +1100,11 @@ export const DocumentScrubberPage: React.FC = () => {
           </div>
         )}
 
-        {/* Save Section */}
+        {/* Save to Database Section */}
         {selectedAgencyId && selectedContactId && (
           <div style={cardStyle}>
             <h3 style={{ fontSize: 16, fontWeight: 600, color: "#111827", marginBottom: 16 }}>
-              💾 Save Submission
+              💾 Save to Database & Link to CRM
             </h3>
             
             {showSuccess ? (
@@ -995,7 +1120,7 @@ export const DocumentScrubberPage: React.FC = () => {
             ) : (
               <>
                 <div style={{ fontSize: 13, color: "#64748b", marginBottom: 16 }}>
-                  All data will be saved and linked to the selected agency and contact.
+                  Save this submission to the database and link it to the selected agency and contact. This creates a permanent record in your CRM.
                 </div>
                 
                 <button
@@ -1008,7 +1133,7 @@ export const DocumentScrubberPage: React.FC = () => {
                     cursor: isProcessing ? "not-allowed" : "pointer",
                   }}
                 >
-                  {isProcessing ? "Saving..." : "Save Submission & Go to Agency"}
+                  {isProcessing ? "Saving..." : "💾 Save to Database & Go to Agency"}
                 </button>
               </>
             )}
