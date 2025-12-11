@@ -64,7 +64,7 @@ function Sidebar() {
   
   if (isCrm) {
     itemsToRender = crmItems;
-    sectionTitle = "CRM";
+    sectionTitle = "Agency Management";
   } else if (isWorkbench) {
     itemsToRender = workbenchItems;
     sectionTitle = "Workbench";

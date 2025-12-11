@@ -36,11 +36,11 @@ function Topbar() {
 
   return (
     <header style={topbarStyles}>
-      <div style={titleStyles}>{isCrm ? "CRM" : "Underwriting Workbench"}</div>
+      <div style={titleStyles}>{isCrm ? "Agency Management" : "Underwriting Workbench"}</div>
       <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
         {[
           { to: "/dashboard", label: "Dashboard" },
-          { to: "/crm", label: "CRM" },
+          { to: "/crm", label: "Agency Management" },
           { to: "/workbench", label: "Workbench" },
         ].map((link) => (
           <NavLink
