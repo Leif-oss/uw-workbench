@@ -20,6 +20,11 @@ load_dotenv(dotenv_path=env_path)
 AI_API_KEY = os.getenv("AI_API_KEY", "")
 AI_MODEL = os.getenv("AI_MODEL", "gpt-4o")  # Use same model as AI Assistant
 
+# Log configuration on module load
+print(f"[Document Scrubber] Loaded configuration:")
+print(f"[Document Scrubber] AI_API_KEY present: {'Yes' if AI_API_KEY else 'No'}")
+print(f"[Document Scrubber] AI_MODEL: {AI_MODEL}")
+
 # Optional imports for document processing
 try:
     import pdfplumber
@@ -221,6 +226,7 @@ def extract_with_llm(full_text: str, api_key: str, model: str = None) -> Dict[st
     )
     
     try:
+        print(f"[AI Extraction] Calling OpenAI with model: {model}")
         resp = client.chat.completions.create(
             model=model,
             messages=[
@@ -230,6 +236,7 @@ def extract_with_llm(full_text: str, api_key: str, model: str = None) -> Dict[st
             temperature=0,
         )
         content = resp.choices[0].message.content or ""
+        print(f"[AI Extraction] Received response, length: {len(content)} chars")
         
         # Parse JSON (handle code fences)
         content = content.strip()
@@ -238,11 +245,24 @@ def extract_with_llm(full_text: str, api_key: str, model: str = None) -> Dict[st
             if content.lower().startswith("json"):
                 content = content[4:]
         
+        print(f"[AI Extraction] Parsing JSON...")
         data = json.loads(content)
         if isinstance(data, dict):
-            return {k: data.get(k, "") for k in schema_fields}
+            result = {k: data.get(k, "") for k in schema_fields}
+            non_empty = {k: v for k, v in result.items() if v}
+            print(f"[AI Extraction] Successfully extracted {len(non_empty)} non-empty fields")
+            return result
+        else:
+            print(f"[AI Extraction] ERROR: Response was not a dict, got {type(data)}")
+            return {}
+    except json.JSONDecodeError as e:
+        print(f"[AI Extraction] JSON parsing error: {e}")
+        print(f"[AI Extraction] Content was: {content[:500]}")
+        return {}
     except Exception as e:
-        print(f"AI extraction error: {e}")
+        print(f"[AI Extraction] Error: {type(e).__name__}: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return {}
     
     return {}
@@ -326,7 +346,15 @@ async def upload_submission(
     # Use AI to extract structured fields
     extracted_fields = {}
     if AI_API_KEY:
+        print(f"[Document Scrubber] AI_API_KEY found, calling AI extraction...")
+        print(f"[Document Scrubber] Using model: {AI_MODEL}")
+        print(f"[Document Scrubber] Extracted text length: {len(extracted_text)} chars")
         extracted_fields = extract_with_llm(extracted_text, AI_API_KEY)
+        print(f"[Document Scrubber] AI returned {len(extracted_fields)} fields")
+        if extracted_fields:
+            print(f"[Document Scrubber] Extracted fields: {list(extracted_fields.keys())}")
+    else:
+        print("[Document Scrubber] WARNING: AI_API_KEY not found in environment!")
     
     # Search for matching agencies
     producer_name = extracted_fields.get("producer_name")
