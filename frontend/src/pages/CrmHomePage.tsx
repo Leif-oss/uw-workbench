@@ -1,11 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { WorkbenchLayout } from "../components/WorkbenchLayout";
 import { apiGet } from "../api/client";
 import {
   cardStyle,
   panelStyle,
-  inputStyle,
-  labelStyle,
   tableContainerStyle,
   tableBaseStyle,
   tableHeaderCellStyle,
@@ -130,91 +129,68 @@ const CrmHomePage: React.FC = () => {
     return result;
   }, [logs, employees, selectedOfficeId]);
 
-  return (
-    <div
-      style={{
-        display: "flex",
-        height: "100%",
-        minHeight: "calc(100vh - 56px)",
-        background: "#f5f7fb",
-      }}
-    >
-      <div
-        style={{
-          width: 260,
-          borderRight: "1px solid #e5e7eb",
-          padding: 12,
-          backgroundColor: "#f9fafb",
-        }}
-      >
-        <div style={{ marginBottom: 8, fontWeight: 600, fontSize: 13, color: "#111827" }}>Offices</div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          {offices.map((office) => {
-            const isActive = office.id === selectedOfficeId;
-            return (
-              <div
-                key={office.id}
+  const sidebar = (
+    <>
+      <div style={{ marginBottom: 8, fontWeight: 600, fontSize: 13, color: "#111827" }}>Offices</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        {offices.map((office) => {
+          const isActive = office.id === selectedOfficeId;
+          return (
+            <div
+              key={office.id}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 6,
+                padding: "6px 8px",
+                borderRadius: 6,
+                backgroundColor: isActive ? "#eff6ff" : "transparent",
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => setSelectedOfficeId(office.id)}
                 style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: 6,
-                  padding: "6px 8px",
-                  borderRadius: 6,
-                  backgroundColor: isActive ? "#eff6ff" : "transparent",
+                  textAlign: "left",
+                  border: "none",
+                  background: "transparent",
+                  padding: 0,
+                  color: isActive ? "#1d4ed8" : "#374151",
+                  cursor: "pointer",
+                  fontSize: 13,
+                  flex: 1,
                 }}
               >
-                <button
-                  type="button"
-                  onClick={() => setSelectedOfficeId(office.id)}
-                  style={{
-                    textAlign: "left",
-                    border: "none",
-                    background: "transparent",
-                    padding: 0,
-                    color: isActive ? "#1d4ed8" : "#374151",
-                    cursor: "pointer",
-                    fontSize: 13,
-                    flex: 1,
-                  }}
-                >
-                  {office.code} – {office.name}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => navigate(`/crm/offices/${office.id}`)}
-                  style={{
-                    ...secondaryButtonStyle,
-                    fontSize: 11,
-                    padding: "4px 8px",
-                    borderRadius: 6,
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  View
-                </button>
-              </div>
-            );
-          })}
-          {offices.length === 0 && <div style={{ fontSize: 12, color: "#6b7280" }}>No offices found.</div>}
-        </div>
+                {office.code} – {office.name}
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate(`/crm/offices/${office.id}`)}
+                style={{
+                  ...secondaryButtonStyle,
+                  fontSize: 11,
+                  padding: "4px 8px",
+                  borderRadius: 6,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                View
+              </button>
+            </div>
+          );
+        })}
+        {offices.length === 0 && <div style={{ fontSize: 12, color: "#6b7280" }}>No offices found.</div>}
       </div>
+    </>
+  );
 
-      <div style={{ flex: 1, padding: 16, display: "flex", flexDirection: "column", gap: 16 }}>
-        <div
-          style={{
-            width: "75%",
-            maxWidth: "75%",
-            padding: "8px 12px",
-            borderRadius: 8,
-            background: "#1f2937",
-            color: "#f9fafb",
-            fontSize: 14,
-            fontWeight: 600,
-          }}
-        >
-          CRM – Agency & Marketing Overview
-        </div>
+  return (
+    <WorkbenchLayout
+      title="Office List and Underwriter Marketing Calls"
+      subtitle="Track marketing activity across offices and underwriters"
+      sidebar={sidebar}
+    >
 
         {error && <div style={{ color: "red", fontSize: 12 }}>{error}</div>}
         {isLoading && <div style={{ fontSize: 12, color: "#6b7280" }}>Loading CRM data…</div>}
@@ -294,8 +270,7 @@ const CrmHomePage: React.FC = () => {
           </table>
           </div>
         </div>
-      </div>
-    </div>
+    </WorkbenchLayout>
   );
 };
 
