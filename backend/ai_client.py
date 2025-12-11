@@ -1,8 +1,13 @@
 import os
 import json
 from typing import List, Dict, Optional
+from pathlib import Path
 import httpx
+from dotenv import load_dotenv
 
+# Load environment variables from .env file in backend directory
+env_path = Path(__file__).parent / '.env'
+load_dotenv(dotenv_path=env_path)
 
 # Read configuration from environment
 AI_API_KEY = os.getenv("AI_API_KEY", "")
