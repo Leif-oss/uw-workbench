@@ -246,6 +246,35 @@ export function AiAssistantPanel({
 function MessageBubble({ message }: { message: AiMessage }) {
   const isUser = message.role === "user";
 
+  // Function to convert URLs in text to clickable links
+  const renderContentWithLinks = (text: string) => {
+    // URL regex pattern
+    const urlPattern = /(https?:\/\/[^\s]+)/g;
+    const parts = text.split(urlPattern);
+
+    return parts.map((part, index) => {
+      if (part.match(urlPattern)) {
+        return (
+          <a
+            key={index}
+            href={part}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              color: isUser ? "#bfdbfe" : "#2563eb",
+              textDecoration: "underline",
+              fontWeight: 500,
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {part}
+          </a>
+        );
+      }
+      return part;
+    });
+  };
+
   return (
     <div
       style={{
@@ -267,7 +296,7 @@ function MessageBubble({ message }: { message: AiMessage }) {
           wordWrap: "break-word",
         }}
       >
-        {message.content}
+        {renderContentWithLinks(message.content)}
       </div>
     </div>
   );
