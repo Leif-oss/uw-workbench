@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
 from sqlalchemy.orm import Session
 from sqlalchemy import select, delete
 from typing import List, Optional
+from pydantic import BaseModel
 import os
 import pandas as pd
 import io
@@ -17,10 +18,13 @@ ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin123")
 
 
 # --- AUTHENTICATION ---
+class AdminAuthRequest(BaseModel):
+    password: str
+
 @router.post("/auth")
-def authenticate_admin(password: str):
+def authenticate_admin(request: AdminAuthRequest):
     """Verify admin password."""
-    if password == ADMIN_PASSWORD:
+    if request.password == ADMIN_PASSWORD:
         return {"authenticated": True, "message": "Admin access granted"}
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
