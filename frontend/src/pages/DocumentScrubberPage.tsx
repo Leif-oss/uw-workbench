@@ -456,369 +456,327 @@ export const DocumentScrubberPage: React.FC = () => {
         )}
 
         {/* Field Review & Verification Section */}
-        {showReviewForm && Object.keys(editedFields).length > 0 && Object.values(editedFields).filter(v => v && v.trim()).length > 0 && (
+        {showReviewForm && (
           <div style={cardStyle}>
             <h3 style={{ fontSize: 16, fontWeight: 600, color: "#111827", marginBottom: 16 }}>
               ✅ Review & Verify Extracted Fields
             </h3>
             
             <div style={{ fontSize: 13, color: "#64748b", marginBottom: 16 }}>
-              Review the extracted data below. Check the boxes for fields you want to include in the AS400 upload. You can edit any field before checking it.
+              Review the extracted data below. Check the boxes for fields you want to include in the AS400 upload. You can edit any field before checking it. Fields with no data can be manually filled in.
             </div>
 
             {/* Date Fields */}
-            {(editedFields.effective_date || editedFields.expiration_date) && (
-              <div style={{ marginBottom: 24 }}>
-                <div style={{ fontSize: 14, fontWeight: 600, color: "#111827", marginBottom: 12, borderBottom: "2px solid #e5e7eb", paddingBottom: 6 }}>
-                  📅 Dates
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                  {editedFields.effective_date && (
-                    <label style={{ display: "flex", alignItems: "start", gap: 8 }}>
-                      <input
-                        type="checkbox"
-                        checked={verifiedFields.effective_date || false}
-                        onChange={(e) => setVerifiedFields({ ...verifiedFields, effective_date: e.target.checked })}
-                        style={{ marginTop: 10 }}
-                      />
-                      <div style={{ flex: 1 }}>
-                        <div style={labelStyle}>Effective Date</div>
-                        <input
-                          value={editedFields.effective_date}
-                          onChange={(e) => setEditedFields({ ...editedFields, effective_date: e.target.value })}
-                          style={inputStyle}
-                        />
-                      </div>
-                    </label>
-                  )}
-                  {editedFields.expiration_date && (
-                    <label style={{ display: "flex", alignItems: "start", gap: 8 }}>
-                      <input
-                        type="checkbox"
-                        checked={verifiedFields.expiration_date || false}
-                        onChange={(e) => setVerifiedFields({ ...verifiedFields, expiration_date: e.target.checked })}
-                        style={{ marginTop: 10 }}
-                      />
-                      <div style={{ flex: 1 }}>
-                        <div style={labelStyle}>Expiration Date</div>
-                        <input
-                          value={editedFields.expiration_date}
-                          onChange={(e) => setEditedFields({ ...editedFields, expiration_date: e.target.value })}
-                          style={inputStyle}
-                        />
-                      </div>
-                    </label>
-                  )}
-                </div>
+            <div style={{ marginBottom: 24 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "#111827", marginBottom: 12, borderBottom: "2px solid #e5e7eb", paddingBottom: 6 }}>
+                📅 Dates
               </div>
-            )}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <label style={{ display: "flex", alignItems: "start", gap: 8 }}>
+                  <input
+                    type="checkbox"
+                    checked={verifiedFields.effective_date || false}
+                    onChange={(e) => setVerifiedFields({ ...verifiedFields, effective_date: e.target.checked })}
+                    style={{ marginTop: 10 }}
+                  />
+                  <div style={{ flex: 1 }}>
+                    <div style={labelStyle}>Effective Date</div>
+                    <input
+                      value={editedFields.effective_date || ""}
+                      onChange={(e) => setEditedFields({ ...editedFields, effective_date: e.target.value })}
+                      style={inputStyle}
+                      placeholder="MM/DD/YYYY"
+                    />
+                  </div>
+                </label>
+                <label style={{ display: "flex", alignItems: "start", gap: 8 }}>
+                  <input
+                    type="checkbox"
+                    checked={verifiedFields.expiration_date || false}
+                    onChange={(e) => setVerifiedFields({ ...verifiedFields, expiration_date: e.target.checked })}
+                    style={{ marginTop: 10 }}
+                  />
+                  <div style={{ flex: 1 }}>
+                    <div style={labelStyle}>Expiration Date</div>
+                    <input
+                      value={editedFields.expiration_date || ""}
+                      onChange={(e) => setEditedFields({ ...editedFields, expiration_date: e.target.value })}
+                      style={inputStyle}
+                      placeholder="MM/DD/YYYY"
+                    />
+                  </div>
+                </label>
+              </div>
+            </div>
 
             {/* Producer/Agency Fields */}
-            {(editedFields.producer_name || editedFields.producer_code || editedFields.insured_name) && (
-              <div style={{ marginBottom: 24 }}>
-                <div style={{ fontSize: 14, fontWeight: 600, color: "#111827", marginBottom: 12, borderBottom: "2px solid #e5e7eb", paddingBottom: 6 }}>
-                  🏢 Producer & Insured
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                  {editedFields.producer_name && (
-                    <label style={{ display: "flex", alignItems: "start", gap: 8 }}>
-                      <input
-                        type="checkbox"
-                        checked={verifiedFields.producer_name || false}
-                        onChange={(e) => setVerifiedFields({ ...verifiedFields, producer_name: e.target.checked })}
-                        style={{ marginTop: 10 }}
-                      />
-                      <div style={{ flex: 1 }}>
-                        <div style={labelStyle}>Producer Name</div>
-                        <input
-                          value={editedFields.producer_name}
-                          onChange={(e) => setEditedFields({ ...editedFields, producer_name: e.target.value })}
-                          style={inputStyle}
-                        />
-                      </div>
-                    </label>
-                  )}
-                  {editedFields.producer_code && (
-                    <label style={{ display: "flex", alignItems: "start", gap: 8 }}>
-                      <input
-                        type="checkbox"
-                        checked={verifiedFields.producer_code || false}
-                        onChange={(e) => setVerifiedFields({ ...verifiedFields, producer_code: e.target.checked })}
-                        style={{ marginTop: 10 }}
-                      />
-                      <div style={{ flex: 1 }}>
-                        <div style={labelStyle}>Producer Code</div>
-                        <input
-                          value={editedFields.producer_code}
-                          onChange={(e) => setEditedFields({ ...editedFields, producer_code: e.target.value })}
-                          style={inputStyle}
-                        />
-                      </div>
-                    </label>
-                  )}
-                  {editedFields.insured_name && (
-                    <label style={{ display: "flex", alignItems: "start", gap: 8, gridColumn: "1 / -1" }}>
-                      <input
-                        type="checkbox"
-                        checked={verifiedFields.insured_name || false}
-                        onChange={(e) => setVerifiedFields({ ...verifiedFields, insured_name: e.target.checked })}
-                        style={{ marginTop: 10 }}
-                      />
-                      <div style={{ flex: 1 }}>
-                        <div style={labelStyle}>Insured Name</div>
-                        <input
-                          value={editedFields.insured_name}
-                          onChange={(e) => setEditedFields({ ...editedFields, insured_name: e.target.value })}
-                          style={inputStyle}
-                        />
-                      </div>
-                    </label>
-                  )}
-                </div>
+            <div style={{ marginBottom: 24 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "#111827", marginBottom: 12, borderBottom: "2px solid #e5e7eb", paddingBottom: 6 }}>
+                🏢 Producer & Insured
               </div>
-            )}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <label style={{ display: "flex", alignItems: "start", gap: 8 }}>
+                  <input
+                    type="checkbox"
+                    checked={verifiedFields.producer_name || false}
+                    onChange={(e) => setVerifiedFields({ ...verifiedFields, producer_name: e.target.checked })}
+                    style={{ marginTop: 10 }}
+                  />
+                  <div style={{ flex: 1 }}>
+                    <div style={labelStyle}>Producer Name</div>
+                    <input
+                      value={editedFields.producer_name || ""}
+                      onChange={(e) => setEditedFields({ ...editedFields, producer_name: e.target.value })}
+                      style={inputStyle}
+                    />
+                  </div>
+                </label>
+                <label style={{ display: "flex", alignItems: "start", gap: 8 }}>
+                  <input
+                    type="checkbox"
+                    checked={verifiedFields.producer_code || false}
+                    onChange={(e) => setVerifiedFields({ ...verifiedFields, producer_code: e.target.checked })}
+                    style={{ marginTop: 10 }}
+                  />
+                  <div style={{ flex: 1 }}>
+                    <div style={labelStyle}>Producer Code</div>
+                    <input
+                      value={editedFields.producer_code || ""}
+                      onChange={(e) => setEditedFields({ ...editedFields, producer_code: e.target.value })}
+                      style={inputStyle}
+                    />
+                  </div>
+                </label>
+                <label style={{ display: "flex", alignItems: "start", gap: 8, gridColumn: "1 / -1" }}>
+                  <input
+                    type="checkbox"
+                    checked={verifiedFields.insured_name || false}
+                    onChange={(e) => setVerifiedFields({ ...verifiedFields, insured_name: e.target.checked })}
+                    style={{ marginTop: 10 }}
+                  />
+                  <div style={{ flex: 1 }}>
+                    <div style={labelStyle}>Insured Name</div>
+                    <input
+                      value={editedFields.insured_name || ""}
+                      onChange={(e) => setEditedFields({ ...editedFields, insured_name: e.target.value })}
+                      style={inputStyle}
+                    />
+                  </div>
+                </label>
+              </div>
+            </div>
 
             {/* Contact Information */}
-            {(editedFields.contact_name || editedFields.contact_phone || editedFields.contact_email) && (
-              <div style={{ marginBottom: 24 }}>
-                <div style={{ fontSize: 14, fontWeight: 600, color: "#111827", marginBottom: 12, borderBottom: "2px solid #e5e7eb", paddingBottom: 6 }}>
-                  👤 Contact Information
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
-                  {editedFields.contact_name && (
-                    <label style={{ display: "flex", alignItems: "start", gap: 8 }}>
-                      <input
-                        type="checkbox"
-                        checked={verifiedFields.contact_name || false}
-                        onChange={(e) => setVerifiedFields({ ...verifiedFields, contact_name: e.target.checked })}
-                        style={{ marginTop: 10 }}
-                      />
-                      <div style={{ flex: 1 }}>
-                        <div style={labelStyle}>Contact Name</div>
-                        <input
-                          value={editedFields.contact_name}
-                          onChange={(e) => setEditedFields({ ...editedFields, contact_name: e.target.value })}
-                          style={inputStyle}
-                        />
-                      </div>
-                    </label>
-                  )}
-                  {editedFields.contact_phone && (
-                    <label style={{ display: "flex", alignItems: "start", gap: 8 }}>
-                      <input
-                        type="checkbox"
-                        checked={verifiedFields.contact_phone || false}
-                        onChange={(e) => setVerifiedFields({ ...verifiedFields, contact_phone: e.target.checked })}
-                        style={{ marginTop: 10 }}
-                      />
-                      <div style={{ flex: 1 }}>
-                        <div style={labelStyle}>Phone</div>
-                        <input
-                          value={editedFields.contact_phone}
-                          onChange={(e) => setEditedFields({ ...editedFields, contact_phone: e.target.value })}
-                          style={inputStyle}
-                        />
-                      </div>
-                    </label>
-                  )}
-                  {editedFields.contact_email && (
-                    <label style={{ display: "flex", alignItems: "start", gap: 8 }}>
-                      <input
-                        type="checkbox"
-                        checked={verifiedFields.contact_email || false}
-                        onChange={(e) => setVerifiedFields({ ...verifiedFields, contact_email: e.target.checked })}
-                        style={{ marginTop: 10 }}
-                      />
-                      <div style={{ flex: 1 }}>
-                        <div style={labelStyle}>Email</div>
-                        <input
-                          value={editedFields.contact_email}
-                          onChange={(e) => setEditedFields({ ...editedFields, contact_email: e.target.value })}
-                          style={inputStyle}
-                        />
-                      </div>
-                    </label>
-                  )}
-                </div>
+            <div style={{ marginBottom: 24 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "#111827", marginBottom: 12, borderBottom: "2px solid #e5e7eb", paddingBottom: 6 }}>
+                👤 Contact Information
               </div>
-            )}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+                <label style={{ display: "flex", alignItems: "start", gap: 8 }}>
+                  <input
+                    type="checkbox"
+                    checked={verifiedFields.contact_name || false}
+                    onChange={(e) => setVerifiedFields({ ...verifiedFields, contact_name: e.target.checked })}
+                    style={{ marginTop: 10 }}
+                  />
+                  <div style={{ flex: 1 }}>
+                    <div style={labelStyle}>Contact Name</div>
+                    <input
+                      value={editedFields.contact_name || ""}
+                      onChange={(e) => setEditedFields({ ...editedFields, contact_name: e.target.value })}
+                      style={inputStyle}
+                    />
+                  </div>
+                </label>
+                <label style={{ display: "flex", alignItems: "start", gap: 8 }}>
+                  <input
+                    type="checkbox"
+                    checked={verifiedFields.contact_phone || false}
+                    onChange={(e) => setVerifiedFields({ ...verifiedFields, contact_phone: e.target.checked })}
+                    style={{ marginTop: 10 }}
+                  />
+                  <div style={{ flex: 1 }}>
+                    <div style={labelStyle}>Phone</div>
+                    <input
+                      value={editedFields.contact_phone || ""}
+                      onChange={(e) => setEditedFields({ ...editedFields, contact_phone: e.target.value })}
+                      style={inputStyle}
+                    />
+                  </div>
+                </label>
+                <label style={{ display: "flex", alignItems: "start", gap: 8 }}>
+                  <input
+                    type="checkbox"
+                    checked={verifiedFields.contact_email || false}
+                    onChange={(e) => setVerifiedFields({ ...verifiedFields, contact_email: e.target.checked })}
+                    style={{ marginTop: 10 }}
+                  />
+                  <div style={{ flex: 1 }}>
+                    <div style={labelStyle}>Email</div>
+                    <input
+                      value={editedFields.contact_email || ""}
+                      onChange={(e) => setEditedFields({ ...editedFields, contact_email: e.target.value })}
+                      style={inputStyle}
+                    />
+                  </div>
+                </label>
+              </div>
+            </div>
 
             {/* Property Limits */}
-            {(editedFields.building_limit || editedFields.deductible || editedFields.additional_limits_rents) && (
-              <div style={{ marginBottom: 24 }}>
-                <div style={{ fontSize: 14, fontWeight: 600, color: "#111827", marginBottom: 12, borderBottom: "2px solid #e5e7eb", paddingBottom: 6 }}>
-                  💰 Limits & Coverages
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
-                  {editedFields.building_limit && (
-                    <label style={{ display: "flex", alignItems: "start", gap: 8 }}>
-                      <input
-                        type="checkbox"
-                        checked={verifiedFields.building_limit || false}
-                        onChange={(e) => setVerifiedFields({ ...verifiedFields, building_limit: e.target.checked })}
-                        style={{ marginTop: 10 }}
-                      />
-                      <div style={{ flex: 1 }}>
-                        <div style={labelStyle}>Building Limit</div>
-                        <input
-                          value={editedFields.building_limit}
-                          onChange={(e) => setEditedFields({ ...editedFields, building_limit: e.target.value })}
-                          style={inputStyle}
-                        />
-                      </div>
-                    </label>
-                  )}
-                  {editedFields.deductible && (
-                    <label style={{ display: "flex", alignItems: "start", gap: 8 }}>
-                      <input
-                        type="checkbox"
-                        checked={verifiedFields.deductible || false}
-                        onChange={(e) => setVerifiedFields({ ...verifiedFields, deductible: e.target.checked })}
-                        style={{ marginTop: 10 }}
-                      />
-                      <div style={{ flex: 1 }}>
-                        <div style={labelStyle}>Deductible</div>
-                        <input
-                          value={editedFields.deductible}
-                          onChange={(e) => setEditedFields({ ...editedFields, deductible: e.target.value })}
-                          style={inputStyle}
-                        />
-                      </div>
-                    </label>
-                  )}
-                  {editedFields.additional_limits_rents && (
-                    <label style={{ display: "flex", alignItems: "start", gap: 8 }}>
-                      <input
-                        type="checkbox"
-                        checked={verifiedFields.additional_limits_rents || false}
-                        onChange={(e) => setVerifiedFields({ ...verifiedFields, additional_limits_rents: e.target.checked })}
-                        style={{ marginTop: 10 }}
-                      />
-                      <div style={{ flex: 1 }}>
-                        <div style={labelStyle}>Business Income / Rents</div>
-                        <input
-                          value={editedFields.additional_limits_rents}
-                          onChange={(e) => setEditedFields({ ...editedFields, additional_limits_rents: e.target.value })}
-                          style={inputStyle}
-                        />
-                      </div>
-                    </label>
-                  )}
-                </div>
+            <div style={{ marginBottom: 24 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "#111827", marginBottom: 12, borderBottom: "2px solid #e5e7eb", paddingBottom: 6 }}>
+                💰 Limits & Coverages
               </div>
-            )}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+                <label style={{ display: "flex", alignItems: "start", gap: 8 }}>
+                  <input
+                    type="checkbox"
+                    checked={verifiedFields.building_limit || false}
+                    onChange={(e) => setVerifiedFields({ ...verifiedFields, building_limit: e.target.checked })}
+                    style={{ marginTop: 10 }}
+                  />
+                  <div style={{ flex: 1 }}>
+                    <div style={labelStyle}>Building Limit</div>
+                    <input
+                      value={editedFields.building_limit || ""}
+                      onChange={(e) => setEditedFields({ ...editedFields, building_limit: e.target.value })}
+                      style={inputStyle}
+                    />
+                  </div>
+                </label>
+                <label style={{ display: "flex", alignItems: "start", gap: 8 }}>
+                  <input
+                    type="checkbox"
+                    checked={verifiedFields.deductible || false}
+                    onChange={(e) => setVerifiedFields({ ...verifiedFields, deductible: e.target.checked })}
+                    style={{ marginTop: 10 }}
+                  />
+                  <div style={{ flex: 1 }}>
+                    <div style={labelStyle}>Deductible</div>
+                    <input
+                      value={editedFields.deductible || ""}
+                      onChange={(e) => setEditedFields({ ...editedFields, deductible: e.target.value })}
+                      style={inputStyle}
+                    />
+                  </div>
+                </label>
+                <label style={{ display: "flex", alignItems: "start", gap: 8 }}>
+                  <input
+                    type="checkbox"
+                    checked={verifiedFields.additional_limits_rents || false}
+                    onChange={(e) => setVerifiedFields({ ...verifiedFields, additional_limits_rents: e.target.checked })}
+                    style={{ marginTop: 10 }}
+                  />
+                  <div style={{ flex: 1 }}>
+                    <div style={labelStyle}>Business Income / Rents</div>
+                    <input
+                      value={editedFields.additional_limits_rents || ""}
+                      onChange={(e) => setEditedFields({ ...editedFields, additional_limits_rents: e.target.value })}
+                      style={inputStyle}
+                    />
+                  </div>
+                </label>
+              </div>
+            </div>
 
             {/* Property Details */}
-            {(editedFields.construction_type || editedFields.construction_year || editedFields.square_feet) && (
-              <div style={{ marginBottom: 24 }}>
-                <div style={{ fontSize: 14, fontWeight: 600, color: "#111827", marginBottom: 12, borderBottom: "2px solid #e5e7eb", paddingBottom: 6 }}>
-                  🏗️ Property Details
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
-                  {editedFields.construction_type && (
-                    <label style={{ display: "flex", alignItems: "start", gap: 8 }}>
-                      <input
-                        type="checkbox"
-                        checked={verifiedFields.construction_type || false}
-                        onChange={(e) => setVerifiedFields({ ...verifiedFields, construction_type: e.target.checked })}
-                        style={{ marginTop: 10 }}
-                      />
-                      <div style={{ flex: 1 }}>
-                        <div style={labelStyle}>Construction Type</div>
-                        <input
-                          value={editedFields.construction_type}
-                          onChange={(e) => setEditedFields({ ...editedFields, construction_type: e.target.value })}
-                          style={inputStyle}
-                        />
-                      </div>
-                    </label>
-                  )}
-                  {editedFields.construction_year && (
-                    <label style={{ display: "flex", alignItems: "start", gap: 8 }}>
-                      <input
-                        type="checkbox"
-                        checked={verifiedFields.construction_year || false}
-                        onChange={(e) => setVerifiedFields({ ...verifiedFields, construction_year: e.target.checked })}
-                        style={{ marginTop: 10 }}
-                      />
-                      <div style={{ flex: 1 }}>
-                        <div style={labelStyle}>Year Built</div>
-                        <input
-                          value={editedFields.construction_year}
-                          onChange={(e) => setEditedFields({ ...editedFields, construction_year: e.target.value })}
-                          style={inputStyle}
-                        />
-                      </div>
-                    </label>
-                  )}
-                  {editedFields.square_feet && (
-                    <label style={{ display: "flex", alignItems: "start", gap: 8 }}>
-                      <input
-                        type="checkbox"
-                        checked={verifiedFields.square_feet || false}
-                        onChange={(e) => setVerifiedFields({ ...verifiedFields, square_feet: e.target.checked })}
-                        style={{ marginTop: 10 }}
-                      />
-                      <div style={{ flex: 1 }}>
-                        <div style={labelStyle}>Square Feet</div>
-                        <input
-                          value={editedFields.square_feet}
-                          onChange={(e) => setEditedFields({ ...editedFields, square_feet: e.target.value })}
-                          style={inputStyle}
-                        />
-                      </div>
-                    </label>
-                  )}
-                </div>
+            <div style={{ marginBottom: 24 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "#111827", marginBottom: 12, borderBottom: "2px solid #e5e7eb", paddingBottom: 6 }}>
+                🏗️ Property Details
               </div>
-            )}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+                <label style={{ display: "flex", alignItems: "start", gap: 8 }}>
+                  <input
+                    type="checkbox"
+                    checked={verifiedFields.construction_type || false}
+                    onChange={(e) => setVerifiedFields({ ...verifiedFields, construction_type: e.target.checked })}
+                    style={{ marginTop: 10 }}
+                  />
+                  <div style={{ flex: 1 }}>
+                    <div style={labelStyle}>Construction Type</div>
+                    <input
+                      value={editedFields.construction_type || ""}
+                      onChange={(e) => setEditedFields({ ...editedFields, construction_type: e.target.value })}
+                      style={inputStyle}
+                    />
+                  </div>
+                </label>
+                <label style={{ display: "flex", alignItems: "start", gap: 8 }}>
+                  <input
+                    type="checkbox"
+                    checked={verifiedFields.construction_year || false}
+                    onChange={(e) => setVerifiedFields({ ...verifiedFields, construction_year: e.target.checked })}
+                    style={{ marginTop: 10 }}
+                  />
+                  <div style={{ flex: 1 }}>
+                    <div style={labelStyle}>Year Built</div>
+                    <input
+                      value={editedFields.construction_year || ""}
+                      onChange={(e) => setEditedFields({ ...editedFields, construction_year: e.target.value })}
+                      style={inputStyle}
+                    />
+                  </div>
+                </label>
+                <label style={{ display: "flex", alignItems: "start", gap: 8 }}>
+                  <input
+                    type="checkbox"
+                    checked={verifiedFields.square_feet || false}
+                    onChange={(e) => setVerifiedFields({ ...verifiedFields, square_feet: e.target.checked })}
+                    style={{ marginTop: 10 }}
+                  />
+                  <div style={{ flex: 1 }}>
+                    <div style={labelStyle}>Square Feet</div>
+                    <input
+                      value={editedFields.square_feet || ""}
+                      onChange={(e) => setEditedFields({ ...editedFields, square_feet: e.target.value })}
+                      style={inputStyle}
+                    />
+                  </div>
+                </label>
+              </div>
+            </div>
 
             {/* Line of Business & Notes */}
-            {(editedFields.line_of_business || editedFields.notes) && (
-              <div style={{ marginBottom: 16 }}>
-                <div style={{ fontSize: 14, fontWeight: 600, color: "#111827", marginBottom: 12, borderBottom: "2px solid #e5e7eb", paddingBottom: 6 }}>
-                  📝 Additional Information
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 12 }}>
-                  {editedFields.line_of_business && (
-                    <label style={{ display: "flex", alignItems: "start", gap: 8 }}>
-                      <input
-                        type="checkbox"
-                        checked={verifiedFields.line_of_business || false}
-                        onChange={(e) => setVerifiedFields({ ...verifiedFields, line_of_business: e.target.checked })}
-                        style={{ marginTop: 10 }}
-                      />
-                      <div style={{ flex: 1 }}>
-                        <div style={labelStyle}>Line of Business</div>
-                        <input
-                          value={editedFields.line_of_business}
-                          onChange={(e) => setEditedFields({ ...editedFields, line_of_business: e.target.value })}
-                          style={inputStyle}
-                        />
-                      </div>
-                    </label>
-                  )}
-                  {editedFields.notes && (
-                    <label style={{ display: "flex", alignItems: "start", gap: 8 }}>
-                      <input
-                        type="checkbox"
-                        checked={verifiedFields.notes || false}
-                        onChange={(e) => setVerifiedFields({ ...verifiedFields, notes: e.target.checked })}
-                        style={{ marginTop: 10 }}
-                      />
-                      <div style={{ flex: 1 }}>
-                        <div style={labelStyle}>Notes / Description</div>
-                        <textarea
-                          value={editedFields.notes}
-                          onChange={(e) => setEditedFields({ ...editedFields, notes: e.target.value })}
-                          style={{ ...inputStyle, minHeight: 80, resize: "vertical" as const }}
-                        />
-                      </div>
-                    </label>
-                  )}
-                </div>
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "#111827", marginBottom: 12, borderBottom: "2px solid #e5e7eb", paddingBottom: 6 }}>
+                📝 Additional Information
               </div>
-            )}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 12 }}>
+                <label style={{ display: "flex", alignItems: "start", gap: 8 }}>
+                  <input
+                    type="checkbox"
+                    checked={verifiedFields.line_of_business || false}
+                    onChange={(e) => setVerifiedFields({ ...verifiedFields, line_of_business: e.target.checked })}
+                    style={{ marginTop: 10 }}
+                  />
+                  <div style={{ flex: 1 }}>
+                    <div style={labelStyle}>Line of Business</div>
+                    <input
+                      value={editedFields.line_of_business || ""}
+                      onChange={(e) => setEditedFields({ ...editedFields, line_of_business: e.target.value })}
+                      style={inputStyle}
+                    />
+                  </div>
+                </label>
+                <label style={{ display: "flex", alignItems: "start", gap: 8 }}>
+                  <input
+                    type="checkbox"
+                    checked={verifiedFields.notes || false}
+                    onChange={(e) => setVerifiedFields({ ...verifiedFields, notes: e.target.checked })}
+                    style={{ marginTop: 10 }}
+                  />
+                  <div style={{ flex: 1 }}>
+                    <div style={labelStyle}>Notes / Description</div>
+                    <textarea
+                      value={editedFields.notes || ""}
+                      onChange={(e) => setEditedFields({ ...editedFields, notes: e.target.value })}
+                      style={{ ...inputStyle, minHeight: 80, resize: "vertical" as const }}
+                    />
+                  </div>
+                </label>
+              </div>
+            </div>
 
             {/* Show All Other Fields (Expandable) */}
             <details style={{ marginTop: 16, marginBottom: 16 }}>
