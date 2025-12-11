@@ -277,20 +277,18 @@ export const EmployeesPage: React.FC = () => {
     <>
       <div>
         <h2 style={sidebarHeadingStyle}>
-          Employee Filters
+          Employees
         </h2>
         <div style={{ marginBottom: 10 }}>
-          <div style={labelStyle}>Search (Name or Office)</div>
           <input
             style={inputStyle}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="e.g. Allan, Daly, Fresno"
+            placeholder="Search name or office..."
           />
         </div>
 
         <div style={{ marginBottom: 10 }}>
-          <div style={labelStyle}>Office</div>
           <select
             style={selectStyle}
             value={officeFilter}
@@ -299,40 +297,54 @@ export const EmployeesPage: React.FC = () => {
             <option value="all">All offices</option>
             {offices.map((o) => (
               <option key={o.id} value={String(o.id)}>
-                {o.code} - {o.name}
+                {o.code}
               </option>
             ))}
           </select>
         </div>
-
-        <div style={{ marginBottom: 10 }}>
-          <div style={labelStyle}>Status</div>
-          <select
-            style={selectStyle}
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-          >
-            <option value="active">Active (placeholder)</option>
-            <option value="all">All (placeholder)</option>
-          </select>
-        </div>
       </div>
 
-      <div
-        style={{
-          borderTop: "1px solid #e5e7eb",
-          paddingTop: 10,
-          marginTop: 6,
-          fontSize: 11,
-          color: "#4b5563",
-        }}
-      >
-        <div style={labelStyle}>Notes</div>
-        <ul style={{ margin: 0, paddingLeft: 16 }}>
-          <li>Filters are local (front-end only) for now.</li>
-          <li>Later: add production + call counts per employee.</li>
-          <li>Use this as a starting point for manager views.</li>
-        </ul>
+      <div style={{ fontSize: 11, color: "#9ca3af", marginBottom: 8 }}>
+        {filteredEmployees.length} employee{filteredEmployees.length === 1 ? "" : "s"}
+      </div>
+
+      {/* Employee List Table */}
+      <div style={{ flex: 1, overflowY: "auto", marginTop: 10 }}>
+        <table style={{ width: "100%", fontSize: 12, borderCollapse: "collapse" }}>
+          <tbody>
+            {filteredEmployees.map((group) => {
+              const isSelected = selectedEmployee && selectedEmployee.name === group.name;
+              const officeDisplay = group.officeCodes.length > 0 
+                ? group.officeCodes.join(", ") 
+                : "—";
+              
+              return (
+                <tr
+                  key={group.name}
+                  onClick={() => setSelectedEmployeeId(group.employeeIds[0])}
+                  style={{
+                    cursor: "pointer",
+                    transition: "background-color 0.1s ease",
+                    backgroundColor: isSelected ? "#dbeafe" : "transparent",
+                    borderBottom: "1px solid #f3f4f6",
+                  }}
+                >
+                  <td style={{ padding: "8px 4px" }}>
+                    <div style={{ fontWeight: 600, color: "#111827" }}>{group.name}</div>
+                    <div style={{ fontSize: 11, color: "#6b7280" }}>{officeDisplay}</div>
+                  </td>
+                </tr>
+              );
+            })}
+            {filteredEmployees.length === 0 && (
+              <tr>
+                <td style={{ padding: "8px 4px", textAlign: "center", fontSize: 11, color: "#9ca3af" }}>
+                  No employees found
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </div>
     </>
   );
@@ -473,92 +485,69 @@ export const EmployeesPage: React.FC = () => {
   );
 
   const detailPanel = (
-    <section
-      style={{
-        ...panelStyle,
-        flex: 1,
-        minHeight: 320,
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "baseline",
-          marginBottom: 6,
-        }}
-      >
-        <div>
-          <div style={sectionHeadingStyle}>
-            {selectedEmployee ? selectedEmployee.name : "Select an employee"}
-          </div>
-          <div style={sectionSubheadingStyle}>
-            {selectedEmployee
-              ? selectedEmployee.officeName
-                ? `${selectedEmployee.officeCode} - ${selectedEmployee.officeName}`
-                : "No office assigned yet"
-              : "Details and future metrics will appear here"}
-          </div>
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      {!selectedEmployee ? (
+        <div
+          style={{
+            ...panelStyle,
+            fontSize: 13,
+            color: "#9ca3af",
+            padding: 40,
+            textAlign: "center",
+          }}
+        >
+          Choose an employee from the list to view details and activity.
         </div>
-      </div>
-
-      <div style={{ flex: 1, fontSize: 12 }}>
-        {!selectedEmployee ? (
-          <div
-            style={{
-              fontSize: 12,
-              color: "#9ca3af",
-              marginTop: 20,
-              textAlign: "center",
-            }}
-          >
-            Choose an employee from the list to view details,<br />
-            office assignment, and (later) activity, calls, and production.
+      ) : (
+        <>
+          {/* Employee Header */}
+          <div style={{ ...panelStyle, padding: 16 }}>
+            <h2 style={{ margin: "0 0 8px 0", fontSize: 20, fontWeight: 600, color: "#111827" }}>
+              {selectedEmployee.name}
+            </h2>
+            <div style={{ fontSize: 13, color: "#6b7280" }}>
+              {selectedEmployee.officeCodes.length > 0 
+                ? selectedEmployee.officeCodes.map((code, idx) => {
+                    const officeName = selectedEmployee.officeNames[idx];
+                    return `${code} - ${officeName}`;
+                  }).join(" • ")
+                : "No office assigned"}
+            </div>
           </div>
-        ) : (
-          <>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-                gap: "8px 16px",
-              }}
-            >
-              <div>
-                <div
-                  style={{
-                    fontSize: 11,
-                    color: "#6b7280",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.06em",
-                    marginBottom: 2,
-                  }}
-                >
-                  Name
-                </div>
-                <div style={{ fontSize: 12, color: "#111827" }}>
-                  {selectedEmployee.name}
-                </div>
-              </div>
 
-              <div>
-                <div
-                  style={{
-                    fontSize: 11,
-                    color: "#6b7280",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.06em",
-                    marginBottom: 2,
-                  }}
-                >
-                  Office
-                </div>
-                <div style={{ fontSize: 12, color: "#111827" }}>
-                  {selectedEmployee.officeName
-                    ? `${selectedEmployee.officeCode} - ${selectedEmployee.officeName}`
-                    : "Unassigned"}
-                </div>
+          {/* Activity Stats */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+            <div style={{ ...panelStyle, padding: 16 }}>
+              <div style={{ fontSize: 11, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>
+                Total Calls
               </div>
+              <div style={{ fontSize: 24, fontWeight: 700, color: "#1e40af" }}>
+                {employeeTotalLogs}
+              </div>
+            </div>
+            <div style={{ ...panelStyle, padding: 16 }}>
+              <div style={{ fontSize: 11, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>
+                Last 30 Days
+              </div>
+              <div style={{ fontSize: 24, fontWeight: 700, color: "#059669" }}>
+                {employeeLogsLast30}
+              </div>
+            </div>
+            <div style={{ ...panelStyle, padding: 16 }}>
+              <div style={{ fontSize: 11, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>
+                Agencies
+              </div>
+              <div style={{ fontSize: 24, fontWeight: 700, color: "#7c3aed" }}>
+                {employeeAgenciesCount}
+              </div>
+            </div>
+          </div>
+
+          {/* Recent Activity */}
+          <div style={{ ...panelStyle, padding: 16 }}>
+            <h3 style={{ margin: "0 0 12px 0", fontSize: 16, fontWeight: 600, color: "#111827" }}>
+              Recent Marketing Calls
+            </h3>
             </div>
 
             <div
@@ -582,345 +571,84 @@ export const EmployeesPage: React.FC = () => {
               </div>
 
               {employeeTotalLogs === 0 ? (
-                <div style={{ fontSize: 12, color: "#9ca3af" }}>
-                  No marketing logs found for this employee yet.
-                </div>
-              ) : (
-                <>
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: 12,
-                      flexWrap: "wrap",
-                      marginBottom: 6,
-                    }}
-                  >
-                    <div
-                      style={{
-                        padding: "6px 8px",
-                        borderRadius: 8,
-                        background: "#eff6ff",
-                        fontSize: 11,
-                        color: "#1d4ed8",
-                      }}
-                    >
-                      Total logs: <strong>{employeeTotalLogs}</strong>
-                    </div>
-                    <div
-                      style={{
-                        padding: "6px 8px",
-                        borderRadius: 8,
-                        background: "#ecfdf3",
-                        fontSize: 11,
-                        color: "#15803d",
-                      }}
-                    >
-                      Last 30 days: <strong>{employeeLogsLast30}</strong>
-                    </div>
-                  </div>
-
-                  <div
-                    style={{
-                      fontSize: 11,
-                      color: "#6b7280",
-                      marginBottom: 4,
-                    }}
-                  >
-                    Recent activity (up to 10 latest logs):
-                  </div>
-                  <div
-                    style={{
-                      maxHeight: 160,
-                      overflow: "auto",
-                      borderRadius: 8,
-                      border: "1px solid #e5e7eb",
-                      background: "#f9fafb",
-                    }}
-                  >
-                    <table
-                      style={{
-                        width: "100%",
-                        borderCollapse: "collapse",
-                        fontSize: 11,
-                      }}
-                    >
-                      <thead
-                        style={{
-                          position: "sticky",
-                          top: 0,
-                          background: "#e5e7eb",
-                        }}
-                      >
-                        <tr>
-                          <th
-                            style={{
-                              padding: "4px 6px",
-                              textAlign: "left",
-                              borderBottom: "1px solid #e5e7eb",
-                            }}
-                          >
-                            Date/Time
-                          </th>
-                          <th
-                            style={{
-                              padding: "4px 6px",
-                              textAlign: "left",
-                              borderBottom: "1px solid #e5e7eb",
-                            }}
-                          >
-                            Action
-                          </th>
-                          <th
-                            style={{
-                              padding: "4px 6px",
-                              textAlign: "left",
-                              borderBottom: "1px solid #e5e7eb",
-                            }}
-                          >
-                            Agency
-                          </th>
-                          <th
-                            style={{
-                              padding: "4px 6px",
-                              textAlign: "left",
-                              borderBottom: "1px solid #e5e7eb",
-                            }}
-                          >
-                            Notes
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {employeeLogs.slice(0, 10).map((log) => (
-                          <tr key={log.id}>
-                            <td
-                              style={{
-                                padding: "4px 6px",
-                                borderBottom: "1px solid #e5e7eb",
-                                whiteSpace: "nowrap",
-                              }}
-                            >
-                              {new Date(log.datetime).toLocaleString()}
-                            </td>
-                            <td
-                              style={{
-                                padding: "4px 6px",
-                                borderBottom: "1px solid #e5e7eb",
-                                whiteSpace: "nowrap",
-                              }}
-                            >
-                              {log.action}
-                            </td>
-                            <td
-                              style={{
-                                padding: "4px 6px",
-                                borderBottom: "1px solid #e5e7eb",
-                                whiteSpace: "nowrap",
-                              }}
-                            >
-                              {log.agency_id ?? ""}
-                            </td>
-                            <td
-                              style={{
-                                padding: "4px 6px",
-                                borderBottom: "1px solid #e5e7eb",
-                                maxWidth: 220,
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                                whiteSpace: "nowrap",
-                              }}
-                              title={log.notes || undefined}
-                            >
-                              {log.notes || ""}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </>
-              )}
-            </div>
-
-            <div
-              style={{
-                marginTop: 8,
-                paddingTop: 6,
-                borderTop: "1px dashed #e5e7eb",
-              }}
-            >
-              <div
-                style={{
-                  fontSize: 11,
-                  fontWeight: 600,
-                  textTransform: "uppercase",
-                  color: "#6b7280",
-                  letterSpacing: "0.06em",
-                  marginBottom: 4,
-                }}
-              >
-                Assigned Agencies
+              <div style={{ fontSize: 13, color: "#9ca3af", padding: 20, textAlign: "center" }}>
+                No marketing calls found for this employee yet.
               </div>
+            ) : (
+              <div style={{ maxHeight: 400, overflowY: "auto" }}>
+                <table style={{ width: "100%", fontSize: 13, borderCollapse: "collapse" }}>
+                  <thead style={{ position: "sticky", top: 0, background: "#f9fafb" }}>
+                    <tr style={{ borderBottom: "2px solid #e5e7eb" }}>
+                      <th style={{ padding: "8px 12px", textAlign: "left", fontWeight: 600, color: "#6b7280" }}>Date</th>
+                      <th style={{ padding: "8px 12px", textAlign: "left", fontWeight: 600, color: "#6b7280" }}>Action</th>
+                      <th style={{ padding: "8px 12px", textAlign: "left", fontWeight: 600, color: "#6b7280" }}>Agency</th>
+                      <th style={{ padding: "8px 12px", textAlign: "left", fontWeight: 600, color: "#6b7280" }}>Notes</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {employeeLogs.slice(0, 20).map((log) => (
+                      <tr key={log.id} style={{ borderBottom: "1px solid #f3f4f6" }}>
+                        <td style={{ padding: "8px 12px", whiteSpace: "nowrap" }}>
+                          {new Date(log.datetime).toLocaleDateString()}
+                        </td>
+                        <td style={{ padding: "8px 12px" }}>
+                          {log.action}
+                        </td>
+                        <td style={{ padding: "8px 12px" }}>
+                          {log.agency_id ?? "—"}
+                        </td>
+                        <td style={{ padding: "8px 12px", maxWidth: 300, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={log.notes || undefined}>
+                          {log.notes || "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
 
-              {employeeAgenciesCount === 0 ? (
-                <div style={{ fontSize: 12, color: "#9ca3af" }}>
-                  No agencies are currently assigned to this employee.
-                </div>
-              ) : (
-                <>
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: 12,
-                      flexWrap: "wrap",
-                      marginBottom: 6,
-                    }}
-                  >
-                    <div
-                      style={{
-                        padding: "6px 8px",
-                        borderRadius: 8,
-                        background: "#fef3c7",
-                        fontSize: 11,
-                        color: "#92400e",
-                      }}
-                    >
-                      Total agencies: <strong>{employeeAgenciesCount}</strong>
-                    </div>
-                  </div>
+          {/* Assigned Agencies */}
+          <div style={{ ...panelStyle, padding: 16 }}>
+            <h3 style={{ margin: "0 0 12px 0", fontSize: 16, fontWeight: 600, color: "#111827" }}>
+              Assigned Agencies ({employeeAgenciesCount})
+            </h3>
 
-                  <div
-                    style={{
-                      fontSize: 11,
-                      color: "#6b7280",
-                      marginBottom: 4,
-                    }}
-                  >
-                    Showing up to 15 assigned agencies:
-                  </div>
+            {employeeAgenciesCount === 0 ? (
+              <div style={{ fontSize: 13, color: "#9ca3af", padding: 20, textAlign: "center" }}>
+                No agencies are currently assigned to this employee.
+              </div>
+            ) : (
+              <div style={{ maxHeight: 400, overflowY: "auto" }}>
+                <table style={{ width: "100%", fontSize: 13, borderCollapse: "collapse" }}>
+                  <thead style={{ position: "sticky", top: 0, background: "#f9fafb" }}>
+                    <tr style={{ borderBottom: "2px solid #e5e7eb" }}>
+                      <th style={{ padding: "8px 12px", textAlign: "left", fontWeight: 600, color: "#6b7280" }}>Code</th>
+                      <th style={{ padding: "8px 12px", textAlign: "left", fontWeight: 600, color: "#6b7280" }}>Agency</th>
+                      <th style={{ padding: "8px 12px", textAlign: "left", fontWeight: 600, color: "#6b7280" }}>Office</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {employeeAgencies.slice(0, 50).map((ag) => {
+                      const office = offices.find((o) => o.id === ag.office_id);
+                      const officeLabel = office ? office.code : "—";
 
-                  <div
-                    style={{
-                      maxHeight: 160,
-                      overflow: "auto",
-                      borderRadius: 8,
-                      border: "1px solid #e5e7eb",
-                      background: "#f9fafb",
-                    }}
-                  >
-                    <table
-                      style={{
-                        width: "100%",
-                        borderCollapse: "collapse",
-                        fontSize: 11,
-                      }}
-                    >
-                      <thead
-                        style={{
-                          position: "sticky",
-                          top: 0,
-                          background: "#e5e7eb",
-                        }}
-                      >
-                        <tr>
-                          <th
-                            style={{
-                              padding: "4px 6px",
-                              textAlign: "left",
-                              borderBottom: "1px solid #e5e7eb",
-                            }}
-                          >
-                            Code
-                          </th>
-                          <th
-                            style={{
-                              padding: "4px 6px",
-                              textAlign: "left",
-                              borderBottom: "1px solid #e5e7eb",
-                            }}
-                          >
-                            Agency
-                          </th>
-                          <th
-                            style={{
-                              padding: "4px 6px",
-                              textAlign: "left",
-                              borderBottom: "1px solid #e5e7eb",
-                            }}
-                          >
-                            Office
-                          </th>
-                          <th
-                            style={{
-                              padding: "4px 6px",
-                              textAlign: "left",
-                              borderBottom: "1px solid #e5e7eb",
-                            }}
-                          >
-                            Status
-                          </th>
+                      return (
+                        <tr key={ag.id} style={{ borderBottom: "1px solid #f3f4f6" }}>
+                          <td style={{ padding: "8px 12px" }}>{ag.code}</td>
+                          <td style={{ padding: "8px 12px" }}>{ag.name}</td>
+                          <td style={{ padding: "8px 12px" }}>{officeLabel}</td>
                         </tr>
-                      </thead>
-                      <tbody>
-                        {employeeAgencies.slice(0, 15).map((ag) => {
-                          const office = offices.find((o) => o.id === ag.office_id);
-                          const officeLabel = office
-                            ? `${office.code} - ${office.name}`
-                            : "Unassigned";
-
-                          const status = (ag.active_flag || "Unknown").trim() || "Unknown";
-
-                          return (
-                            <tr key={ag.id}>
-                              <td
-                                style={{
-                                  padding: "4px 6px",
-                                  borderBottom: "1px solid #e5e7eb",
-                                  whiteSpace: "nowrap",
-                                }}
-                              >
-                                {ag.code}
-                              </td>
-                              <td
-                                style={{
-                                  padding: "4px 6px",
-                                  borderBottom: "1px solid #e5e7eb",
-                                  whiteSpace: "nowrap",
-                                }}
-                              >
-                                {ag.name}
-                              </td>
-                              <td
-                                style={{
-                                  padding: "4px 6px",
-                                  borderBottom: "1px solid #e5e7eb",
-                                  whiteSpace: "nowrap",
-                                }}
-                              >
-                                {officeLabel}
-                              </td>
-                              <td
-                                style={{
-                                  padding: "4px 6px",
-                                  borderBottom: "1px solid #e5e7eb",
-                                  whiteSpace: "nowrap",
-                                }}
-                              >
-                                {status}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </>
-              )}
-            </div>
-          </>
-        )}
-      </div>
-    </section>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+    </div>
   );
 
   const content = (
@@ -934,12 +662,7 @@ export const EmployeesPage: React.FC = () => {
         </div>
       )}
 
-      {kpiCards}
-
-      <div style={{ display: "flex", gap: 12, flex: 1, minHeight: 320 }}>
-        {listPanel}
-        {detailPanel}
-      </div>
+      {detailPanel}
     </>
   );
 
