@@ -9,6 +9,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { apiGet, apiPost, apiDelete, apiPut } from "../api/client";
 
 import { WorkbenchLayout } from "../components/WorkbenchLayout";
+import { AiAssistantPanel } from "../components/AiAssistantPanel";
 import {
   cardStyle,
   panelStyle,
@@ -161,7 +162,8 @@ const AgenciesPage: React.FC = () => {
 
   const [production, setProduction] = useState<Production[]>([]);
 
-
+  // AI Assistant state
+  const [aiOpen, setAiOpen] = useState(false);
 
   // Edit contact state
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
@@ -1594,6 +1596,27 @@ const AgenciesPage: React.FC = () => {
                         >
                           Contacts and Log Calls
                         </button>
+                        <button
+                          type="button"
+                          onClick={() => setAiOpen(true)}
+                          style={{
+                            marginTop: 8,
+                            padding: "6px 12px",
+                            borderRadius: 6,
+                            border: "1px solid #10b981",
+                            backgroundColor: "#ffffff",
+                            color: "#10b981",
+                            fontSize: 13,
+                            cursor: "pointer",
+                            width: "100%",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: 6,
+                          }}
+                        >
+                          <span>🤖</span> Ask AI About This Agency
+                        </button>
                       </div>
 
                     </div>
@@ -2564,6 +2587,38 @@ const AgenciesPage: React.FC = () => {
         </section>
 
       </>
+
+      {/* AI Assistant Panel */}
+      <AiAssistantPanel
+        isOpen={aiOpen}
+        onClose={() => setAiOpen(false)}
+        context={
+          selectedAgency
+            ? {
+                page: "agencies",
+                agency: {
+                  name: selectedAgency.name,
+                  code: selectedAgency.code,
+                  dba: selectedAgency.dba,
+                  primaryUnderwriter: selectedAgency.primary_underwriter,
+                },
+                recentContacts: contacts.slice(0, 5).map((c) => ({
+                  name: c.name,
+                  title: c.title,
+                  email: c.email,
+                  phone: c.phone,
+                })),
+                recentLogs: logs.slice(0, 5).map((log) => ({
+                  datetime: log.datetime,
+                  action: log.action,
+                  user: log.user,
+                  notes: log.notes,
+                })),
+              }
+            : null
+        }
+        title="AI Assistant – Agencies"
+      />
 
     </WorkbenchLayout>
 

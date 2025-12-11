@@ -293,3 +293,16 @@ class Submission(SubmissionBase, OrmModel):
     file_type: Optional[str] = None
     extracted_text: Optional[str] = None
     reviewed_by: Optional[str] = None
+
+
+# AI Assistant schemas
+class AIChatRequest(BaseModel):
+    message: str
+    context: Optional[dict] = None
+    history: Optional[List[dict]] = None
+
+
+class AIChatResponse(BaseModel):
+    answer: str
+    used_context: Optional[dict] = None
+    error: Optional[str] = None
