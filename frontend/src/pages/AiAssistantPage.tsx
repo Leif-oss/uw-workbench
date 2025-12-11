@@ -11,6 +11,10 @@ export function AiAssistantPage() {
   const [showPropertyForm, setShowPropertyForm] = useState(false);
   const [propertyAddress, setPropertyAddress] = useState("");
 
+  // Agency Research Form
+  const [showAgencyForm, setShowAgencyForm] = useState(false);
+  const [agencySearchQuery, setAgencySearchQuery] = useState("");
+
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -44,6 +48,8 @@ export function AiAssistantPage() {
       reset();
       setShowPropertyForm(false);
       setPropertyAddress("");
+      setShowAgencyForm(false);
+      setAgencySearchQuery("");
     }
   };
 
@@ -129,6 +135,92 @@ ${propertyAddress}`;
         // Open ChatGPT in new window
         window.open('https://chat.openai.com', '_blank');
         alert('✅ Prompt copied to clipboard!\n\n1. ChatGPT is opening in a new window\n2. Paste (Ctrl+V) into ChatGPT\n3. Hit Enter to get your report');
+      })
+      .catch((err) => {
+        alert('Failed to copy to clipboard. Please try again.');
+        console.error('Clipboard error:', err);
+      });
+  };
+
+  const handleCopyAndOpenChatGPTForAgency = () => {
+    if (!agencySearchQuery.trim()) {
+      alert("Please enter an agency name or website");
+      return;
+    }
+
+    const fullPrompt = `You are an Insurance Agency Research Assistant. Your job is to find comprehensive contact and employee information for insurance agencies.
+
+Research the following agency and provide detailed, accurate information:
+
+**Agency to Research:** ${agencySearchQuery}
+
+**Required Information to Find:**
+
+## 1. Agency Overview
+- Official agency name
+- DBA (Doing Business As) names if different
+- Agency website URL
+- Main office address
+- Phone number(s)
+- General email address
+
+## 2. Key Contacts & Employees
+For each person you find, provide:
+- Full name
+- Job title/role
+- Direct phone number (if available)
+- Email address (if available)
+- LinkedIn profile URL (if available)
+- Professional bio/background (brief)
+
+Focus on finding:
+- Owner(s) / Principal(s)
+- Commercial lines producers/brokers
+- Account managers
+- Key decision makers
+
+## 3. Agency Details
+- Year established
+- Number of employees (estimate)
+- Specializations (commercial, personal, benefits, etc.)
+- Carrier appointments (if publicly listed)
+- Industry associations/memberships
+
+## 4. Social Media & Online Presence
+- LinkedIn company page
+- Facebook page
+- Twitter/X handle
+- Other relevant profiles
+
+## 5. News & Updates
+- Recent news mentions
+- Press releases
+- Awards or recognitions
+- Notable clients (if public)
+
+**Output Format:**
+- Use clean, organized sections
+- Provide clickable URLs
+- Mark uncertain information as "(estimated)" or "(unverified)"
+- If information cannot be found, state "Not publicly available"
+- Cite sources where possible
+
+**Important:**
+- Only provide information that is publicly available
+- Do NOT fabricate contact information
+- Verify information across multiple sources when possible
+- Focus on decision makers and producers (most relevant for underwriting)
+
+---
+
+Begin research for: ${agencySearchQuery}`;
+
+    // Copy to clipboard
+    navigator.clipboard.writeText(fullPrompt)
+      .then(() => {
+        // Open ChatGPT in new window
+        window.open('https://chat.openai.com', '_blank');
+        alert('✅ Agency research prompt copied!\n\n1. ChatGPT is opening in a new window\n2. Paste (Ctrl+V) into ChatGPT\n3. Hit Enter to get contact/employee info');
       })
       .catch((err) => {
         alert('Failed to copy to clipboard. Please try again.');
@@ -254,13 +346,12 @@ ${propertyAddress}`;
                 />
                 <SuggestionCard
                   icon="🏢"
-                  title="Agency Risk Profile"
-                  example="Evaluate agency performance and risk"
-                  onClick={() =>
-                    handleSuggestionClick(
-                      "Please provide a comprehensive agency risk profile analysis. Include: 1) Agency stability and reputation factors, 2) Historical loss ratios and claims patterns, 3) Geographic concentration risks, 4) Line of business mix evaluation, 5) Recommended underwriting guidelines and limits."
-                    )
-                  }
+                  title="Agency Research"
+                  example="Find contacts & employees via ChatGPT"
+                  onClick={() => {
+                    setShowAgencyForm(true);
+                    textareaRef.current?.focus();
+                  }}
                 />
                 <SuggestionCard
                   icon="⚠️"
@@ -496,6 +587,137 @@ ${propertyAddress}`;
               >
                 <span>🚀</span>
                 Copy & Open ChatGPT
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Agency Research Input */}
+        {showAgencyForm && (
+          <div
+            style={{
+              background: "#ffffff",
+              borderRadius: 12,
+              padding: "20px",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+              marginBottom: 16,
+              border: "2px solid #10b981",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 16,
+              }}
+            >
+              <div>
+                <h3
+                  style={{
+                    margin: 0,
+                    fontSize: 16,
+                    fontWeight: 600,
+                    color: "#111827",
+                  }}
+                >
+                  🏢 Agency Research
+                </h3>
+                <p
+                  style={{
+                    margin: "4px 0 0",
+                    fontSize: 12,
+                    color: "#6b7280",
+                  }}
+                >
+                  Enter agency name or website - ChatGPT will find contacts & employees
+                </p>
+              </div>
+              <button
+                onClick={() => setShowAgencyForm(false)}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  color: "#6b7280",
+                  fontSize: 20,
+                  cursor: "pointer",
+                  padding: "0 4px",
+                }}
+                title="Close form"
+              >
+                ×
+              </button>
+            </div>
+
+            <div style={{ marginBottom: 16 }}>
+              <label
+                style={{
+                  display: "block",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: "#374151",
+                  marginBottom: 8,
+                }}
+              >
+                Agency Name or Website
+              </label>
+              <input
+                type="text"
+                value={agencySearchQuery}
+                onChange={(e) => setAgencySearchQuery(e.target.value)}
+                onKeyPress={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    handleCopyAndOpenChatGPTForAgency();
+                  }
+                }}
+                style={{
+                  width: "100%",
+                  padding: "10px 12px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: 6,
+                  fontSize: 14,
+                  fontFamily: "inherit",
+                  boxSizing: "border-box",
+                }}
+                placeholder="e.g., 'Acme Insurance Agency' or 'acmeinsurance.com'"
+              />
+              <p
+                style={{
+                  margin: "8px 0 0",
+                  fontSize: 12,
+                  color: "#6b7280",
+                  fontStyle: "italic",
+                }}
+              >
+                💡 Tip: Company websites often yield better results than just names
+              </p>
+            </div>
+
+            <div>
+              <button
+                onClick={handleCopyAndOpenChatGPTForAgency}
+                disabled={!agencySearchQuery.trim()}
+                style={{
+                  background:
+                    !agencySearchQuery.trim() ? "#d1d5db" : "#10b981",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 8,
+                  padding: "12px 20px",
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor:
+                    !agencySearchQuery.trim() ? "not-allowed" : "pointer",
+                  width: "100%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                }}
+              >
+                <span>🚀</span>
+                Copy Prompt & Open ChatGPT
               </button>
             </div>
           </div>
