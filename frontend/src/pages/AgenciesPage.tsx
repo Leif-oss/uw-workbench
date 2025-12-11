@@ -120,6 +120,19 @@ type Log = {
 
 };
 
+type Production = {
+  id: number;
+  office: string;
+  agency_code: string;
+  agency_name: string;
+  month: string;
+  all_ytd_wp: number;
+  all_ytd_nb: number;
+  pytd_wp: number;
+  pytd_nb: number;
+  py_total_nb: number;
+};
+
 
 
 const AgenciesPage: React.FC = () => {
@@ -145,6 +158,8 @@ const AgenciesPage: React.FC = () => {
   const [contacts, setContacts] = useState<Contact[]>([]);
 
   const [logs, setLogs] = useState<Log[]>([]);
+
+  const [production, setProduction] = useState<Production[]>([]);
 
 
 
@@ -504,13 +519,15 @@ const AgenciesPage: React.FC = () => {
 
       setStatus("Loading agencies...");
 
-      const [agenciesResp, officesResp, employeesResp] = await Promise.all([
+      const [agenciesResp, officesResp, employeesResp, productionResp] = await Promise.all([
 
         apiGet<Agency[]>("/agencies"),
 
         apiGet<Office[]>("/offices"),
 
         apiGet<Employee[]>("/employees"),
+
+        apiGet<Production[]>("/production"),
 
       ]);
 
@@ -519,6 +536,8 @@ const AgenciesPage: React.FC = () => {
       setOffices(officesResp || []);
 
       setEmployees(employeesResp || []);
+
+      setProduction(productionResp || []);
 
       setStatus(`Loaded ${agenciesResp?.length ?? 0} agencies.`);
 
@@ -535,6 +554,50 @@ const AgenciesPage: React.FC = () => {
     }
 
   };
+
+  // Calculate production metrics for selected agency
+  const agencyProduction = useMemo(() => {
+    if (!selectedAgency || !selectedAgency.code) {
+      return {
+        currentYearTotal: 0,
+        priorYearTotal: 0,
+        percentChange: 0,
+      };
+    }
+
+    // Find latest production record for this agency
+    const agencyCode = selectedAgency.code.trim().toUpperCase();
+    let latestRecord: Production | null = null;
+    
+    production.forEach((record) => {
+      const codeNorm = record.agency_code.trim().toUpperCase();
+      if (codeNorm === agencyCode) {
+        if (!latestRecord || record.month > latestRecord.month) {
+          latestRecord = record;
+        }
+      }
+    });
+
+    if (!latestRecord) {
+      return {
+        currentYearTotal: 0,
+        priorYearTotal: 0,
+        percentChange: 0,
+      };
+    }
+
+    const currentYearTotal = latestRecord.all_ytd_nb || 0;
+    const priorYearTotal = latestRecord.pytd_nb || 0;
+    const percentChange = priorYearTotal > 0 
+      ? ((currentYearTotal - priorYearTotal) / priorYearTotal) * 100 
+      : 0;
+
+    return {
+      currentYearTotal,
+      priorYearTotal,
+      percentChange,
+    };
+  }, [selectedAgency, production]);
 
 
 
@@ -1521,6 +1584,80 @@ const AgenciesPage: React.FC = () => {
                         >
                           Contacts and Log Calls
                         </button>
+                      </div>
+
+                      {/* Production Graph */}
+                      <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid #e5e7eb" }}>
+                        <h3 style={{ fontSize: 13, fontWeight: 600, color: "#111827", marginBottom: 12 }}>
+                          New Business Production
+                        </h3>
+
+                        {agencyProduction.currentYearTotal === 0 && agencyProduction.priorYearTotal === 0 ? (
+                          <div style={{ fontSize: 12, color: "#9ca3af", padding: 16, textAlign: "center", background: "#f9fafb", borderRadius: 8 }}>
+                            No production data available for this agency.
+                          </div>
+                        ) : (
+                          <>
+                            {/* Bar Graph Comparison */}
+                            <div style={{ display: "flex", gap: 20, alignItems: "flex-end", height: 150 }}>
+                              {/* Prior Year Bar */}
+                              <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+                                <div style={{ flex: 1, display: "flex", alignItems: "flex-end", width: "100%" }}>
+                                  <div
+                                    style={{
+                                      width: "100%",
+                                      height: `${agencyProduction.priorYearTotal > 0 ? (agencyProduction.priorYearTotal / Math.max(agencyProduction.currentYearTotal, agencyProduction.priorYearTotal)) * 100 : 0}%`,
+                                      minHeight: 30,
+                                      background: "linear-gradient(180deg, #6b7280 0%, #9ca3af 100%)",
+                                      borderRadius: "8px 8px 0 0",
+                                      display: "flex",
+                                      alignItems: "center",
+                                      justifyContent: "center",
+                                      color: "#fff",
+                                      fontWeight: 700,
+                                      fontSize: 12,
+                                    }}
+                                  >
+                                    ${(agencyProduction.priorYearTotal / 1000).toFixed(0)}k
+                                  </div>
+                                </div>
+                                <div style={{ fontSize: 11, fontWeight: 600, color: "#6b7280" }}>
+                                  Prior Year
+                                </div>
+                              </div>
+
+                              {/* Current Year Bar */}
+                              <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+                                <div style={{ flex: 1, display: "flex", alignItems: "flex-end", width: "100%" }}>
+                                  <div
+                                    style={{
+                                      width: "100%",
+                                      height: `${agencyProduction.currentYearTotal > 0 ? (agencyProduction.currentYearTotal / Math.max(agencyProduction.currentYearTotal, agencyProduction.priorYearTotal)) * 100 : 0}%`,
+                                      minHeight: 30,
+                                      background: "linear-gradient(180deg, #1e40af 0%, #3b82f6 100%)",
+                                      borderRadius: "8px 8px 0 0",
+                                      display: "flex",
+                                      alignItems: "center",
+                                      justifyContent: "center",
+                                      color: "#fff",
+                                      fontWeight: 700,
+                                      fontSize: 12,
+                                    }}
+                                  >
+                                    ${(agencyProduction.currentYearTotal / 1000).toFixed(0)}k
+                                  </div>
+                                </div>
+                                <div style={{ fontSize: 11, fontWeight: 600, color: "#1e40af" }}>
+                                  Current Year
+                                </div>
+                              </div>
+                            </div>
+
+                            <div style={{ marginTop: 10, fontSize: 11, color: "#6b7280", textAlign: "center" }}>
+                              YTD New Business Premium {agencyProduction.percentChange >= 0 ? "+" : ""}{agencyProduction.percentChange.toFixed(1)}% vs. Prior Year
+                            </div>
+                          </>
+                        )}
                       </div>
 
                     </div>
