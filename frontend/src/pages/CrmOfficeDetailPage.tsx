@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { apiGet, apiPost } from "../api/client";
+import { TabbedProductionGraph } from "../components/TabbedProductionGraph";
 import {
   cardStyle,
   panelStyle,
@@ -59,6 +60,20 @@ import {
   commYtd: number;
 };
 
+type ProductionRecord = {
+  id: number;
+  office: string;
+  agency_code: string;
+  agency_name: string;
+  month: string;
+  all_ytd_wp: number | null;
+  pytd_wp: number | null;
+  standard_lines_ytd_wp: number | null;
+  standard_lines_pytd_wp: number | null;
+  surplus_lines_ytd_wp: number | null;
+  surplus_lines_pytd_wp: number | null;
+};
+
 
  const CrmOfficeDetailPage: React.FC = () => {
   const { officeId } = useParams<{ officeId: string }>();
@@ -69,6 +84,7 @@ import {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [agencies, setAgencies] = useState<Agency[]>([]);
   const [logs, setLogs] = useState<Log[]>([]);
+  const [productionData, setProductionData] = useState<ProductionRecord[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -86,16 +102,18 @@ import {
     setIsLoading(true);
     setError(null);
     try {
-      const [officesResp, employeesResp, agenciesResp, logsResp] = await Promise.all([
+      const [officesResp, employeesResp, agenciesResp, logsResp, productionResp] = await Promise.all([
         apiGet<Office[]>("/offices"),
         apiGet<Employee[]>("/employees"),
         apiGet<Agency[]>("/agencies"),
         apiGet<Log[]>("/logs"),
+        apiGet<ProductionRecord[]>("/production"),
       ]);
       setOffices(officesResp || []);
       setEmployees(employeesResp || []);
       setAgencies(agenciesResp || []);
       setLogs(logsResp || []);
+      setProductionData(productionResp || []);
     } catch (err: any) {
       setError(err?.message || "Failed to load office details");
     } finally {
@@ -295,8 +313,14 @@ import {
                     padding: 0,
                     color: "#1d4ed8",
                     cursor: "pointer",
+                    textDecoration: "underline",
                   }}
-                  onClick={() => {}}
+                  onClick={() => {
+                    const params = new URLSearchParams();
+                    if (emp.id) params.set("employeeId", String(emp.id));
+                    if (emp.name) params.set("employeeName", emp.name);
+                    navigate(`/crm/employees?${params.toString()}`);
+                  }}
                 >
                   {emp.name}
                 </button>
@@ -365,7 +389,32 @@ import {
                       {ag.name}
                     </button>
                     <div style={{ fontSize: 12, color: "#374151" }}>
-                      Code: {ag.code || "-"} | UW: {ag.primary_underwriter || "Unassigned"}
+                      Code: {ag.code || "-"} | UW: {ag.primary_underwriter ? (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const uw = officeEmployees.find(e => e.name === ag.primary_underwriter);
+                            const params = new URLSearchParams();
+                            if (uw?.id) params.set("employeeId", String(uw.id));
+                            if (ag.primary_underwriter) params.set("employeeName", ag.primary_underwriter);
+                            navigate(`/crm/employees?${params.toString()}`);
+                          }}
+                          style={{
+                            border: "none",
+                            background: "transparent",
+                            color: "#2563eb",
+                            cursor: "pointer",
+                            textDecoration: "underline",
+                            padding: 0,
+                            fontSize: "inherit",
+                          }}
+                        >
+                          {ag.primary_underwriter}
+                        </button>
+                      ) : (
+                        "Unassigned"
+                      )}
                       {ag.web_address ? (
                         <div>
                           <a
@@ -507,12 +556,14 @@ import {
         </div>
       </div>
 
-      <div style={cardStyle}>
-        <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6 }}>Office Production Summary</div>
-        <div style={{ fontSize: 12, color: "#6b7280" }}>
-          Production data integration pending. YTD WP / NB and growth vs PY will appear here.
-        </div>
-      </div>
+      {/* Office Production Graph */}
+      {office && (
+        <TabbedProductionGraph
+          productionData={productionData.filter(p => p.office === office.code)}
+          title={`Written Premium Trend - ${office.name} (${office.code})`}
+          height={280}
+        />
+      )}
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
         <div style={cardStyle}>
@@ -532,12 +583,58 @@ import {
               <tbody>
                 {recentActivity.map((log) => {
                   const agency = officeAgencies.find((a) => a.id === log.agency_id);
+                  const logEmployee = officeEmployees.find(e => e.name.toLowerCase() === (log.user || "").toLowerCase());
                   return (
                     <tr key={log.id} style={{ borderBottom: "1px solid #f3f4f6" }}>
                       <td style={{ padding: "4px 6px" }}>{formatDateTime(log.datetime)}</td>
-                      <td style={{ padding: "4px 6px" }}>{agency ? agency.name : ""}</td>
+                      <td style={{ padding: "4px 6px" }}>
+                        {agency ? (
+                          <button
+                            type="button"
+                            onClick={() => navigate(`/crm/agencies/${agency.id}`)}
+                            style={{
+                              border: "none",
+                              background: "transparent",
+                              color: "#2563eb",
+                              cursor: "pointer",
+                              textDecoration: "underline",
+                              padding: 0,
+                              fontSize: "inherit",
+                            }}
+                          >
+                            {agency.name}
+                          </button>
+                        ) : (
+                          ""
+                        )}
+                      </td>
                       <td style={{ padding: "4px 6px" }}>{log.action}</td>
-                      <td style={{ padding: "4px 6px" }}>{log.user}</td>
+                      <td style={{ padding: "4px 6px" }}>
+                        {logEmployee ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const params = new URLSearchParams();
+                              if (logEmployee.id) params.set("employeeId", String(logEmployee.id));
+                              if (logEmployee.name) params.set("employeeName", logEmployee.name);
+                              navigate(`/crm/employees?${params.toString()}`);
+                            }}
+                            style={{
+                              border: "none",
+                              background: "transparent",
+                              color: "#2563eb",
+                              cursor: "pointer",
+                              textDecoration: "underline",
+                              padding: 0,
+                              fontSize: "inherit",
+                            }}
+                          >
+                            {log.user}
+                          </button>
+                        ) : (
+                          log.user
+                        )}
+                      </td>
                     </tr>
                   );
                 })}
@@ -595,7 +692,32 @@ import {
                   {ag.name}
                 </button>
                 <div style={{ fontSize: 12, color: "#374151" }}>
-                  Code: {ag.code || "-"} | UW: {ag.primary_underwriter || "Unassigned"}
+                  Code: {ag.code || "-"} | UW: {ag.primary_underwriter ? (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const uw = officeEmployees.find(e => e.name === ag.primary_underwriter);
+                        const params = new URLSearchParams();
+                        if (uw?.id) params.set("employeeId", String(uw.id));
+                        if (ag.primary_underwriter) params.set("employeeName", ag.primary_underwriter);
+                        navigate(`/crm/employees?${params.toString()}`);
+                      }}
+                      style={{
+                        border: "none",
+                        background: "transparent",
+                        color: "#2563eb",
+                        cursor: "pointer",
+                        textDecoration: "underline",
+                        padding: 0,
+                        fontSize: "inherit",
+                      }}
+                    >
+                      {ag.primary_underwriter}
+                    </button>
+                  ) : (
+                    "Unassigned"
+                  )}
                   {ag.web_address ? (
                     <div>
                       <a

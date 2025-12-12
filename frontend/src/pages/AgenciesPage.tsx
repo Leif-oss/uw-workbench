@@ -9,7 +9,6 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { apiGet, apiPost, apiDelete, apiPut } from "../api/client";
 
 import { WorkbenchLayout } from "../components/WorkbenchLayout";
-import { AiAssistantPanel } from "../components/AiAssistantPanel";
 import {
   cardStyle,
   panelStyle,
@@ -161,9 +160,6 @@ const AgenciesPage: React.FC = () => {
   const [logs, setLogs] = useState<Log[]>([]);
 
   const [production, setProduction] = useState<Production[]>([]);
-
-  // AI Assistant state
-  const [aiOpen, setAiOpen] = useState(false);
 
   // Edit contact state
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
@@ -1192,13 +1188,49 @@ const AgenciesPage: React.FC = () => {
 
                     <td style={{ padding: "4px 6px", borderBottom: "1px solid #e5e7eb", whiteSpace: "nowrap" }}>
 
-                      {ag.name}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/crm/agencies/${ag.id}`);
+                        }}
+                        style={{
+                          border: "none",
+                          background: "transparent",
+                          color: "#2563eb",
+                          cursor: "pointer",
+                          textDecoration: "underline",
+                          padding: 0,
+                          fontSize: "inherit",
+                          textAlign: "left",
+                        }}
+                      >
+                        {ag.name}
+                      </button>
 
                     </td>
 
                     <td style={{ padding: "4px 6px", borderBottom: "1px solid #e5e7eb", whiteSpace: "nowrap" }}>
 
-                      {ag.code}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/crm/agencies/${ag.id}`);
+                        }}
+                        style={{
+                          border: "none",
+                          background: "transparent",
+                          color: "#2563eb",
+                          cursor: "pointer",
+                          textDecoration: "underline",
+                          padding: 0,
+                          fontSize: "inherit",
+                          textAlign: "left",
+                        }}
+                      >
+                        {ag.code}
+                      </button>
 
                     </td>
 
@@ -1549,33 +1581,15 @@ const AgenciesPage: React.FC = () => {
                             <strong>Unassigned</strong>
                           )}
                         </div>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6 }}>
-                          <div>
-                            {selectedAgency.email && (
-                              <a
-                                href={`mailto:${selectedAgency.email}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                style={{ color: "#2563eb", textDecoration: "underline", fontSize: 13 }}
-                              >
-                                {selectedAgency.email}
-                              </a>
-                            )}
-                          </div>
-                          {contacts.filter(c => c.email).length > 0 && (
+                        <div style={{ marginTop: 6 }}>
+                          {selectedAgency.email && (
                             <a
-                              href={`mailto:?bcc=${contacts.filter(c => c.email).map(c => c.email).join(',')}`}
-                              style={{
-                                color: "#2563eb",
-                                textDecoration: "none",
-                                fontSize: 12,
-                                padding: "4px 8px",
-                                border: "1px solid #2563eb",
-                                borderRadius: 4,
-                                cursor: "pointer",
-                              }}
+                              href={`mailto:${selectedAgency.email}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{ color: "#2563eb", textDecoration: "underline", fontSize: 13 }}
                             >
-                              Email All Contacts
+                              {selectedAgency.email}
                             </a>
                           )}
                         </div>
@@ -1596,27 +1610,25 @@ const AgenciesPage: React.FC = () => {
                         >
                           Contacts and Log Calls
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => setAiOpen(true)}
-                          style={{
-                            marginTop: 8,
-                            padding: "6px 12px",
-                            borderRadius: 6,
-                            border: "1px solid #10b981",
-                            backgroundColor: "#ffffff",
-                            color: "#10b981",
-                            fontSize: 13,
-                            cursor: "pointer",
-                            width: "100%",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            gap: 6,
-                          }}
-                        >
-                          <span>🤖</span> Ask AI About This Agency
-                        </button>
+                        {contacts.filter(c => c.email).length > 0 && (
+                          <div style={{ marginTop: 8, display: "flex", justifyContent: "flex-end" }}>
+                            <a
+                              href={`mailto:?bcc=${contacts.filter(c => c.email).map(c => c.email).join(',')}`}
+                              style={{
+                                color: "#2563eb",
+                                textDecoration: "none",
+                                fontSize: 12,
+                                padding: "4px 8px",
+                                border: "1px solid #2563eb",
+                                borderRadius: 4,
+                                cursor: "pointer",
+                                display: "inline-block",
+                              }}
+                            >
+                              Email All Contacts
+                            </a>
+                          </div>
+                        )}
                       </div>
 
                     </div>
@@ -2305,39 +2317,83 @@ const AgenciesPage: React.FC = () => {
 
                         <tbody>
 
-                          {filteredLogs.map((log) => (
+                          {filteredLogs.map((log) => {
 
-                            <tr key={log.id}>
+                            // Find employee by name for linking
+                            const employee = employees.find(e => e.name.toLowerCase() === (log.user || "").toLowerCase());
+                            // Find office by code for linking
+                            const officeForLog = offices.find(o => o.code === log.office);
 
-                              <td style={{ padding: "6px 8px", borderBottom: "1px solid #e5e7eb" }}>{log.user}</td>
+                            return (
+                              <tr key={log.id}>
 
-                              <td style={{ padding: "6px 8px", borderBottom: "1px solid #e5e7eb" }}>
+                                <td style={{ padding: "6px 8px", borderBottom: "1px solid #e5e7eb" }}>
+                                  {employee ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => goToEmployee(employee.id, employee.name)}
+                                      style={{
+                                        border: "none",
+                                        background: "transparent",
+                                        color: "#2563eb",
+                                        cursor: "pointer",
+                                        textDecoration: "underline",
+                                        padding: 0,
+                                        fontSize: "inherit",
+                                      }}
+                                    >
+                                      {log.user}
+                                    </button>
+                                  ) : (
+                                    log.user
+                                  )}
+                                </td>
 
-                                {log.office || ""}
+                                <td style={{ padding: "6px 8px", borderBottom: "1px solid #e5e7eb" }}>
 
-                              </td>
+                                  {officeForLog ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => navigate(`/crm/offices/${officeForLog.id}`)}
+                                      style={{
+                                        border: "none",
+                                        background: "transparent",
+                                        color: "#2563eb",
+                                        cursor: "pointer",
+                                        textDecoration: "underline",
+                                        padding: 0,
+                                        fontSize: "inherit",
+                                      }}
+                                    >
+                                      {log.office}
+                                    </button>
+                                  ) : (
+                                    log.office || ""
+                                  )}
 
-                              <td style={{ padding: "6px 8px", borderBottom: "1px solid #e5e7eb" }}>
+                                </td>
 
-                                {log.action}
+                                <td style={{ padding: "6px 8px", borderBottom: "1px solid #e5e7eb" }}>
 
-                              </td>
+                                  {log.action}
 
-                              <td style={{ padding: "6px 8px", borderBottom: "1px solid #e5e7eb" }}>
+                                </td>
 
-                                {formatDateTime(log.datetime)}
+                                <td style={{ padding: "6px 8px", borderBottom: "1px solid #e5e7eb" }}>
 
-                              </td>
+                                  {formatDateTime(log.datetime)}
 
-                              <td style={{ padding: "6px 8px", borderBottom: "1px solid #e5e7eb" }}>
+                                </td>
 
-                                {log.notes || ""}
+                                <td style={{ padding: "6px 8px", borderBottom: "1px solid #e5e7eb" }}>
 
-                              </td>
+                                  {log.notes || ""}
 
-                            </tr>
+                                </td>
 
-                          ))}
+                              </tr>
+                            );
+                          })}
 
                           {filteredLogs.length === 0 && (
 
@@ -2587,38 +2643,6 @@ const AgenciesPage: React.FC = () => {
         </section>
 
       </>
-
-      {/* AI Assistant Panel */}
-      <AiAssistantPanel
-        isOpen={aiOpen}
-        onClose={() => setAiOpen(false)}
-        context={
-          selectedAgency
-            ? {
-                page: "agencies",
-                agency: {
-                  name: selectedAgency.name,
-                  code: selectedAgency.code,
-                  dba: selectedAgency.dba,
-                  primaryUnderwriter: selectedAgency.primary_underwriter,
-                },
-                recentContacts: contacts.slice(0, 5).map((c) => ({
-                  name: c.name,
-                  title: c.title,
-                  email: c.email,
-                  phone: c.phone,
-                })),
-                recentLogs: logs.slice(0, 5).map((log) => ({
-                  datetime: log.datetime,
-                  action: log.action,
-                  user: log.user,
-                  notes: log.notes,
-                })),
-              }
-            : null
-        }
-        title="AI Assistant – Agencies"
-      />
 
     </WorkbenchLayout>
 

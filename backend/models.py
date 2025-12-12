@@ -99,13 +99,36 @@ class Production(Base):
     office = Column(String(50), nullable=False)
     agency_code = Column(String(50), nullable=False, index=True)
     agency_name = Column(String(255), nullable=False)
+    affiliated_code = Column(String(50), nullable=True)  # New field
     active_flag = Column(String(50), nullable=True)
     month = Column(String(7), nullable=False)  # YYYY-MM
+    
+    # Standard Lines
+    standard_lines_ytd_wp = Column(Integer, nullable=True)
+    standard_lines_ytd_nb = Column(Integer, nullable=True)
+    standard_lines_pytd_wp = Column(Integer, nullable=True)
+    standard_lines_pytd_nb = Column(Integer, nullable=True)
+    
+    # Surplus Lines
+    surplus_lines_ytd_wp = Column(Integer, nullable=True)
+    surplus_lines_ytd_nb = Column(Integer, nullable=True)
+    surplus_lines_pytd_wp = Column(Integer, nullable=True)
+    surplus_lines_pytd_nb = Column(Integer, nullable=True)
+    
+    # All Lines (keeping existing fields for backward compatibility)
     all_ytd_wp = Column(Integer, nullable=True)
     all_ytd_nb = Column(Integer, nullable=True)
     pytd_wp = Column(Integer, nullable=True)
     pytd_nb = Column(Integer, nullable=True)
     py_total_nb = Column(Integer, nullable=True)
+    
+    # Additional metrics
+    premium_change = Column(Integer, nullable=True)
+    three_year_plus = Column(Integer, nullable=True)
+    twelve_mo_bind_ratio = Column(String(20), nullable=True)  # Can be percentage like "45.2%"
+    twelve_mo_bound = Column(Integer, nullable=True)
+    twelve_mo_quoted = Column(Integer, nullable=True)
+    twelve_mo_decline = Column(Integer, nullable=True)
 
 
 class Submission(Base):

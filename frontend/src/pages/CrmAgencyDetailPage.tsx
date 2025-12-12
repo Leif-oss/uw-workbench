@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { apiGet, apiPost, apiPut, apiDelete } from "../api/client";
+import { TabbedProductionGraph } from "../components/TabbedProductionGraph";
 import { LOG_ACTION_OPTIONS, LogAction } from "../constants/logActions";
 import {
   cardStyle,
@@ -61,6 +62,20 @@ type Log = {
   contact?: string | null;
  };
 
+type ProductionRecord = {
+  id: number;
+  office: string;
+  agency_code: string;
+  agency_name: string;
+  month: string;
+  all_ytd_wp: number | null;
+  pytd_wp: number | null;
+  standard_lines_ytd_wp: number | null;
+  standard_lines_pytd_wp: number | null;
+  surplus_lines_ytd_wp: number | null;
+  surplus_lines_pytd_wp: number | null;
+};
+
 
  const CrmAgencyDetailPage: React.FC = () => {
   const { agencyId } = useParams<{ agencyId: string }>();
@@ -71,6 +86,7 @@ type Log = {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [logs, setLogs] = useState<Log[]>([]);
+  const [productionData, setProductionData] = useState<ProductionRecord[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -109,7 +125,7 @@ type Log = {
   const [isEditingAgency, setIsEditingAgency] = useState(false);
   const [editAgencyName, setEditAgencyName] = useState("");
   const [editAgencyDBA, setEditAgencyDBA] = useState("");
-  const [editAgencyEmail, setEditAgencyEmail] = useState("");
+  const [editAgencyWebAddress, setEditAgencyWebAddress] = useState("");
   const [editAgencyPrimaryUW, setEditAgencyPrimaryUW] = useState<number | null>(null);
 
   useEffect(() => {
@@ -118,17 +134,19 @@ type Log = {
       setIsLoading(true);
       setError(null);
       try {
-        const [agenciesResp, contactsResp, employeesResp, logsResp] = await Promise.all([
+        const [agenciesResp, contactsResp, employeesResp, logsResp, productionResp] = await Promise.all([
           apiGet<Agency[]>("/agencies"),
           apiGet<Contact[]>(`/contacts?agency_id=${agencyIdNum}`),
           apiGet<Employee[]>("/employees"),
           apiGet<Log[]>(`/logs?agency_id=${agencyIdNum}`),
+          apiGet<ProductionRecord[]>("/production"),
         ]);
         const found = (agenciesResp || []).find((a) => a.id === agencyIdNum) || null;
         setAgency(found);
         setContacts(contactsResp || []);
         setEmployees(employeesResp || []);
         setLogs(logsResp || []);
+        setProductionData(productionResp || []);
         if (contactsResp && contactsResp.length > 0) {
           const firstContactId = contactsResp[0].id;
           setSelectedContactId(firstContactId);
@@ -425,7 +443,7 @@ type Log = {
     if (!agency) return;
     setEditAgencyName(agency.name || "");
     setEditAgencyDBA(agency.dba || "");
-    setEditAgencyEmail(agency.email || "");
+    setEditAgencyWebAddress(agency.web_address || "");
     setEditAgencyPrimaryUW(agency.primary_underwriter_id || null);
     setIsEditingAgency(true);
   };
@@ -444,7 +462,7 @@ type Log = {
         code: agency.code, // Preserve existing code
         office_id: agency.office_id, // Preserve existing office
         dba: editAgencyDBA.trim() || undefined,
-        email: editAgencyEmail.trim() || undefined,
+        web_address: editAgencyWebAddress.trim() || undefined,
         primary_underwriter_id: editAgencyPrimaryUW || undefined,
         primary_underwriter: selectedEmployee?.name || undefined,
       };
@@ -711,13 +729,13 @@ type Log = {
                 />
               </div>
               <div>
-                <label style={labelStyle}>Agency Email</label>
+                <label style={labelStyle}>Web Address</label>
                 <input
-                  type="email"
-                  value={editAgencyEmail}
-                  onChange={(e) => setEditAgencyEmail(e.target.value)}
+                  type="url"
+                  value={editAgencyWebAddress}
+                  onChange={(e) => setEditAgencyWebAddress(e.target.value)}
                   style={inputStyle}
-                  placeholder="agency@example.com"
+                  placeholder="https://www.example.com"
                 />
               </div>
               <div>
@@ -770,36 +788,67 @@ type Log = {
               <div style={{ fontSize: 14, color: "#4b5563", marginBottom: 4 }}>
                 Code: <strong>{agency?.code || "—"}</strong>
                 {"  "}·{"  "}
-                Primary UW: <strong>{agency?.primary_underwriter || "Unassigned"}</strong>
+                Primary UW: {agency?.primary_underwriter ? (
+                  <strong>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const uw = officeEmployees.find(e => e.name === agency?.primary_underwriter || e.id === agency?.primary_underwriter_id);
+                        const params = new URLSearchParams();
+                        if (uw?.id) params.set("employeeId", String(uw.id));
+                        if (agency?.primary_underwriter) params.set("employeeName", agency.primary_underwriter);
+                        navigate(`/crm/employees?${params.toString()}`);
+                      }}
+                      style={{
+                        border: "none",
+                        background: "transparent",
+                        color: "#2563eb",
+                        cursor: "pointer",
+                        textDecoration: "underline",
+                        padding: 0,
+                        fontSize: "inherit",
+                        fontWeight: "inherit",
+                      }}
+                    >
+                      {agency.primary_underwriter}
+                    </button>
+                  </strong>
+                ) : (
+                  <strong>Unassigned</strong>
+                )}
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6 }}>
-                <div>
-                  {agency?.email && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 6 }}>
+                {agency?.web_address && (
+                  <div style={{ fontSize: 13 }}>
+                    <span style={{ color: "#6b7280", marginRight: 6 }}>Website:</span>
                     <a
-                      href={`mailto:${agency.email}`}
+                      href={agency.web_address.startsWith('http') ? agency.web_address : `https://${agency.web_address}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      style={{ color: "#2563eb", textDecoration: "underline", fontSize: 13 }}
+                      style={{ color: "#2563eb", textDecoration: "underline" }}
                     >
-                      {agency.email}
+                      {agency.web_address}
                     </a>
-                  )}
-                </div>
+                  </div>
+                )}
                 {contacts.filter(c => c.email).length > 0 && (
-                  <a
-                    href={`mailto:?bcc=${contacts.filter(c => c.email).map(c => c.email).join(',')}`}
-                    style={{
-                      color: "#2563eb",
-                      textDecoration: "none",
-                      fontSize: 12,
-                      padding: "4px 8px",
-                      border: "1px solid #2563eb",
-                      borderRadius: 4,
-                      cursor: "pointer",
-                    }}
-                  >
-                    Email All Contacts
-                  </a>
+                  <div style={{ marginTop: 4 }}>
+                    <a
+                      href={`mailto:?bcc=${contacts.filter(c => c.email).map(c => c.email).join(',')}`}
+                      style={{
+                        color: "#2563eb",
+                        textDecoration: "none",
+                        fontSize: 12,
+                        padding: "4px 8px",
+                        border: "1px solid #2563eb",
+                        borderRadius: 4,
+                        cursor: "pointer",
+                        display: "inline-block",
+                      }}
+                    >
+                      Email All Contacts
+                    </a>
+                  </div>
                 )}
               </div>
             </>
@@ -1240,12 +1289,60 @@ type Log = {
                       const isExpanded = expandedLogId === log.id;
                       const hasLongNotes = log.notes && log.notes.length > 80;
                       
+                      const contact = log.contact_id ? contacts.find(c => c.id === log.contact_id) : null;
+                      const logEmployee = officeEmployees.find(e => e.name.toLowerCase() === (log.user || "").toLowerCase());
+                      
                       return (
                         <React.Fragment key={log.id}>
                           <tr>
                             <td style={tableCellStyle}>{formatDateTime(log.datetime)}</td>
-                            <td style={tableCellStyle}>{contactName}</td>
-                            <td style={tableCellStyle}>{log.user}</td>
+                            <td style={tableCellStyle}>
+                              {contact ? (
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedContactId(contact.id)}
+                                  style={{
+                                    border: "none",
+                                    background: "transparent",
+                                    color: "#2563eb",
+                                    cursor: "pointer",
+                                    textDecoration: "underline",
+                                    padding: 0,
+                                    fontSize: "inherit",
+                                  }}
+                                >
+                                  {contactName}
+                                </button>
+                              ) : (
+                                contactName
+                              )}
+                            </td>
+                            <td style={tableCellStyle}>
+                              {logEmployee ? (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const params = new URLSearchParams();
+                                    if (logEmployee.id) params.set("employeeId", String(logEmployee.id));
+                                    if (logEmployee.name) params.set("employeeName", logEmployee.name);
+                                    navigate(`/crm/employees?${params.toString()}`);
+                                  }}
+                                  style={{
+                                    border: "none",
+                                    background: "transparent",
+                                    color: "#2563eb",
+                                    cursor: "pointer",
+                                    textDecoration: "underline",
+                                    padding: 0,
+                                    fontSize: "inherit",
+                                  }}
+                                >
+                                  {log.user}
+                                </button>
+                              ) : (
+                                log.user
+                              )}
+                            </td>
                             <td style={tableCellStyle}>{log.action}</td>
                             <td style={{ ...tableCellStyle, maxWidth: 240 }}>
                               <div
@@ -1338,7 +1435,16 @@ type Log = {
 
       {error && <div style={{ gridColumn: "1 / span 3", color: "red", fontSize: 12 }}>{error}</div>}
       {isLoading && <div style={{ gridColumn: "1 / span 3", fontSize: 12, color: "#6b7280" }}>Loading agency...</div>}
-    </div>
+      </div>
+
+      {/* Agency Production Graph - Full Width */}
+      {agency && agency.code && (
+        <TabbedProductionGraph
+          productionData={productionData.filter(p => p.agency_code === agency.code)}
+          title={`Written Premium Trend - ${agency.name}${agency.code ? ` (${agency.code})` : ''}`}
+          height={280}
+        />
+      )}
     </>
   );
 };

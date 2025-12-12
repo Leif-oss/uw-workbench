@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { WorkbenchLayout } from "../components/WorkbenchLayout";
+import { TabbedProductionGraph } from "../components/TabbedProductionGraph";
 import { cardStyle, sidebarHeadingStyle } from "../ui/designSystem";
 import { apiGet } from "../api/client";
 
@@ -15,6 +16,10 @@ interface ProductionRecord {
   pytd_wp: number | null;
   pytd_nb: number | null;
   py_total_nb: number | null;
+  standard_lines_ytd_wp: number | null;
+  standard_lines_pytd_wp: number | null;
+  surplus_lines_ytd_wp: number | null;
+  surplus_lines_pytd_wp: number | null;
 }
 
 interface MonthlyData {
@@ -33,6 +38,7 @@ interface ProductionMetrics {
 
 export const DashboardPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
+  const [productionData, setProductionData] = useState<ProductionRecord[]>([]);
   const [metrics, setMetrics] = useState<ProductionMetrics>({
     currentYearTotal: 0,
     priorYearTotal: 0,
@@ -45,6 +51,7 @@ export const DashboardPage: React.FC = () => {
     const fetchProductionData = async () => {
       try {
         const data = await apiGet<ProductionRecord[]>("/production");
+        setProductionData(data);
         
         // Group by month and calculate totals for each month
         const monthlyTotals = new Map<string, { currentYear: number; priorYear: number }>();
@@ -208,175 +215,12 @@ export const DashboardPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Monthly Line Graph */}
-          <div style={{ ...cardStyle, padding: 20 }}>
-            <h3 style={{ margin: "0 0 16px 0", fontSize: 16, fontWeight: 600, color: "#111827" }}>
-              Monthly New Business Premium - Current Year vs Prior Year
-            </h3>
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              {/* Legend */}
-              <div style={{ display: "flex", gap: 24, justifyContent: "center", fontSize: 12 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <div style={{ width: 24, height: 3, background: "#3b82f6", borderRadius: 2 }}></div>
-                  <span style={{ color: "#374151", fontWeight: 600 }}>Current Year</span>
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <div style={{ width: 24, height: 3, background: "#9ca3af", borderRadius: 2 }}></div>
-                  <span style={{ color: "#374151", fontWeight: 600 }}>Prior Year</span>
-                </div>
-              </div>
-
-              {/* Line Graph Container */}
-              {metrics.monthlyData.length > 0 ? (
-                <div style={{ position: "relative", height: 320, padding: "20px 40px 40px 60px" }}>
-                  <svg 
-                    width="100%" 
-                    height="100%" 
-                    style={{ overflow: "visible" }}
-                    viewBox="0 0 800 280"
-                    preserveAspectRatio="none"
-                  >
-                    {/* Grid lines */}
-                    {[0, 25, 50, 75, 100].map((percent) => (
-                      <g key={percent}>
-                        <line
-                          x1="0"
-                          y1={280 - (percent * 2.8)}
-                          x2="800"
-                          y2={280 - (percent * 2.8)}
-                          stroke="#e5e7eb"
-                          strokeWidth="1"
-                          vectorEffect="non-scaling-stroke"
-                        />
-                      </g>
-                    ))}
-
-                    {(() => {
-                      const maxValue = Math.max(
-                        ...metrics.monthlyData.flatMap(d => [d.currentYear, d.priorYear])
-                      );
-                      const stepX = 800 / (metrics.monthlyData.length - 1 || 1);
-
-                      // Create path for Prior Year line
-                      const priorYearPath = metrics.monthlyData
-                        .map((data, i) => {
-                          const x = i * stepX;
-                          const y = 280 - (maxValue > 0 ? (data.priorYear / maxValue) * 280 : 0);
-                          return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
-                        })
-                        .join(' ');
-
-                      // Create path for Current Year line
-                      const currentYearPath = metrics.monthlyData
-                        .map((data, i) => {
-                          const x = i * stepX;
-                          const y = 280 - (maxValue > 0 ? (data.currentYear / maxValue) * 280 : 0);
-                          return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
-                        })
-                        .join(' ');
-
-                      return (
-                        <>
-                          {/* Prior Year Line */}
-                          <path
-                            d={priorYearPath}
-                            fill="none"
-                            stroke="#9ca3af"
-                            strokeWidth="3"
-                            vectorEffect="non-scaling-stroke"
-                          />
-
-                          {/* Current Year Line */}
-                          <path
-                            d={currentYearPath}
-                            fill="none"
-                            stroke="#3b82f6"
-                            strokeWidth="3"
-                            vectorEffect="non-scaling-stroke"
-                          />
-
-                          {/* Data points for Prior Year */}
-                          {metrics.monthlyData.map((data, i) => {
-                            const x = i * stepX;
-                            const y = 280 - (maxValue > 0 ? (data.priorYear / maxValue) * 280 : 0);
-                            return (
-                              <circle
-                                key={`prior-${i}`}
-                                cx={x}
-                                cy={y}
-                                r="4"
-                                fill="#9ca3af"
-                                stroke="#fff"
-                                strokeWidth="2"
-                                vectorEffect="non-scaling-stroke"
-                                style={{ cursor: "pointer" }}
-                              >
-                                <title>{`${data.month}: ${formatCurrency(data.priorYear)}`}</title>
-                              </circle>
-                            );
-                          })}
-
-                          {/* Data points for Current Year */}
-                          {metrics.monthlyData.map((data, i) => {
-                            const x = i * stepX;
-                            const y = 280 - (maxValue > 0 ? (data.currentYear / maxValue) * 280 : 0);
-                            return (
-                              <circle
-                                key={`current-${i}`}
-                                cx={x}
-                                cy={y}
-                                r="4"
-                                fill="#3b82f6"
-                                stroke="#fff"
-                                strokeWidth="2"
-                                vectorEffect="non-scaling-stroke"
-                                style={{ cursor: "pointer" }}
-                              >
-                                <title>{`${data.month}: ${formatCurrency(data.currentYear)}`}</title>
-                              </circle>
-                            );
-                          })}
-                        </>
-                      );
-                    })()}
-                  </svg>
-
-                  {/* Y-axis labels */}
-                  <div style={{ position: "absolute", left: 0, top: 20, bottom: 40, display: "flex", flexDirection: "column", justifyContent: "space-between", fontSize: 11, color: "#6b7280" }}>
-                    {(() => {
-                      const maxValue = Math.max(
-                        ...metrics.monthlyData.flatMap(d => [d.currentYear, d.priorYear])
-                      );
-                      return [100, 75, 50, 25, 0].map((percent) => (
-                        <div key={percent} style={{ textAlign: "right", width: 50 }}>
-                          {formatCurrency((maxValue * percent) / 100)}
-                        </div>
-                      ));
-                    })()}
-                  </div>
-
-                  {/* X-axis labels */}
-                  <div style={{ position: "absolute", left: 60, right: 40, bottom: 10, display: "flex", justifyContent: "space-between" }}>
-                    {metrics.monthlyData.map((data) => {
-                      const monthLabel = new Date(data.month + "-01").toLocaleDateString("en-US", { 
-                        month: "short", 
-                        year: "2-digit" 
-                      });
-                      return (
-                        <div key={data.month} style={{ fontSize: 11, fontWeight: 600, color: "#6b7280" }}>
-                          {monthLabel}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              ) : (
-                <div style={{ height: 320, display: "flex", alignItems: "center", justifyContent: "center", color: "#9ca3af" }}>
-                  No data available
-                </div>
-              )}
-            </div>
-          </div>
+          {/* Tabbed Production Graph */}
+          <TabbedProductionGraph
+            productionData={productionData}
+            title="Written Premium Trend - Company Wide"
+            height={320}
+          />
 
           {/* Additional Metrics */}
           <div style={{ ...cardStyle, padding: 20 }}>

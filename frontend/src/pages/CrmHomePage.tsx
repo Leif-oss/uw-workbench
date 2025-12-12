@@ -252,13 +252,41 @@ const CrmHomePage: React.FC = () => {
                 </tr>
               </thead>
             <tbody>
-              {underwriterStats.map((uw) => (
-                <tr key={uw.user}>
-                  <td style={tableCellStyle}>{uw.user}</td>
-                  <td style={tableCellStyle}>{uw.inPersonLast90}</td>
-                  <td style={tableCellStyle}>{uw.totalYtd}</td>
-                </tr>
-              ))}
+              {underwriterStats.map((uw) => {
+                const employee = employees.find(e => e.name.toLowerCase() === (uw.user || "").toLowerCase());
+                return (
+                  <tr key={uw.user}>
+                    <td style={tableCellStyle}>
+                      {employee ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const params = new URLSearchParams();
+                            if (employee.id) params.set("employeeId", String(employee.id));
+                            if (employee.name) params.set("employeeName", employee.name);
+                            navigate(`/crm/employees?${params.toString()}`);
+                          }}
+                          style={{
+                            border: "none",
+                            background: "transparent",
+                            color: "#2563eb",
+                            cursor: "pointer",
+                            textDecoration: "underline",
+                            padding: 0,
+                            fontSize: "inherit",
+                          }}
+                        >
+                          {uw.user}
+                        </button>
+                      ) : (
+                        uw.user
+                      )}
+                    </td>
+                    <td style={tableCellStyle}>{uw.inPersonLast90}</td>
+                    <td style={tableCellStyle}>{uw.totalYtd}</td>
+                  </tr>
+                );
+              })}
               {underwriterStats.length === 0 && (
                 <tr>
                   <td colSpan={3} style={{ ...tableCellStyle, textAlign: "center", fontSize: 12, color: "#6b7280" }}>

@@ -171,13 +171,36 @@ class ProductionBase(BaseModel):
     office: str
     agency_code: str
     agency_name: str
+    affiliated_code: Optional[str] = None
     active_flag: Optional[str] = None
     month: str  # "YYYY-MM"
+    
+    # Standard Lines
+    standard_lines_ytd_wp: Optional[int] = None
+    standard_lines_ytd_nb: Optional[int] = None
+    standard_lines_pytd_wp: Optional[int] = None
+    standard_lines_pytd_nb: Optional[int] = None
+    
+    # Surplus Lines
+    surplus_lines_ytd_wp: Optional[int] = None
+    surplus_lines_ytd_nb: Optional[int] = None
+    surplus_lines_pytd_wp: Optional[int] = None
+    surplus_lines_pytd_nb: Optional[int] = None
+    
+    # All Lines (keeping for backward compatibility)
     all_ytd_wp: Optional[int] = None
     all_ytd_nb: Optional[int] = None
     pytd_wp: Optional[int] = None
     pytd_nb: Optional[int] = None
     py_total_nb: Optional[int] = None
+    
+    # Additional metrics
+    premium_change: Optional[int] = None
+    three_year_plus: Optional[int] = None
+    twelve_mo_bind_ratio: Optional[str] = None
+    twelve_mo_bound: Optional[int] = None
+    twelve_mo_quoted: Optional[int] = None
+    twelve_mo_decline: Optional[int] = None
 
 
 class ProductionCreate(ProductionBase):

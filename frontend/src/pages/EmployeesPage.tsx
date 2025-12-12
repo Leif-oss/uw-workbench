@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { WorkbenchLayout } from "../components/WorkbenchLayout";
 import { apiGet } from "../api/client";
 import {
@@ -89,6 +89,7 @@ interface EmployeeWithOffice extends Employee {
 
 export const EmployeesPage: React.FC = () => {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [offices, setOffices] = useState<Office[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [logs, setLogs] = useState<Log[]>([]);
@@ -1048,9 +1049,61 @@ export const EmployeesPage: React.FC = () => {
 
                       return (
                         <tr key={ag.id} style={{ borderBottom: "1px solid #f3f4f6" }}>
-                          <td style={{ padding: "8px 12px" }}>{ag.code}</td>
-                          <td style={{ padding: "8px 12px" }}>{ag.name}</td>
-                          <td style={{ padding: "8px 12px" }}>{officeLabel}</td>
+                          <td style={{ padding: "8px 12px" }}>
+                            <button
+                              type="button"
+                              onClick={() => navigate(`/crm/agencies/${ag.id}`)}
+                              style={{
+                                border: "none",
+                                background: "transparent",
+                                color: "#2563eb",
+                                cursor: "pointer",
+                                textDecoration: "underline",
+                                padding: 0,
+                                fontSize: "inherit",
+                              }}
+                            >
+                              {ag.code}
+                            </button>
+                          </td>
+                          <td style={{ padding: "8px 12px" }}>
+                            <button
+                              type="button"
+                              onClick={() => navigate(`/crm/agencies/${ag.id}`)}
+                              style={{
+                                border: "none",
+                                background: "transparent",
+                                color: "#2563eb",
+                                cursor: "pointer",
+                                textDecoration: "underline",
+                                padding: 0,
+                                fontSize: "inherit",
+                              }}
+                            >
+                              {ag.name}
+                            </button>
+                          </td>
+                          <td style={{ padding: "8px 12px" }}>
+                            {office ? (
+                              <button
+                                type="button"
+                                onClick={() => navigate(`/crm/offices/${office.id}`)}
+                                style={{
+                                  border: "none",
+                                  background: "transparent",
+                                  color: "#2563eb",
+                                  cursor: "pointer",
+                                  textDecoration: "underline",
+                                  padding: 0,
+                                  fontSize: "inherit",
+                                }}
+                              >
+                                {officeLabel}
+                              </button>
+                            ) : (
+                              officeLabel
+                            )}
+                          </td>
                         </tr>
                       );
                     })}

@@ -47,6 +47,7 @@ export const AdminPage: React.FC = () => {
   const [importOffice, setImportOffice] = useState<string>("");
   const [importMonth, setImportMonth] = useState("");
   const [importFile, setImportFile] = useState<File | null>(null);
+  const [useMultiOfficeImport, setUseMultiOfficeImport] = useState(true); // New: multi-office import toggle
 
   // Agency deletion state
   const [deleteOfficeFilter, setDeleteOfficeFilter] = useState<number | null>(null);
@@ -161,22 +162,36 @@ export const AdminPage: React.FC = () => {
 
   const handleImportProduction = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!importOffice || !importMonth || !importFile) {
-      setMessage({ type: "error", text: "Office, month, and file are required" });
-      return;
+    
+    if (useMultiOfficeImport) {
+      // Multi-office import - only needs month and file
+      if (!importMonth || !importFile) {
+        setMessage({ type: "error", text: "Month and file are required for multi-office import" });
+        return;
+      }
+    } else {
+      // Single office import - needs office, month, and file
+      if (!importOffice || !importMonth || !importFile) {
+        setMessage({ type: "error", text: "Office, month, and file are required" });
+        return;
+      }
     }
 
     const formData = new FormData();
     formData.append("file", importFile);
 
     try {
-      const response = await fetch(
-        `http://127.0.0.1:8000/admin/production/import?office=${encodeURIComponent(importOffice)}&month=${encodeURIComponent(importMonth)}`,
-        {
-          method: "POST",
-          body: formData,
-        }
-      );
+      let url: string;
+      if (useMultiOfficeImport) {
+        url = `http://127.0.0.1:8000/admin/production/import-multi?month=${encodeURIComponent(importMonth)}`;
+      } else {
+        url = `http://127.0.0.1:8000/admin/production/import?office=${encodeURIComponent(importOffice)}&month=${encodeURIComponent(importMonth)}`;
+      }
+
+      const response = await fetch(url, {
+        method: "POST",
+        body: formData,
+      });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -184,10 +199,30 @@ export const AdminPage: React.FC = () => {
       }
 
       const result = await response.json();
-      setMessage({
-        type: "success",
-        text: `Imported ${result.production_rows_imported} rows. Created ${result.new_agencies_created} new agencies.`,
-      });
+      
+      if (useMultiOfficeImport) {
+        // Multi-office result format
+        const officesList = result.offices_processed.map((o: any) => 
+          `${o.office} (${o.rows_imported} rows)`
+        ).join(", ");
+        setMessage({
+          type: "success",
+          text: `Imported ${result.total_production_rows} rows across ${result.offices_processed.length} offices. Created ${result.total_new_agencies} new agencies. Offices: ${officesList}`,
+        });
+        if (result.errors && result.errors.length > 0) {
+          setMessage({
+            type: "error",
+            text: `Import completed with errors: ${result.errors.join("; ")}`,
+          });
+        }
+      } else {
+        // Single office result format
+        setMessage({
+          type: "success",
+          text: `Imported ${result.production_rows_imported} rows. Created ${result.new_agencies_created} new agencies.`,
+        });
+      }
+      
       setImportFile(null);
       setImportOffice("");
       setImportMonth("");
@@ -580,26 +615,42 @@ export const AdminPage: React.FC = () => {
         {/* Production Import */}
         <div style={{ ...cardStyle, padding: 20 }}>
           <h3 style={{ margin: "0 0 16px 0", fontSize: 16, fontWeight: 600 }}>Production Import</h3>
-          <p style={{ fontSize: 13, color: "#6b7280", marginBottom: 16 }}>
-            Upload an Excel file with monthly production data. The system will auto-create new agencies and update existing ones.
+          <p style={{ fontSize: 13, color: "#6b7280", marginBottom: 12 }}>
+            {useMultiOfficeImport 
+              ? "Upload an Excel file with multiple office tabs. Each tab should be named with the office code (e.g., BRA, FNO, LAF). The system will process all offices automatically."
+              : "Upload an Excel file with monthly production data for a single office. The system will auto-create new agencies and update existing ones."}
           </p>
+          <div style={{ marginBottom: 16, padding: 12, background: "#f9fafb", borderRadius: 6, border: "1px solid #e5e7eb" }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer" }}>
+              <input
+                type="checkbox"
+                checked={useMultiOfficeImport}
+                onChange={(e) => setUseMultiOfficeImport(e.target.checked)}
+                style={{ cursor: "pointer" }}
+              />
+              <span style={{ fontWeight: 500 }}>Multi-Office Import</span>
+              <span style={{ color: "#6b7280", fontSize: 12 }}>(Process all office tabs from one file)</span>
+            </label>
+          </div>
           <form onSubmit={handleImportProduction}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 2fr", gap: 12, marginBottom: 12 }}>
-              <div>
-                <label style={{ display: "block", fontSize: 12, marginBottom: 4, fontWeight: 500 }}>Office Code</label>
-                <select
-                  value={importOffice}
-                  onChange={(e) => setImportOffice(e.target.value)}
-                  style={{ width: "100%", padding: "6px 8px", borderRadius: 4, border: "1px solid #d1d5db", fontSize: 13 }}
-                >
-                  <option value="">Select...</option>
-                  {offices.map((office) => (
-                    <option key={office.id} value={office.code}>
-                      {office.code}
-                    </option>
-                  ))}
-                </select>
-              </div>
+            <div style={{ display: "grid", gridTemplateColumns: useMultiOfficeImport ? "1fr 2fr" : "1fr 1fr 2fr", gap: 12, marginBottom: 12 }}>
+              {!useMultiOfficeImport && (
+                <div>
+                  <label style={{ display: "block", fontSize: 12, marginBottom: 4, fontWeight: 500 }}>Office Code</label>
+                  <select
+                    value={importOffice}
+                    onChange={(e) => setImportOffice(e.target.value)}
+                    style={{ width: "100%", padding: "6px 8px", borderRadius: 4, border: "1px solid #d1d5db", fontSize: 13 }}
+                  >
+                    <option value="">Select...</option>
+                    {offices.map((office) => (
+                      <option key={office.id} value={office.code}>
+                        {office.code}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div>
                 <label style={{ display: "block", fontSize: 12, marginBottom: 4, fontWeight: 500 }}>Month (YYYY-MM)</label>
                 <input
