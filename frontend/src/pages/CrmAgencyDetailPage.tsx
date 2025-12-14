@@ -74,6 +74,10 @@ type ProductionRecord = {
   standard_lines_pytd_wp: number | null;
   surplus_lines_ytd_wp: number | null;
   surplus_lines_pytd_wp: number | null;
+  twelve_mo_bound: number | null;
+  twelve_mo_quoted: number | null;
+  twelve_mo_decline: number | null;
+  three_year_plus: number | null;
 };
 
 
@@ -689,22 +693,37 @@ type ProductionRecord = {
               {agency?.name || "Agency"}
             </div>
             {!isEditingAgency && (
-              <button
-                type="button"
-                onClick={handleEditAgency}
-                style={{
-                  padding: "6px 12px",
-                  borderRadius: 6,
-                  border: "1px solid #2563eb",
-                  background: "#fff",
-                  color: "#2563eb",
-                  cursor: "pointer",
-                  fontSize: 12,
-                  fontWeight: 500,
-                }}
-              >
-                Edit Agency
-              </button>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
+                <button
+                  type="button"
+                  onClick={handleEditAgency}
+                  style={{
+                    padding: "6px 12px",
+                    borderRadius: 6,
+                    border: "1px solid #2563eb",
+                    background: "#fff",
+                    color: "#2563eb",
+                    cursor: "pointer",
+                    fontSize: 12,
+                    fontWeight: 500,
+                  }}
+                >
+                  Edit Agency
+                </button>
+                {agency?.active_flag && agency.active_flag.toLowerCase() !== "active" && (
+                  <div style={{
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: "#dc2626",
+                    padding: "4px 8px",
+                    background: "#fef2f2",
+                    borderRadius: 4,
+                    border: "1px solid #fecaca",
+                  }}>
+                    NOT ACTIVE
+                  </div>
+                )}
+              </div>
             )}
           </div>
 
@@ -1439,11 +1458,94 @@ type ProductionRecord = {
 
       {/* Agency Production Graph - Full Width */}
       {agency && agency.code && (
-        <TabbedProductionGraph
-          productionData={productionData.filter(p => p.agency_code === agency.code)}
-          title={`Written Premium Trend - ${agency.name}${agency.code ? ` (${agency.code})` : ''}`}
-          height={280}
-        />
+        <>
+          <TabbedProductionGraph
+            productionData={productionData.filter(p => p.agency_code === agency.code)}
+            title={`Written Premium Trend - ${agency.name}${agency.code ? ` (${agency.code})` : ''}`}
+            height={280}
+            showMetrics={true}
+            metricsData={(() => {
+              const agencyProduction = productionData.filter(p => p.agency_code === agency.code);
+              const mostRecentMonth = agencyProduction.length > 0
+                ? agencyProduction.map(r => r.month).sort().pop()
+                : null;
+              if (!mostRecentMonth) return undefined;
+              
+              const recentRecord = agencyProduction.find(r => r.month === mostRecentMonth);
+              if (!recentRecord) return undefined;
+              
+              return {
+                bound: recentRecord.twelve_mo_bound || 0,
+                quoted: recentRecord.twelve_mo_quoted || 0,
+                declined: recentRecord.twelve_mo_decline || 0,
+                lossRatio: recentRecord.three_year_plus || 0,
+              };
+            })()}
+          />
+
+          {/* Underwriting Metrics for Agency */}
+          {(() => {
+            const agencyProduction = productionData.filter(p => p.agency_code === agency.code);
+            const mostRecentMonth = agencyProduction.length > 0
+              ? agencyProduction.map(r => r.month).sort().pop()
+              : null;
+            if (!mostRecentMonth) return null;
+            
+            const recentRecord = agencyProduction.find(r => r.month === mostRecentMonth);
+            if (!recentRecord) return null;
+            
+            const bound = recentRecord.twelve_mo_bound || 0;
+            const quoted = recentRecord.twelve_mo_quoted || 0;
+            const declined = recentRecord.twelve_mo_decline || 0;
+            const lossRatio = recentRecord.three_year_plus || 0;
+            
+            if (bound === 0 && quoted === 0 && declined === 0 && lossRatio === 0) {
+              return null;
+            }
+            
+            return (
+            <div style={{ ...cardStyle, padding: 20 }}>
+              <h3 style={{ margin: "0 0 12px 0", fontSize: 16, fontWeight: 600, color: "#111827" }}>
+                Underwriting Metrics (12 Month - Most Recent Month)
+              </h3>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
+                <div>
+                  <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                    Bound
+                  </div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: "#059669" }}>
+                    {bound.toLocaleString()}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                    Quoted
+                  </div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: "#3b82f6" }}>
+                    {quoted.toLocaleString()}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                    Declined
+                  </div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: "#dc2626" }}>
+                    {declined.toLocaleString()}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                    3 Year Loss Ratio
+                  </div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: lossRatio > 60 ? "#dc2626" : lossRatio > 50 ? "#f59e0b" : "#059669" }}>
+                    {lossRatio > 0 ? `${lossRatio.toFixed(1)}%` : "—"}
+                  </div>
+                </div>
+              </div>
+            </div>
+            );
+          })()}
+        </>
       )}
     </>
   );

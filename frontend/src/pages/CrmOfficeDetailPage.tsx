@@ -72,6 +72,10 @@ type ProductionRecord = {
   standard_lines_pytd_wp: number | null;
   surplus_lines_ytd_wp: number | null;
   surplus_lines_pytd_wp: number | null;
+  twelve_mo_bound: number | null;
+  twelve_mo_quoted: number | null;
+  twelve_mo_decline: number | null;
+  three_year_plus: number | null;
 };
 
 
@@ -262,7 +266,58 @@ type ProductionRecord = {
         >
           Back to Offices
         </button>
-        <div style={{ fontSize: 18, fontWeight: 700, color: "#0f2742", flex: 1, marginLeft: 8 }}>{officeTitle}</div>
+        <div style={{ fontSize: 18, fontWeight: 700, color: "#0f2742", marginLeft: 8 }}>{officeTitle}</div>
+        {office && (() => {
+          const officeProduction = productionData.filter(p => p.office === office.code);
+          const mostRecentMonth = officeProduction.length > 0
+            ? officeProduction.map(r => r.month).sort().pop()
+            : null;
+          if (!mostRecentMonth) return null;
+          
+          const recentRecords = officeProduction.filter(r => r.month === mostRecentMonth);
+          const totalBound = recentRecords.reduce((sum, r) => sum + (r.twelve_mo_bound || 0), 0);
+          const totalQuoted = recentRecords.reduce((sum, r) => sum + (r.twelve_mo_quoted || 0), 0);
+          const totalDeclined = recentRecords.reduce((sum, r) => sum + (r.twelve_mo_decline || 0), 0);
+          const recordsWithLossRatio = recentRecords.filter(r => r.three_year_plus != null && r.three_year_plus > 0);
+          const avgLossRatio = recordsWithLossRatio.length > 0
+            ? recordsWithLossRatio.reduce((sum, r) => sum + (r.three_year_plus || 0), 0) / recordsWithLossRatio.length
+            : 0;
+          
+          if (totalBound === 0 && totalQuoted === 0 && totalDeclined === 0 && avgLossRatio === 0) {
+            return null;
+          }
+          
+          const hitRatio = totalQuoted > 0 ? (totalBound / totalQuoted) * 100 : 0;
+          
+          return (
+            <div style={{ display: "flex", gap: 24, alignItems: "center", marginLeft: "auto" }}>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>Bound</div>
+                <div style={{ fontSize: 18, fontWeight: 700, color: "#059669" }}>{totalBound.toLocaleString()}</div>
+              </div>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>Quoted</div>
+                <div style={{ fontSize: 18, fontWeight: 700, color: "#3b82f6" }}>{totalQuoted.toLocaleString()}</div>
+              </div>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>Hit Ratio</div>
+                <div style={{ fontSize: 18, fontWeight: 700, color: hitRatio > 30 ? "#059669" : hitRatio > 20 ? "#f59e0b" : "#dc2626" }}>
+                  {hitRatio > 0 ? `${hitRatio.toFixed(1)}%` : "—"}
+                </div>
+              </div>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>Declined</div>
+                <div style={{ fontSize: 18, fontWeight: 700, color: "#dc2626" }}>{totalDeclined.toLocaleString()}</div>
+              </div>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>3YR LR</div>
+                <div style={{ fontSize: 18, fontWeight: 700, color: avgLossRatio > 60 ? "#dc2626" : avgLossRatio > 50 ? "#f59e0b" : "#059669" }}>
+                  {avgLossRatio > 0 ? `${avgLossRatio.toFixed(1)}%` : "—"}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
       </div>
 
       {error && <div style={{ color: "red", fontSize: 12 }}>{error}</div>}
@@ -564,6 +619,7 @@ type ProductionRecord = {
           height={280}
         />
       )}
+
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
         <div style={cardStyle}>

@@ -20,6 +20,10 @@ interface ProductionRecord {
   standard_lines_pytd_wp: number | null;
   surplus_lines_ytd_wp: number | null;
   surplus_lines_pytd_wp: number | null;
+  twelve_mo_bound: number | null;
+  twelve_mo_quoted: number | null;
+  twelve_mo_decline: number | null;
+  three_year_plus: number | null;
 }
 
 interface MonthlyData {
@@ -247,6 +251,70 @@ export const DashboardPage: React.FC = () => {
               </div>
             </div>
           </div>
+
+          {/* Underwriting Metrics */}
+          {(() => {
+            // Get most recent month's data for these metrics
+            const mostRecentMonth = productionData.length > 0
+              ? productionData.map(r => r.month).sort().pop()
+              : null;
+            if (!mostRecentMonth) return null;
+            
+            const recentRecords = productionData.filter(r => r.month === mostRecentMonth);
+            const totalBound = recentRecords.reduce((sum, r) => sum + (r.twelve_mo_bound || 0), 0);
+            const totalQuoted = recentRecords.reduce((sum, r) => sum + (r.twelve_mo_quoted || 0), 0);
+            const totalDeclined = recentRecords.reduce((sum, r) => sum + (r.twelve_mo_decline || 0), 0);
+            const recordsWithLossRatio = recentRecords.filter(r => r.three_year_plus != null && r.three_year_plus > 0);
+            const avgLossRatio = recordsWithLossRatio.length > 0
+              ? recordsWithLossRatio.reduce((sum, r) => sum + (r.three_year_plus || 0), 0) / recordsWithLossRatio.length
+              : 0;
+            
+            if (totalBound === 0 && totalQuoted === 0 && totalDeclined === 0 && avgLossRatio === 0) {
+              return null; // Don't show if no data
+            }
+            
+            return (
+              <div style={{ ...cardStyle, padding: 20 }}>
+                <h3 style={{ margin: "0 0 12px 0", fontSize: 16, fontWeight: 600, color: "#111827" }}>
+                  Underwriting Metrics (12 Month - Most Recent Month)
+                </h3>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
+                  <div>
+                    <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                      Bound
+                    </div>
+                    <div style={{ fontSize: 24, fontWeight: 700, color: "#059669" }}>
+                      {totalBound.toLocaleString()}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                      Quoted
+                    </div>
+                    <div style={{ fontSize: 24, fontWeight: 700, color: "#3b82f6" }}>
+                      {totalQuoted.toLocaleString()}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                      Declined
+                    </div>
+                    <div style={{ fontSize: 24, fontWeight: 700, color: "#dc2626" }}>
+                      {totalDeclined.toLocaleString()}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                      3 Year Loss Ratio
+                    </div>
+                    <div style={{ fontSize: 24, fontWeight: 700, color: avgLossRatio > 60 ? "#dc2626" : avgLossRatio > 50 ? "#f59e0b" : "#059669" }}>
+                      {avgLossRatio > 0 ? `${avgLossRatio.toFixed(1)}%` : "—"}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )}
     </WorkbenchLayout>

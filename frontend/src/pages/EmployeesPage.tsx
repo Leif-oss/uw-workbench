@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { WorkbenchLayout } from "../components/WorkbenchLayout";
 import { apiGet } from "../api/client";
+import { TabbedProductionGraph } from "../components/TabbedProductionGraph";
 import {
   cardStyle,
   panelStyle,
@@ -68,6 +69,10 @@ type Production = {
   pytd_wp: number | null;
   pytd_nb: number | null;
   py_total_nb: number | null;
+  twelve_mo_bound?: number | null;
+  twelve_mo_quoted?: number | null;
+  twelve_mo_decline?: number | null;
+  three_year_plus?: number | null;
 };
 
 type Contact = {
@@ -304,6 +309,13 @@ export const EmployeesPage: React.FC = () => {
   }, [agencies, selectedEmployee]);
 
   const employeeAgenciesCount = employeeAgencies.length;
+
+  // Get production data for employee's agencies (only primary underwriter)
+  const employeeProductionData = useMemo(() => {
+    if (!selectedEmployee || employeeAgencies.length === 0) return [];
+    const agencyCodes = new Set(employeeAgencies.map(a => a.code?.toUpperCase()).filter(Boolean));
+    return production.filter(p => agencyCodes.has(p.agency_code.toUpperCase()));
+  }, [production, employeeAgencies, selectedEmployee]);
 
   // Calculate production metrics for employee's agencies
   const employeeProduction = useMemo(() => {
@@ -662,16 +674,85 @@ export const EmployeesPage: React.FC = () => {
         <>
           {/* Employee Header */}
           <div style={{ ...panelStyle, padding: 16 }}>
-            <h2 style={{ margin: "0 0 8px 0", fontSize: 20, fontWeight: 600, color: "#111827" }}>
-              {selectedEmployee.name}
-            </h2>
-            <div style={{ fontSize: 13, color: "#6b7280" }}>
-              {selectedEmployee.officeCodes.length > 0 
-                ? selectedEmployee.officeCodes.map((code, idx) => {
-                    const officeName = selectedEmployee.officeNames[idx];
-                    return `${code} - ${officeName}`;
-                  }).join(" • ")
-                : "No office assigned"}
+            <div style={{ display: "flex", alignItems: "center", gap: 10, justifyContent: "space-between", marginBottom: 8 }}>
+              <div>
+                <h2 style={{ margin: "0 0 8px 0", fontSize: 20, fontWeight: 600, color: "#111827" }}>
+                  {selectedEmployee.name}
+                </h2>
+                <div style={{ fontSize: 13, color: "#6b7280" }}>
+                  {selectedEmployee.officeCodes.length > 0 
+                    ? selectedEmployee.officeCodes.map((code, idx) => {
+                        const officeName = selectedEmployee.officeNames[idx];
+                        return `${code} - ${officeName}`;
+                      }).join(" • ")
+                    : "No office assigned"}
+                </div>
+              </div>
+              {(() => {
+                // Get production data for employee's agencies (only where they are primary underwriter)
+                const empIds = selectedEmployee.employeeIds;
+                const employeeAgencies = agencies.filter((ag) => {
+                  return typeof ag.primary_underwriter_id === "number" && empIds.includes(ag.primary_underwriter_id);
+                });
+                const agencyCodes = new Set(employeeAgencies.map(a => a.code?.toUpperCase()).filter(Boolean));
+                const employeeProductionData = production.filter(p => agencyCodes.has(p.agency_code.toUpperCase()));
+                
+                let totalBound = 0;
+                let totalQuoted = 0;
+                let totalDeclined = 0;
+                let avgLossRatio = 0;
+                let hitRatio = 0;
+                
+                if (employeeProductionData.length > 0) {
+                  const mostRecentMonth = employeeProductionData.map(r => r.month).sort().pop();
+                  if (mostRecentMonth) {
+                    const recentRecords = employeeProductionData.filter(r => r.month === mostRecentMonth);
+                    totalBound = recentRecords.reduce((sum, r) => sum + (r.twelve_mo_bound || 0), 0);
+                    totalQuoted = recentRecords.reduce((sum, r) => sum + (r.twelve_mo_quoted || 0), 0);
+                    totalDeclined = recentRecords.reduce((sum, r) => sum + (r.twelve_mo_decline || 0), 0);
+                    const recordsWithLossRatio = recentRecords.filter(r => r.three_year_plus != null && r.three_year_plus > 0);
+                    avgLossRatio = recordsWithLossRatio.length > 0
+                      ? recordsWithLossRatio.reduce((sum, r) => sum + (r.three_year_plus || 0), 0) / recordsWithLossRatio.length
+                      : 0;
+                    hitRatio = totalQuoted > 0 ? (totalBound / totalQuoted) * 100 : 0;
+                  }
+                }
+                
+                return (
+                  <div style={{ display: "flex", gap: 24, alignItems: "center", marginLeft: "auto" }}>
+                    <div style={{ textAlign: "center" }}>
+                      <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>Bound</div>
+                      <div style={{ fontSize: 18, fontWeight: 700, color: "#059669" }}>
+                        {totalBound > 0 ? totalBound.toLocaleString() : "—"}
+                      </div>
+                    </div>
+                    <div style={{ textAlign: "center" }}>
+                      <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>Quoted</div>
+                      <div style={{ fontSize: 18, fontWeight: 700, color: "#3b82f6" }}>
+                        {totalQuoted > 0 ? totalQuoted.toLocaleString() : "—"}
+                      </div>
+                    </div>
+                    <div style={{ textAlign: "center" }}>
+                      <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>Hit Ratio</div>
+                      <div style={{ fontSize: 18, fontWeight: 700, color: hitRatio > 30 ? "#059669" : hitRatio > 20 ? "#f59e0b" : hitRatio > 0 ? "#dc2626" : "#6b7280" }}>
+                        {hitRatio > 0 ? `${hitRatio.toFixed(1)}%` : "—"}
+                      </div>
+                    </div>
+                    <div style={{ textAlign: "center" }}>
+                      <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>Declined</div>
+                      <div style={{ fontSize: 18, fontWeight: 700, color: "#dc2626" }}>
+                        {totalDeclined > 0 ? totalDeclined.toLocaleString() : "—"}
+                      </div>
+                    </div>
+                    <div style={{ textAlign: "center" }}>
+                      <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>3YR LR</div>
+                      <div style={{ fontSize: 18, fontWeight: 700, color: avgLossRatio > 60 ? "#dc2626" : avgLossRatio > 50 ? "#f59e0b" : avgLossRatio > 0 ? "#059669" : "#6b7280" }}>
+                        {avgLossRatio > 0 ? `${avgLossRatio.toFixed(1)}%` : "—"}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           </div>
 
@@ -743,142 +824,16 @@ export const EmployeesPage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Legend */}
-                <div style={{ display: "flex", gap: 24, justifyContent: "center", fontSize: 12, marginBottom: 12 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <div style={{ width: 24, height: 3, background: "#3b82f6", borderRadius: 2 }}></div>
-                    <span style={{ color: "#374151", fontWeight: 600 }}>Current Year</span>
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <div style={{ width: 24, height: 3, background: "#9ca3af", borderRadius: 2 }}></div>
-                    <span style={{ color: "#374151", fontWeight: 600 }}>Prior Year</span>
-                  </div>
-                </div>
-
-                {/* Line Graph */}
-                {employeeProduction.monthlyData.length > 0 ? (
-                  <div style={{ position: "relative", height: 240 }}>
-                    <svg 
-                      width="100%" 
-                      height="100%" 
-                      style={{ overflow: "visible" }}
-                      viewBox="0 0 600 200"
-                      preserveAspectRatio="none"
-                    >
-                      {/* Grid lines */}
-                      {[0, 25, 50, 75, 100].map((percent) => (
-                        <line
-                          key={percent}
-                          x1="0"
-                          y1={200 - (percent * 2)}
-                          x2="600"
-                          y2={200 - (percent * 2)}
-                          stroke="#e5e7eb"
-                          strokeWidth="1"
-                          vectorEffect="non-scaling-stroke"
-                        />
-                      ))}
-
-                      {(() => {
-                        const maxValue = Math.max(
-                          ...employeeProduction.monthlyData.flatMap(d => [d.currentYear, d.priorYear])
-                        );
-                        const stepX = 600 / (employeeProduction.monthlyData.length - 1 || 1);
-
-                        // Prior Year line
-                        const priorYearPath = employeeProduction.monthlyData
-                          .map((data, i) => {
-                            const x = i * stepX;
-                            const y = 200 - (maxValue > 0 ? (data.priorYear / maxValue) * 200 : 0);
-                            return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
-                          })
-                          .join(' ');
-
-                        // Current Year line
-                        const currentYearPath = employeeProduction.monthlyData
-                          .map((data, i) => {
-                            const x = i * stepX;
-                            const y = 200 - (maxValue > 0 ? (data.currentYear / maxValue) * 200 : 0);
-                            return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
-                          })
-                          .join(' ');
-
-                        return (
-                          <>
-                            {/* Prior Year Line */}
-                            <path
-                              d={priorYearPath}
-                              fill="none"
-                              stroke="#9ca3af"
-                              strokeWidth="3"
-                              vectorEffect="non-scaling-stroke"
-                            />
-
-                            {/* Current Year Line */}
-                            <path
-                              d={currentYearPath}
-                              fill="none"
-                              stroke="#3b82f6"
-                              strokeWidth="3"
-                              vectorEffect="non-scaling-stroke"
-                            />
-
-                            {/* Data points for Prior Year */}
-                            {employeeProduction.monthlyData.map((data, i) => {
-                              const x = i * stepX;
-                              const y = 200 - (maxValue > 0 ? (data.priorYear / maxValue) * 200 : 0);
-                              return (
-                                <circle
-                                  key={`prior-${i}`}
-                                  cx={x}
-                                  cy={y}
-                                  r="4"
-                                  fill="#9ca3af"
-                                  stroke="#fff"
-                                  strokeWidth="2"
-                                  vectorEffect="non-scaling-stroke"
-                                  style={{ cursor: "pointer" }}
-                                >
-                                  <title>{`${data.month}: $${(data.priorYear / 1000).toFixed(0)}k`}</title>
-                                </circle>
-                              );
-                            })}
-
-                            {/* Data points for Current Year */}
-                            {employeeProduction.monthlyData.map((data, i) => {
-                              const x = i * stepX;
-                              const y = 200 - (maxValue > 0 ? (data.currentYear / maxValue) * 200 : 0);
-                              return (
-                                <circle
-                                  key={`current-${i}`}
-                                  cx={x}
-                                  cy={y}
-                                  r="4"
-                                  fill="#3b82f6"
-                                  stroke="#fff"
-                                  strokeWidth="2"
-                                  vectorEffect="non-scaling-stroke"
-                                  style={{ cursor: "pointer" }}
-                                >
-                                  <title>{`${data.month}: $${(data.currentYear / 1000).toFixed(0)}k`}</title>
-                                </circle>
-                              );
-                            })}
-                          </>
-                        );
-                      })()}
-                    </svg>
-
-                    {/* Month labels */}
-                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#6b7280", marginTop: 8 }}>
-                      {employeeProduction.monthlyData.map((data, i) => (
-                        <span key={i}>{data.month}</span>
-                      ))}
-                    </div>
-                  </div>
+                {/* Production Graph */}
+                {employeeProductionData.length > 0 ? (
+                  <TabbedProductionGraph
+                    productionData={employeeProductionData}
+                    title={`Written Premium Trend - ${selectedEmployee.name}`}
+                    height={280}
+                  />
                 ) : (
                   <div style={{ fontSize: 13, color: "#9ca3af", padding: 40, textAlign: "center" }}>
-                    No monthly production data available
+                    No production data available for charting.
                   </div>
                 )}
 

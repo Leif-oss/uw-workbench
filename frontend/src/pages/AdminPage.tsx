@@ -47,6 +47,7 @@ export const AdminPage: React.FC = () => {
   const [importOffice, setImportOffice] = useState<string>("");
   const [importMonth, setImportMonth] = useState("");
   const [importFile, setImportFile] = useState<File | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [useMultiOfficeImport, setUseMultiOfficeImport] = useState(true); // New: multi-office import toggle
 
   // Agency deletion state
@@ -663,12 +664,36 @@ export const AdminPage: React.FC = () => {
               </div>
               <div>
                 <label style={{ display: "block", fontSize: 12, marginBottom: 4, fontWeight: 500 }}>Excel File</label>
-                <input
-                  type="file"
-                  accept=".xls,.xlsx"
-                  onChange={(e) => setImportFile(e.target.files?.[0] || null)}
-                  style={{ width: "100%", padding: "6px 8px", borderRadius: 4, border: "1px solid #d1d5db", fontSize: 13 }}
-                />
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".xls,.xlsx,.xlsm"
+                    onChange={(e) => setImportFile(e.target.files?.[0] || null)}
+                    style={{ display: "none" }}
+                    id="file-upload-input"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    style={{
+                      padding: "6px 12px",
+                      background: "#f3f4f6",
+                      color: "#111827",
+                      border: "1px solid #d1d5db",
+                      borderRadius: 4,
+                      fontSize: 13,
+                      fontWeight: 500,
+                      cursor: "pointer",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    Choose File
+                  </button>
+                  <span style={{ fontSize: 12, color: "#6b7280", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {importFile ? importFile.name : "No file chosen"}
+                  </span>
+                </div>
               </div>
             </div>
             <button
@@ -747,6 +772,113 @@ export const AdminPage: React.FC = () => {
                 Delete Agency
               </button>
             </div>
+          </div>
+        </div>
+
+        {/* Clear All Data - Danger Zone */}
+        <div style={{ ...cardStyle, border: "2px solid #dc2626", background: "#fef2f2" }}>
+          <h3 style={{ margin: "0 0 12px 0", fontSize: 16, fontWeight: 600, color: "#dc2626" }}>
+            ⚠️ Danger Zone: Clear All Agency & Production Data
+          </h3>
+          <div style={{ fontSize: 12, color: "#991b1b", marginBottom: 16, lineHeight: 1.6 }}>
+            <strong>WARNING:</strong> This will permanently delete:
+            <ul style={{ margin: "8px 0", paddingLeft: 20 }}>
+              <li>All Production records</li>
+              <li>All Agency records</li>
+              <li>All Contact records</li>
+              <li>All Log records</li>
+              <li>All Task records</li>
+            </ul>
+            <strong>This will NOT delete:</strong> Offices, Employees, or Submissions.
+            <br />
+            <strong>Use this to start fresh with new imports.</strong>
+          </div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button
+              onClick={async () => {
+                try {
+                  setLoading(true);
+                  const result = await apiPost("/admin/data-status", { password });
+                  const statusMsg = `Current Data Status:
+- Production: ${result.counts.production} records
+- Agencies: ${result.counts.agencies} records
+- Contacts: ${result.counts.contacts} records
+- Logs: ${result.counts.logs} records
+- Tasks: ${result.counts.tasks} records
+
+Production by Office:
+${Object.entries(result.production_by_office || {}).map(([office, count]) => `  ${office}: ${count} records`).join('\n') || '  None'}
+
+${result.samples.production.length > 0 ? `Sample Production Records:\n${result.samples.production.map((p: any) => `  - ${p.office} / ${p.agency_code} (${p.agency_name}) / ${p.month} / WP: ${p.all_ytd_wp}`).join('\n')}` : ''}
+${result.samples.logs.length > 0 ? `\nSample Logs:\n${result.samples.logs.map((l: any) => `  - ${l.user} / ${l.action} / ${l.datetime}`).join('\n')}` : ''}`;
+                  alert(statusMsg);
+                } catch (err: any) {
+                  setMessage({ type: "error", text: err.message || "Failed to check data status" });
+                } finally {
+                  setLoading(false);
+                }
+              }}
+              disabled={loading}
+              style={{
+                padding: "8px 16px",
+                background: "#3b82f6",
+                color: "#fff",
+                border: "none",
+                borderRadius: 6,
+                fontSize: 12,
+                fontWeight: 600,
+                cursor: loading ? "not-allowed" : "pointer",
+                opacity: loading ? 0.6 : 1,
+              }}
+            >
+              🔍 Check Data Status
+            </button>
+            <button
+              onClick={async () => {
+                if (!confirm("⚠️ FINAL WARNING: This will delete ALL agency and production data. This cannot be undone!\n\nType 'yes' in the next prompt to confirm.")) {
+                  return;
+                }
+                const confirmText = prompt("Type 'DELETE ALL' to confirm:");
+                if (confirmText !== "DELETE ALL") {
+                  setMessage({ type: "error", text: "Operation cancelled. You must type 'DELETE ALL' exactly." });
+                  return;
+                }
+                try {
+                  setLoading(true);
+                  const result = await apiPost("/admin/clear-all-data", { password });
+                  if (result.success === false) {
+                    setMessage({
+                      type: "error",
+                      text: `Clear completed but some records remain: ${JSON.stringify(result.remaining)}. Please try again.`,
+                    });
+                  } else {
+                    setMessage({
+                      type: "success",
+                      text: `All data cleared successfully! Deleted: ${result.deleted.total} records (${result.deleted.production_records} production, ${result.deleted.agency_records} agencies, ${result.deleted.contact_records} contacts, ${result.deleted.log_records} logs, ${result.deleted.task_records} tasks)`,
+                    });
+                  }
+                  fetchData();
+                } catch (err: any) {
+                  setMessage({ type: "error", text: err.message || "Failed to clear data" });
+                } finally {
+                  setLoading(false);
+                }
+              }}
+              disabled={loading}
+              style={{
+                padding: "10px 20px",
+                background: "#dc2626",
+                color: "#fff",
+                border: "none",
+                borderRadius: 6,
+                fontSize: 13,
+                fontWeight: 700,
+                cursor: loading ? "not-allowed" : "pointer",
+                opacity: loading ? 0.6 : 1,
+              }}
+            >
+              {loading ? "Clearing..." : "🗑️ Clear All Agency & Production Data"}
+            </button>
           </div>
         </div>
       </div>

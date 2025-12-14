@@ -37,6 +37,10 @@ type ProductionRecord = {
   standard_lines_pytd_wp: number | null;
   surplus_lines_ytd_wp: number | null;
   surplus_lines_pytd_wp: number | null;
+  twelve_mo_bound?: number | null;
+  twelve_mo_quoted?: number | null;
+  twelve_mo_decline?: number | null;
+  three_year_plus?: number | null;
 };
 
 const CrmUnderwritersPage: React.FC = () => {
@@ -173,8 +177,68 @@ const CrmUnderwritersPage: React.FC = () => {
           {selectedUnderwriter && (
             <>
               <div style={{ ...cardStyle, padding: 16 }}>
-                <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>
-                  {selectedUnderwriter.name}
+                <div style={{ display: "flex", alignItems: "center", gap: 10, justifyContent: "space-between", marginBottom: 8 }}>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: "#0f2742" }}>
+                    {selectedUnderwriter.name}
+                  </div>
+                  {(() => {
+                    // Always show metrics section when underwriter is selected
+                    let totalBound = 0;
+                    let totalQuoted = 0;
+                    let totalDeclined = 0;
+                    let avgLossRatio = 0;
+                    let hitRatio = 0;
+                    
+                    if (underwriterProductionData.length > 0) {
+                      const mostRecentMonth = underwriterProductionData.map(r => r.month).sort().pop();
+                      if (mostRecentMonth) {
+                        const recentRecords = underwriterProductionData.filter(r => r.month === mostRecentMonth);
+                        totalBound = recentRecords.reduce((sum, r) => sum + (r.twelve_mo_bound || 0), 0);
+                        totalQuoted = recentRecords.reduce((sum, r) => sum + (r.twelve_mo_quoted || 0), 0);
+                        totalDeclined = recentRecords.reduce((sum, r) => sum + (r.twelve_mo_decline || 0), 0);
+                        const recordsWithLossRatio = recentRecords.filter(r => r.three_year_plus != null && r.three_year_plus > 0);
+                        avgLossRatio = recordsWithLossRatio.length > 0
+                          ? recordsWithLossRatio.reduce((sum, r) => sum + (r.three_year_plus || 0), 0) / recordsWithLossRatio.length
+                          : 0;
+                        hitRatio = totalQuoted > 0 ? (totalBound / totalQuoted) * 100 : 0;
+                      }
+                    }
+                    
+                    return (
+                      <div style={{ display: "flex", gap: 24, alignItems: "center", marginLeft: "auto" }}>
+                        <div style={{ textAlign: "center" }}>
+                          <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>Bound</div>
+                          <div style={{ fontSize: 18, fontWeight: 700, color: "#059669" }}>
+                            {totalBound > 0 ? totalBound.toLocaleString() : "—"}
+                          </div>
+                        </div>
+                        <div style={{ textAlign: "center" }}>
+                          <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>Quoted</div>
+                          <div style={{ fontSize: 18, fontWeight: 700, color: "#3b82f6" }}>
+                            {totalQuoted > 0 ? totalQuoted.toLocaleString() : "—"}
+                          </div>
+                        </div>
+                        <div style={{ textAlign: "center" }}>
+                          <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>Hit Ratio</div>
+                          <div style={{ fontSize: 18, fontWeight: 700, color: hitRatio > 30 ? "#059669" : hitRatio > 20 ? "#f59e0b" : hitRatio > 0 ? "#dc2626" : "#6b7280" }}>
+                            {hitRatio > 0 ? `${hitRatio.toFixed(1)}%` : "—"}
+                          </div>
+                        </div>
+                        <div style={{ textAlign: "center" }}>
+                          <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>Declined</div>
+                          <div style={{ fontSize: 18, fontWeight: 700, color: "#dc2626" }}>
+                            {totalDeclined > 0 ? totalDeclined.toLocaleString() : "—"}
+                          </div>
+                        </div>
+                        <div style={{ textAlign: "center" }}>
+                          <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>3YR LR</div>
+                          <div style={{ fontSize: 18, fontWeight: 700, color: avgLossRatio > 60 ? "#dc2626" : avgLossRatio > 50 ? "#f59e0b" : avgLossRatio > 0 ? "#059669" : "#6b7280" }}>
+                            {avgLossRatio > 0 ? `${avgLossRatio.toFixed(1)}%` : "—"}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
                 <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 12 }}>
                   {underwriterAgencies.length} {underwriterAgencies.length === 1 ? "Agency" : "Agencies"}

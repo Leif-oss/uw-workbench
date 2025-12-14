@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
 from sqlalchemy.orm import Session
-from sqlalchemy import select, delete
+from sqlalchemy import select, delete, func
 from typing import List, Optional
 from pydantic import BaseModel
 import os
@@ -14,6 +14,16 @@ from ..database import get_db
 from .. import models, schemas, crud
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+
+# Admin password verification dependency
+def verify_admin_password(request: "AdminAuthRequest"):
+    """Verify admin password."""
+    if request.password == ADMIN_PASSWORD:
+        return True
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid admin password"
+    )
 
 # Load environment variables from private folder (outside Git tracking)
 env_path = Path(__file__).parent.parent.parent / 'private' / '.env'
@@ -250,15 +260,30 @@ async def import_production_multi(
                     results["errors"].append(f"{office_code}: No valid production rows extracted")
                     continue
                 
+                # Remove duplicates: keep only the last occurrence of each agency_code
+                # This handles cases where the same agency appears multiple times in the Excel
+                seen_agencies = {}
+                for idx, prod_data in enumerate(production_rows):
+                    # Normalize agency code for comparison
+                    agency_code_normalized = str(prod_data["agency_code"]).strip().upper() if prod_data["agency_code"] else None
+                    if agency_code_normalized:
+                        seen_agencies[agency_code_normalized] = idx
+                
+                # Filter to only keep the last occurrence of each agency
+                unique_production_rows = [production_rows[idx] for idx in seen_agencies.values()]
+                
                 # Delete existing production records for this office+month
+                # This ensures we don't accumulate data from multiple imports of the same month
+                # We delete ALL records for this office+month, then insert fresh ones
                 delete_stmt = delete(models.Production).where(
                     (models.Production.office == office_code) & (models.Production.month == month)
                 )
                 db.execute(delete_stmt)
+                db.flush()  # Ensure deletion is applied before inserts
                 
-                # Insert new production records
+                # Insert new production records (now deduplicated)
                 new_agencies_count = 0
-                for prod_data in production_rows:
+                for prod_data in unique_production_rows:
                     prod = models.Production(**prod_data)
                     db.add(prod)
                     
@@ -297,10 +322,11 @@ async def import_production_multi(
                 
                 results["offices_processed"].append({
                     "office": office_code,
-                    "rows_imported": len(production_rows),
+                    "rows_imported": len(unique_production_rows),
+                    "duplicates_removed": len(production_rows) - len(unique_production_rows),
                     "new_agencies": new_agencies_count
                 })
-                results["total_production_rows"] += len(production_rows)
+                results["total_production_rows"] += len(unique_production_rows)
                 results["total_new_agencies"] += new_agencies_count
                 
             except Exception as e:
@@ -423,15 +449,28 @@ async def import_production(
         df['AgencyCode'] = df['AgencyCode'].astype(str).str.strip()
         df['AgencyName'] = df['AgencyName'].astype(str).str.strip()
         
+        # Remove duplicates: keep only the last occurrence of each agency_code
+        # This handles cases where the same agency appears multiple times in the Excel
+        seen_agencies = {}
+        for idx, row in df.iterrows():
+            agency_code_normalized = str(row['AgencyCode']).strip().upper() if pd.notna(row['AgencyCode']) else None
+            if agency_code_normalized:
+                seen_agencies[agency_code_normalized] = idx
+        
+        # Filter to only keep the last occurrence of each agency
+        df_unique = df.loc[[idx for idx in seen_agencies.values()]]
+        
         # Delete existing production records for this office+month
+        # This ensures we don't accumulate data from multiple imports of the same month
         delete_stmt = delete(models.Production).where(
             (models.Production.office == office) & (models.Production.month == month)
         )
         db.execute(delete_stmt)
+        db.flush()  # Ensure deletion is applied before inserts
         
-        # Insert new production records
+        # Insert new production records (now deduplicated)
         production_rows = []
-        for _, row in df.iterrows():
+        for _, row in df_unique.iterrows():
             prod = models.Production(
                 office=row['Office'],
                 agency_code=row['AgencyCode'],
@@ -513,6 +552,211 @@ async def import_production(
         raise HTTPException(
             status_code=500,
             detail=f"Error importing production: {str(e)}"
+        )
+
+
+# --- CHECK REMAINING DATA (for diagnostics) ---
+@router.post("/data-status")
+def get_data_status(
+    request: AdminAuthRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Get counts of all agency and production data.
+    Useful for diagnostics after clearing data.
+    Requires admin authentication.
+    """
+    # Verify admin password
+    if request.password != ADMIN_PASSWORD:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid admin password"
+        )
+    
+    try:
+        prod_count = db.query(models.Production).count()
+        agency_count = db.query(models.Agency).count()
+        contact_count = db.query(models.Contact).count()
+        log_count = db.query(models.Log).count()
+        task_count = db.query(models.Task).count()
+        
+        # Get production data grouped by office
+        prod_by_office = db.query(
+            models.Production.office,
+            func.count(models.Production.id).label('count')
+        ).group_by(models.Production.office).all()
+        
+        # Get agencies grouped by office
+        agencies_by_office = {}
+        for agency in db.query(models.Agency).all():
+            office_id = agency.office_id
+            if office_id not in agencies_by_office:
+                agencies_by_office[office_id] = []
+            agencies_by_office[office_id].append({
+                "id": agency.id,
+                "name": agency.name,
+                "code": agency.code
+            })
+        
+        # Get some sample data to see what's remaining
+        sample_prod = db.query(models.Production).limit(10).all()
+        sample_agencies = db.query(models.Agency).limit(10).all()
+        sample_logs = db.query(models.Log).limit(10).all()
+        
+        return {
+            "counts": {
+                "production": prod_count,
+                "agencies": agency_count,
+                "contacts": contact_count,
+                "logs": log_count,
+                "tasks": task_count,
+            },
+            "production_by_office": {office: count for office, count in prod_by_office},
+            "samples": {
+                "production": [{"id": p.id, "office": p.office, "agency_code": p.agency_code, "agency_name": p.agency_name, "month": p.month, "all_ytd_wp": p.all_ytd_wp} for p in sample_prod],
+                "agencies": [{"id": a.id, "name": a.name, "code": a.code, "office_id": a.office_id} for a in sample_agencies],
+                "logs": [{"id": l.id, "user": l.user, "agency_id": l.agency_id, "datetime": str(l.datetime), "action": l.action} for l in sample_logs],
+            }
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+
+# --- CLEAR ALL AGENCY AND PRODUCTION DATA ---
+@router.post("/clear-all-data")
+def clear_all_agency_production_data(
+    request: AdminAuthRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Clear ALL agency and production data from the database.
+    This will delete:
+    - All Production records
+    - All Agency records (and their associated Contacts via CASCADE)
+    - All Log records
+    - All Task records
+    
+    This will NOT delete:
+    - Offices
+    - Employees
+    - Submissions
+    
+    Requires admin authentication.
+    """
+    # Verify admin password
+    if request.password != ADMIN_PASSWORD:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid admin password"
+        )
+    
+    try:
+        # Get counts before deletion
+        prod_count = db.query(models.Production).count()
+        agency_count = db.query(models.Agency).count()
+        contact_count = db.query(models.Contact).count()
+        log_count = db.query(models.Log).count()
+        task_count = db.query(models.Task).count()
+        
+        # Delete in order to respect foreign key constraints
+        # Use explicit table names to ensure we're deleting from the right tables
+        
+        # 1. Delete all Production records (no dependencies)
+        deleted_prod = db.execute(delete(models.Production)).rowcount
+        db.flush()
+        
+        # 2. Delete all Log records (they reference agencies but use SET NULL)
+        deleted_log = db.execute(delete(models.Log)).rowcount
+        db.flush()
+        
+        # 3. Delete all Task records (they reference agencies but use SET NULL)
+        deleted_task = db.execute(delete(models.Task)).rowcount
+        db.flush()
+        
+        # 4. Delete all Contact records (they will cascade from Agency, but let's be explicit)
+        deleted_contact = db.execute(delete(models.Contact)).rowcount
+        db.flush()
+        
+        # 5. Delete all Agency records (this will cascade delete any remaining contacts)
+        deleted_agency = db.execute(delete(models.Agency)).rowcount
+        db.flush()
+        
+        # Commit all deletions
+        db.commit()
+        
+        # Verify deletion by checking counts again
+        remaining_prod = db.query(models.Production).count()
+        remaining_agency = db.query(models.Agency).count()
+        remaining_contact = db.query(models.Contact).count()
+        remaining_log = db.query(models.Log).count()
+        remaining_task = db.query(models.Task).count()
+        
+        # Log what was actually deleted
+        logger.info(f"[Clear All Data] Deleted: {deleted_prod} production, {deleted_agency} agencies, {deleted_contact} contacts, {deleted_log} logs, {deleted_task} tasks")
+        logger.info(f"[Clear All Data] Remaining after delete: {remaining_prod} production, {remaining_agency} agencies, {remaining_contact} contacts, {remaining_log} logs, {remaining_task} tasks")
+        
+        if remaining_prod > 0 or remaining_agency > 0 or remaining_contact > 0 or remaining_log > 0 or remaining_task > 0:
+            # Try one more time with explicit table deletion
+            logger.warning(f"[Clear All Data] Some records remain, attempting second pass deletion")
+            if remaining_prod > 0:
+                db.execute(delete(models.Production))
+            if remaining_log > 0:
+                db.execute(delete(models.Log))
+            if remaining_task > 0:
+                db.execute(delete(models.Task))
+            if remaining_contact > 0:
+                db.execute(delete(models.Contact))
+            if remaining_agency > 0:
+                db.execute(delete(models.Agency))
+            db.commit()
+            
+            # Check one more time
+            final_prod = db.query(models.Production).count()
+            final_agency = db.query(models.Agency).count()
+            final_contact = db.query(models.Contact).count()
+            final_log = db.query(models.Log).count()
+            final_task = db.query(models.Task).count()
+            
+            if final_prod > 0 or final_agency > 0 or final_contact > 0 or final_log > 0 or final_task > 0:
+                return {
+                    "success": False,
+                    "message": "Some records could not be deleted",
+                    "deleted": {
+                        "production_records": prod_count - final_prod,
+                        "agency_records": agency_count - final_agency,
+                        "contact_records": contact_count - final_contact,
+                        "log_records": log_count - final_log,
+                        "task_records": task_count - final_task,
+                        "total": (prod_count + agency_count + contact_count + log_count + task_count) - (final_prod + final_agency + final_contact + final_log + final_task)
+                    },
+                    "remaining": {
+                        "production_records": final_prod,
+                        "agency_records": final_agency,
+                        "contact_records": final_contact,
+                        "log_records": final_log,
+                        "task_records": final_task,
+                    },
+                    "warning": "Some records remain. You may need to check the database directly."
+                }
+        
+        return {
+            "success": True,
+            "message": "All agency and production data cleared successfully",
+            "deleted": {
+                "production_records": prod_count,
+                "agency_records": agency_count,
+                "contact_records": contact_count,
+                "log_records": log_count,
+                "task_records": task_count,
+                "total": prod_count + agency_count + contact_count + log_count + task_count
+            }
+        }
+        
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error clearing data: {str(e)}"
         )
 
 
