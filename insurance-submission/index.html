@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Insurance Submission - Deans & Homer</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-container">
+            <div class="logo">Deans & Homer</div>
+            <nav class="nav">
+                <a href="#" class="nav-link">Agent Log In →</a>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="container">
+            <div class="page-header">
+                <h1>Insurance Submission Form</h1>
+                <p class="page-subtitle">Complete required fields (*) and generate AS400 CSL file</p>
+            </div>
+            <form id="submission-form" class="submission-form">
+                
+                <!-- Row 1: Dates & Producer -->
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="effective_date">Effective Date *</label>
+                        <input type="date" id="effective_date" name="effective_date" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="expiration_date">Expiration Date *</label>
+                        <input type="date" id="expiration_date" name="expiration_date" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="producer_name">Producer Name *</label>
+                        <input type="text" id="producer_name" name="producer_name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="producer_code">Producer Code</label>
+                        <input type="text" id="producer_code" name="producer_code" maxlength="6" placeholder="010233">
+                    </div>
+                </div>
+
+                <!-- Row 2: Insured -->
+                <div class="form-row">
+                    <div class="form-group span-2">
+                        <label for="insured_name">Named Insured *</label>
+                        <input type="text" id="insured_name" name="insured_name" required>
+                    </div>
+                    <div class="form-group span-2">
+                        <label for="additional_insured_names">Additional Insured Names</label>
+                        <input type="text" id="additional_insured_names" name="additional_insured_names">
+                    </div>
+                </div>
+
+                <!-- Row 3: Contact -->
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="contact_name">Contact Name</label>
+                        <input type="text" id="contact_name" name="contact_name">
+                    </div>
+                    <div class="form-group">
+                        <label for="contact_phone">Contact Phone</label>
+                        <input type="tel" id="contact_phone" name="contact_phone" placeholder="(555) 123-4567">
+                    </div>
+                    <div class="form-group">
+                        <label for="contact_email">Contact Email</label>
+                        <input type="email" id="contact_email" name="contact_email">
+                    </div>
+                    <div class="form-group">
+                        <label for="mailing_address">Mailing Address</label>
+                        <input type="text" id="mailing_address" name="mailing_address">
+                    </div>
+                </div>
+
+                <!-- Row 4: Property Location -->
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="location_street_number">Street Number</label>
+                        <input type="text" id="location_street_number" name="location_street_number">
+                    </div>
+                    <div class="form-group">
+                        <label for="location_street_name">Street Name</label>
+                        <input type="text" id="location_street_name" name="location_street_name">
+                    </div>
+                    <div class="form-group">
+                        <label for="location_suite">Suite/Unit</label>
+                        <input type="text" id="location_suite" name="location_suite">
+                    </div>
+                    <div class="form-group">
+                        <label for="location_city">City</label>
+                        <input type="text" id="location_city" name="location_city">
+                    </div>
+                    <div class="form-group">
+                        <label for="location_state">State</label>
+                        <input type="text" id="location_state" name="location_state" maxlength="2" placeholder="CA">
+                    </div>
+                    <div class="form-group">
+                        <label for="location_zip">ZIP Code</label>
+                        <input type="text" id="location_zip" name="location_zip" maxlength="10">
+                    </div>
+                </div>
+
+                <!-- Row 5: Limits -->
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="building_limit">Building Limit</label>
+                        <input type="text" id="building_limit" name="building_limit" placeholder="2,500,000">
+                    </div>
+                    <div class="form-group">
+                        <label for="deductible">Deductible</label>
+                        <input type="text" id="deductible" name="deductible" placeholder="5,000 or 1%">
+                    </div>
+                    <div class="form-group">
+                        <label for="additional_limits_rents">Business Income / Rents</label>
+                        <input type="text" id="additional_limits_rents" name="additional_limits_rents">
+                    </div>
+                    <div class="form-group">
+                        <label for="additional_limits_ordinance">Ordinance / Law</label>
+                        <input type="text" id="additional_limits_ordinance" name="additional_limits_ordinance">
+                    </div>
+                    <div class="form-group">
+                        <label for="additional_limits_demolition">Demolition Cost</label>
+                        <input type="text" id="additional_limits_demolition" name="additional_limits_demolition">
+                    </div>
+                    <div class="form-group">
+                        <label for="additional_limits_eqsl">EQ Sprinkler Leakage</label>
+                        <input type="text" id="additional_limits_eqsl" name="additional_limits_eqsl">
+                    </div>
+                </div>
+
+                <!-- Row 6: Building Characteristics -->
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="construction_type">Construction Type</label>
+                        <select id="construction_type" name="construction_type">
+                            <option value="">Select...</option>
+                            <option value="Frame">Frame</option>
+                            <option value="Joisted Masonry">Joisted Masonry</option>
+                            <option value="Non-Combustible">Non-Combustible</option>
+                            <option value="Masonry Non-Combustible">Masonry Non-Combustible</option>
+                            <option value="Modified Fire Resistive">Modified Fire Resistive</option>
+                            <option value="Fire Resistive">Fire Resistive</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="construction_year">Year Built</label>
+                        <input type="text" id="construction_year" name="construction_year" maxlength="4" placeholder="1985">
+                    </div>
+                    <div class="form-group">
+                        <label for="square_feet">Square Feet</label>
+                        <input type="text" id="square_feet" name="square_feet" placeholder="10,000">
+                    </div>
+                    <div class="form-group">
+                        <label for="sprinkler_percent">Sprinkler %</label>
+                        <input type="text" id="sprinkler_percent" name="sprinkler_percent" placeholder="100%" maxlength="10">
+                    </div>
+                    <div class="form-group">
+                        <label for="protection_class">Protection Class</label>
+                        <input type="text" id="protection_class" name="protection_class" placeholder="3 or Class 4">
+                    </div>
+                    <div class="form-group">
+                        <label for="line_of_business">Line of Business</label>
+                        <input type="text" id="line_of_business" name="line_of_business" placeholder="Office, Retail, etc.">
+                    </div>
+                </div>
+
+                <!-- Row 7: Additional Parties -->
+                <div class="form-row">
+                    <div class="form-group span-2">
+                        <label for="additional_insured">Additional Insured</label>
+                        <input type="text" id="additional_insured" name="additional_insured">
+                    </div>
+                    <div class="form-group span-2">
+                        <label for="mortgagee">Mortgagee</label>
+                        <input type="text" id="mortgagee" name="mortgagee">
+                    </div>
+                    <div class="form-group span-2">
+                        <label for="loss_payee">Loss Payee</label>
+                        <input type="text" id="loss_payee" name="loss_payee">
+                    </div>
+                </div>
+
+                <!-- Row 8: Notes -->
+                <div class="form-row">
+                    <div class="form-group span-full">
+                        <label for="notes">Additional Notes / Special Conditions</label>
+                        <textarea id="notes" name="notes" rows="2"></textarea>
+                    </div>
+                </div>
+
+                <!-- Submit Section -->
+                <div class="form-row submit-row">
+                    <div class="button-group">
+                        <button type="submit" class="btn btn-primary">
+                            Generate AS400 CSL File →
+                        </button>
+                        <button type="button" class="btn btn-secondary" id="clear-form">
+                            Clear Form
+                        </button>
+                    </div>
+                    <div id="success-message" class="success-message" style="display: none;">
+                        CSL file generated successfully! Check your downloads.
+                    </div>
+                </div>
+
+            </form>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-container">
+            <p>&copy; 2025 Deans & Homer. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>

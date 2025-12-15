@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status, Request
 from sqlalchemy.orm import Session
 from sqlalchemy import select, delete, func
 from typing import List, Optional
@@ -7,66 +7,38 @@ import os
 import pandas as pd
 import io
 from datetime import datetime
-from dotenv import load_dotenv
-from pathlib import Path
+import logging
 
 from ..database import get_db
 from .. import models, schemas, crud
+from ..auth.proxy_headers import get_current_user, require_authenticated
+from ..services.audit import log_audit_event
+
+logger = logging.getLogger("uvicorn.error")
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
-# Admin password verification dependency
-def verify_admin_password(request: "AdminAuthRequest"):
-    """Verify admin password."""
-    if request.password == ADMIN_PASSWORD:
-        return True
-    raise HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Invalid admin password"
-    )
-
-# Load environment variables from private folder (outside Git tracking)
-env_path = Path(__file__).parent.parent.parent / 'private' / '.env'
-load_dotenv(dotenv_path=env_path)
-
-# Admin password from environment variable - NO DEFAULT for security
-ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
-
-# Debug logging
-import logging
-logger = logging.getLogger("uvicorn.error")
-logger.info(f"[Admin Router] .env path: {env_path}")
-logger.info(f"[Admin Router] .env exists: {env_path.exists()}")
-logger.info(f"[Admin Router] ADMIN_PASSWORD loaded: {'Yes' if ADMIN_PASSWORD else 'No'}")
-if ADMIN_PASSWORD:
-    logger.info(f"[Admin Router] ADMIN_PASSWORD length: {len(ADMIN_PASSWORD)}")
-
-if not ADMIN_PASSWORD:
-    raise ValueError(
-        "ADMIN_PASSWORD environment variable must be set! "
-        "Add it to private/.env file. Never use default passwords in production."
-    )
-
-
-# --- AUTHENTICATION ---
-class AdminAuthRequest(BaseModel):
-    password: str
-
-@router.post("/auth")
-def authenticate_admin(request: AdminAuthRequest):
-    """Verify admin password."""
-    if request.password == ADMIN_PASSWORD:
-        return {"authenticated": True, "message": "Admin access granted"}
-    raise HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Invalid admin password"
-    )
+def require_admin(user: dict):
+    """Require user to have admin role."""
+    require_authenticated(user)
+    if "admin" not in user.get("groups", []):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required"
+        )
 
 
 # --- EMPLOYEE MANAGEMENT ---
 @router.delete("/employees/{employee_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_employee(employee_id: int, db: Session = Depends(get_db)):
-    """Delete an employee by ID."""
+def delete_employee(
+    employee_id: int,
+    request: Request,
+    user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Delete an employee by ID. Requires admin access."""
+    require_admin(user)
+    
     stmt = select(models.Employee).where(models.Employee.id == employee_id)
     employee = db.execute(stmt).scalar_one_or_none()
     
@@ -75,6 +47,22 @@ def delete_employee(employee_id: int, db: Session = Depends(get_db)):
     
     db.delete(employee)
     db.commit()
+    
+    # Log delete action
+    log_audit_event(
+        actor_email=user["email"],
+        action="DELETE",
+        entity_type="employee",
+        entity_id=employee_id,
+        office_id=employee.office_id,
+        actor_employee_id=user.get("employee_id"),
+        request_path=str(request.url.path),
+        request_method="DELETE",
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+        db=db,
+    )
+    
     return None
 
 
@@ -83,6 +71,8 @@ def delete_employee(employee_id: int, db: Session = Depends(get_db)):
 async def import_production_multi(
     month: str,  # Format: YYYY-MM
     file: UploadFile = File(...),
+    request: Request = None,
+    user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -350,6 +340,8 @@ async def import_production(
     office: str,
     month: str,  # Format: YYYY-MM
     file: UploadFile = File(...),
+    request: Request = None,
+    user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -359,7 +351,10 @@ async def import_production(
     - Creates new agencies if they don't exist
     - Updates ActiveFlag for existing agencies
     - Returns summary of import results
+    Requires admin access.
     """
+    require_admin(user)
+    
     if not file.filename.endswith(('.xls', '.xlsx')):
         raise HTTPException(
             status_code=400,
@@ -558,20 +553,16 @@ async def import_production(
 # --- CHECK REMAINING DATA (for diagnostics) ---
 @router.post("/data-status")
 def get_data_status(
-    request: AdminAuthRequest,
+    request: Request,
+    user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
     Get counts of all agency and production data.
     Useful for diagnostics after clearing data.
-    Requires admin authentication.
+    Requires admin access.
     """
-    # Verify admin password
-    if request.password != ADMIN_PASSWORD:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid admin password"
-        )
+    require_admin(user)
     
     try:
         prod_count = db.query(models.Production).count()
@@ -625,7 +616,8 @@ def get_data_status(
 # --- CLEAR ALL AGENCY AND PRODUCTION DATA ---
 @router.post("/clear-all-data")
 def clear_all_agency_production_data(
-    request: AdminAuthRequest,
+    request: Request,
+    user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -641,14 +633,9 @@ def clear_all_agency_production_data(
     - Employees
     - Submissions
     
-    Requires admin authentication.
+    Requires admin access.
     """
-    # Verify admin password
-    if request.password != ADMIN_PASSWORD:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid admin password"
-        )
+    require_admin(user)
     
     try:
         # Get counts before deletion

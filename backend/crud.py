@@ -20,7 +20,15 @@ def create_office(db: Session, office: schemas.OfficeCreate) -> models.Office:
 
 # Employees
 def create_employee(db: Session, emp: schemas.EmployeeCreate) -> models.Employee:
-    db_emp = models.Employee(**emp.model_dump())
+    emp_data = emp.model_dump(exclude={"password"})
+    
+    # Hash password if provided
+    if emp.password:
+        import bcrypt
+        password_hash = bcrypt.hashpw(emp.password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+        emp_data["password_hash"] = password_hash
+    
+    db_emp = models.Employee(**emp_data)
     db.add(db_emp)
     db.commit()
     db.refresh(db_emp)
@@ -38,7 +46,16 @@ def update_employee(db: Session, emp_id: int, payload: schemas.EmployeeUpdate) -
     db_emp = db.get(models.Employee, emp_id)
     if not db_emp:
         return None
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    
+    update_data = payload.model_dump(exclude_unset=True, exclude={"password"})
+    
+    # Hash password if provided
+    if payload.password:
+        import bcrypt
+        password_hash = bcrypt.hashpw(payload.password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+        update_data["password_hash"] = password_hash
+    
+    for field, value in update_data.items():
         setattr(db_emp, field, value)
     db.commit()
     db.refresh(db_emp)

@@ -26,15 +26,30 @@ class Office(OfficeBase, OrmModel):
 # --------- EMPLOYEE ---------
 class EmployeeBase(BaseModel):
     name: str
+    email: Optional[str] = None  # Optional in responses (some employees might not have email yet)
     office_id: Optional[int]
+    website: Optional[str] = None
 
 
-class EmployeeCreate(EmployeeBase):
-    pass
+class EmployeeCreate(BaseModel):
+    name: str
+    email: str  # Required when creating
+    office_id: Optional[int] = None
+    website: Optional[str] = None
+    password: Optional[str] = None  # Plain password for initial setup (will be hashed)
+
+
+class EmployeeUpdate(BaseModel):
+    name: Optional[str] = None
+    email: Optional[str] = None
+    office_id: Optional[int] = None
+    website: Optional[str] = None
+    password: Optional[str] = None  # Plain password for update (will be hashed)
 
 
 class Employee(EmployeeBase, OrmModel):
     id: int
+    # Note: password_hash, password_reset_token, password_reset_expires are not exposed in API responses
 
 
 # --------- AGENCY ---------
@@ -131,12 +146,6 @@ class LogUpdate(BaseModel):
     notes: Optional[str] = None
     contact_id: Optional[int] = None
     contact: Optional[str] = None
-
-
-# --------- EMPLOYEE ---------
-class EmployeeUpdate(BaseModel):
-    name: Optional[str] = None
-    office_id: Optional[int] = None
 
 
 # --------- TASK ---------
@@ -329,3 +338,23 @@ class AIChatResponse(BaseModel):
     answer: str
     used_context: Optional[dict] = None
     error: Optional[str] = None
+
+
+# --------- AUDIT LOG ---------
+class AuditLogBase(BaseModel):
+    actor_email: str
+    action: str
+    entity_type: str
+    entity_id: Optional[int] = None
+    office_id: Optional[int] = None
+    details_json: Optional[str] = None
+    ip_address: Optional[str] = None
+    user_agent: Optional[str] = None
+    request_path: Optional[str] = None
+    request_method: Optional[str] = None
+
+
+class AuditLog(AuditLogBase, OrmModel):
+    id: int
+    timestamp: datetime
+    actor_employee_id: Optional[int] = None

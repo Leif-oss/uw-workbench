@@ -43,6 +43,8 @@ type Log = {
   agency_id: number | null;
   office: string | null;
   notes: string | null;
+  contact_id: number | null;
+  contact: string | null;
 };
 
 type Agency = {
@@ -951,26 +953,83 @@ export const EmployeesPage: React.FC = () => {
                       <th style={{ padding: "8px 12px", textAlign: "left", fontWeight: 600, color: "#6b7280" }}>Date</th>
                       <th style={{ padding: "8px 12px", textAlign: "left", fontWeight: 600, color: "#6b7280" }}>Action</th>
                       <th style={{ padding: "8px 12px", textAlign: "left", fontWeight: 600, color: "#6b7280" }}>Agency</th>
+                      <th style={{ padding: "8px 12px", textAlign: "left", fontWeight: 600, color: "#6b7280" }}>Contact</th>
                       <th style={{ padding: "8px 12px", textAlign: "left", fontWeight: 600, color: "#6b7280" }}>Notes</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {employeeLogs.slice(0, 20).map((log) => (
-                      <tr key={log.id} style={{ borderBottom: "1px solid #f3f4f6" }}>
-                        <td style={{ padding: "8px 12px", whiteSpace: "nowrap" }}>
-                          {new Date(log.datetime).toLocaleDateString()}
-                        </td>
-                        <td style={{ padding: "8px 12px" }}>
-                          {log.action}
-                        </td>
-                        <td style={{ padding: "8px 12px" }}>
-                          {log.agency_id ?? "—"}
-                        </td>
-                        <td style={{ padding: "8px 12px", maxWidth: 300, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={log.notes || undefined}>
-                          {log.notes || "—"}
-                        </td>
-                      </tr>
-                    ))}
+                    {employeeLogs.slice(0, 20).map((log) => {
+                      const agency = log.agency_id ? agencies.find(a => a.id === log.agency_id) : null;
+                      // Use contact_id if available, otherwise try to find contact by agency
+                      const contact = log.contact_id 
+                        ? contacts.find(c => c.id === log.contact_id)
+                        : (log.agency_id ? contacts.find(c => c.agency_id === log.agency_id) : null);
+                      // Use the frozen contact name from log if available, otherwise use contact.name
+                      const contactName = log.contact || contact?.name || null;
+                      
+                      return (
+                        <tr key={log.id} style={{ borderBottom: "1px solid #f3f4f6" }}>
+                          <td style={{ padding: "8px 12px", whiteSpace: "nowrap" }}>
+                            {new Date(log.datetime).toLocaleDateString()}
+                          </td>
+                          <td style={{ padding: "8px 12px" }}>
+                            {log.action}
+                          </td>
+                          <td style={{ padding: "8px 12px" }}>
+                            {agency ? (
+                              <button
+                                type="button"
+                                onClick={() => navigate(`/crm/agencies/${agency.id}`)}
+                                style={{
+                                  border: "none",
+                                  background: "transparent",
+                                  color: "#2563eb",
+                                  cursor: "pointer",
+                                  textDecoration: "underline",
+                                  padding: 0,
+                                  fontSize: "inherit",
+                                }}
+                              >
+                                {agency.name}
+                              </button>
+                            ) : (
+                              "—"
+                            )}
+                          </td>
+                          <td style={{ padding: "8px 12px" }}>
+                            {contactName && agency ? (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const contactId = contact?.id || log.contact_id;
+                                  if (contactId) {
+                                    navigate(`/crm/agencies/${agency.id}?contactId=${contactId}`);
+                                  } else {
+                                    navigate(`/crm/agencies/${agency.id}`);
+                                  }
+                                }}
+                                style={{
+                                  border: "none",
+                                  background: "transparent",
+                                  color: "#2563eb",
+                                  cursor: "pointer",
+                                  textDecoration: "underline",
+                                  padding: 0,
+                                  fontSize: "inherit",
+                                }}
+                              >
+                                {contactName}
+                              </button>
+                            ) : (
+                              "—"
+                            )}
+                          </td>
+                          <td style={{ padding: "8px 12px", maxWidth: 300, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={log.notes || undefined}>
+                            {log.notes || "—"}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

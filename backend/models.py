@@ -1,5 +1,6 @@
 from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Text
 from sqlalchemy.orm import relationship
+from datetime import datetime
 
 from .database import Base
 
@@ -20,7 +21,12 @@ class Employee(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(255), nullable=False)
+    email = Column(String(255), nullable=True, index=True)  # For authentication mapping (not unique - same person can be in multiple offices)
     office_id = Column(Integer, ForeignKey("offices.id", ondelete="SET NULL"))
+    website = Column(String(255), nullable=True)  # Employee's website
+    password_hash = Column(String(255), nullable=True)  # Hashed password for direct login (when not behind proxy)
+    password_reset_token = Column(String(255), nullable=True)  # Token for password reset
+    password_reset_expires = Column(DateTime, nullable=True)  # Expiration for reset token
 
     office_rel = relationship("Office", back_populates="employees")
     agencies = relationship("Agency", back_populates="underwriter_rel")
@@ -199,3 +205,24 @@ class Submission(Base):
     
     agency = relationship("Agency")
     contact = relationship("Contact")
+
+
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    timestamp = Column(DateTime, nullable=False, default=datetime.utcnow)
+    actor_email = Column(String(255), nullable=False, index=True)
+    actor_employee_id = Column(Integer, ForeignKey("employees.id", ondelete="SET NULL"), nullable=True)
+    action = Column(String(50), nullable=False)  # VIEW, CREATE, UPDATE, DELETE, EXPORT
+    entity_type = Column(String(50), nullable=False)  # "agency", "office", "contact", "log", "task"
+    entity_id = Column(Integer, nullable=True)
+    office_id = Column(Integer, ForeignKey("offices.id", ondelete="SET NULL"), nullable=True)
+    details_json = Column(Text, nullable=True)  # JSON of before/after changes or additional context
+    ip_address = Column(String(50), nullable=True)
+    user_agent = Column(String(500), nullable=True)
+    request_path = Column(String(500), nullable=True)
+    request_method = Column(String(10), nullable=True)
+
+    actor_employee = relationship("Employee")
+    office = relationship("Office")
