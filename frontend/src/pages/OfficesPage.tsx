@@ -23,7 +23,8 @@ type Office = {
 type Employee = {
   id: number;
   name: string;
-  office_id: number | null;
+  office_id?: number | null; // Deprecated: kept for backward compatibility
+  office_ids?: number[]; // List of office IDs (many-to-many relationship)
 };
 
 type Agency = {
@@ -103,11 +104,16 @@ export const OfficesPage: React.FC = () => {
   const officesWithEmployees: OfficeWithEmployees[] = useMemo(() => {
     const byOfficeId = new Map<number, Employee[]>();
     employees.forEach((e) => {
-      if (!e.office_id) return;
-      if (!byOfficeId.has(e.office_id)) {
-        byOfficeId.set(e.office_id, []);
-      }
-      byOfficeId.get(e.office_id)!.push(e);
+      // Get all office IDs for this employee (many-to-many relationship)
+      const employeeOfficeIds = e.office_ids || (e.office_id ? [e.office_id] : []);
+      
+      // Add employee to each office they're assigned to
+      employeeOfficeIds.forEach((officeId) => {
+        if (!byOfficeId.has(officeId)) {
+          byOfficeId.set(officeId, []);
+        }
+        byOfficeId.get(officeId)!.push(e);
+      });
     });
 
     return offices.map((o) => ({
@@ -226,7 +232,10 @@ export const OfficesPage: React.FC = () => {
                 </tr>
               ) : (
                 filteredOffices.map((office) => {
-                  const empCount = employees.filter((e) => e.office_id === office.id).length;
+                  const empCount = employees.filter((e) => 
+                    (e.office_ids && e.office_ids.includes(office.id)) || 
+                    (e.office_id === office.id) // Backward compatibility
+                  ).length;
                   const isSelected = selectedOfficeId === office.id;
                   return (
                     <tr

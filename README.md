@@ -16,8 +16,8 @@ A comprehensive web application for insurance underwriting management, featuring
 
 2. **Fill in your actual values in `backend/.env`:**
    - `AI_API_KEY`: Your OpenAI API key (get from https://platform.openai.com/api-keys)
-   - `ADMIN_PASSWORD`: Strong password for admin access (minimum 12 characters recommended)
-   - `DATABASE_URL`: Database connection string (SQLite for dev, PostgreSQL/MySQL for production)
+   - `DATABASE_URL`: PostgreSQL connection string (REQUIRED - SQLite not supported)
+   - For local: `postgresql://uw_workbench:dev_password_change_me@localhost:5432/uw_workbench`
 
 3. **Never commit `.env` files to Git!**
    - The `.gitignore` file is configured to prevent this
@@ -45,36 +45,54 @@ A comprehensive web application for insurance underwriting management, featuring
 
 ### Backend Setup
 
-1. **Navigate to backend directory:**
+1. **Start PostgreSQL database (Docker Compose):**
+   ```bash
+   docker-compose up -d
+   ```
+
+2. **Navigate to backend directory:**
    ```bash
    cd backend
    ```
 
-2. **Create and activate virtual environment:**
+3. **Create and activate virtual environment:**
    ```bash
-   python -m venv venv
+   python -m venv ../.venv
    
    # Windows
-   venv\Scripts\activate
+   ..\.venv\Scripts\activate
    
    # Mac/Linux
-   source venv/bin/activate
+   source ../.venv/bin/activate
    ```
 
-3. **Install dependencies:**
+4. **Install dependencies:**
    ```bash
    pip install -r requirements.txt
    ```
 
-4. **Set up environment variables:**
-   ```bash
-   cp .env.example .env
-   # Edit .env and add your API keys and passwords
+5. **Set up environment variables:**
+   Create `backend/.env` with:
+   ```env
+   DATABASE_URL=postgresql://uw_workbench:dev_password_change_me@localhost:5432/uw_workbench
+   AI_API_KEY=sk-your-openai-api-key-here
+   CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
    ```
 
-5. **Run the server:**
+6. **Run database migrations:**
    ```bash
-   uvicorn backend.main:app --reload --port 8000
+   alembic upgrade head
+   ```
+
+7. **Seed initial data (optional):**
+   ```bash
+   python -m backend.scripts.seed_data
+   ```
+
+8. **Run the server:**
+   ```bash
+   # From project root
+   python -m uvicorn backend.main:app --reload --port 8000
    ```
 
    The API will be available at: http://127.0.0.1:8000
@@ -182,14 +200,16 @@ uw-workbench/
 AI_API_KEY=sk-your-key-here
 AI_MODEL=gpt-4o
 
-# Admin Access
-ADMIN_PASSWORD=your-secure-password
+# Database (PostgreSQL REQUIRED)
+DATABASE_URL=postgresql://uw_workbench:dev_password_change_me@localhost:5432/uw_workbench
 
-# Database
-DATABASE_URL=sqlite:///./workbench.db
+# CORS Origins
+CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+
+# Environment
+ENVIRONMENT=development
 
 # Optional
-DEBUG=false
 LOG_LEVEL=INFO
 ```
 
@@ -203,9 +223,17 @@ VITE_API_URL=http://127.0.0.1:8000
 
 For production deployment:
 
-1. **Use PostgreSQL or MySQL instead of SQLite:**
+1. **Use PostgreSQL (required):**
    ```env
    DATABASE_URL=postgresql://user:password@host:5432/dbname
+   ```
+   
+   Or for Cloud SQL:
+   ```env
+   CLOUD_SQL_CONNECTION_NAME=project:region:instance
+   DB_USER=postgres
+   DB_PASSWORD=your-secure-password
+   DB_NAME=uw_workbench
    ```
 
 2. **Update CORS origins in `backend/main.py`:**
@@ -225,19 +253,49 @@ For production deployment:
 5. **Enable HTTPS/TLS**
 6. **Set up proper logging and monitoring**
 
+### VPS Deployment
+
+For deploying to a single VPS (Ubuntu Linux) with Docker Compose:
+
+📖 **See [VPS_DEPLOYMENT.md](VPS_DEPLOYMENT.md) for complete guide**
+
+Quick start:
+```bash
+# 1. Copy environment file
+cp env.example .env
+# Edit .env with your values
+
+# 2. Update Caddyfile with your domain (or use :80 for IP-only)
+
+# 3. Build and start
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+**Architecture:**
+- PostgreSQL (internal)
+- FastAPI Backend (internal, port 8000)
+- React Frontend (internal, port 3000)
+- Caddy Reverse Proxy (external, ports 80/443)
+  - Routes `/api/*` → Backend
+  - Routes `/*` → Frontend
+  - Automatic HTTPS with Let's Encrypt
+
+**Files:**
+- `docker-compose.prod.yml` - Production Docker Compose configuration
+- `Caddyfile` - Reverse proxy configuration
+- `frontend/Dockerfile.vps` - Frontend production build
+- `scripts/backup-database.sh` - PostgreSQL backup script
+
 ---
 
 ## 📊 Database
 
-### Development
-- Uses SQLite by default (`workbench.db`)
-- Automatically created on first run
-- No additional setup required
-
-### Production
-- Recommended: PostgreSQL 14+ or MySQL 8+
+### Development & Production
+- **PostgreSQL 15+ REQUIRED** (SQLite not supported)
+- Use Docker Compose for local development: `docker-compose up -d`
 - Set `DATABASE_URL` environment variable
-- Run migrations if using Alembic
+- Run migrations: `alembic upgrade head`
+- Seed initial data: `python -m backend.scripts.seed_data`
 
 ### Database Schema
 
@@ -319,9 +377,10 @@ npm test
 - Review backend logs for API errors
 
 ### Database errors
-- Delete `workbench.db` to reset (development only)
-- Check `DATABASE_URL` format
-- Ensure database server is running (if using PostgreSQL/MySQL)
+- Ensure PostgreSQL is running: `docker-compose ps` or `docker ps`
+- Check `DATABASE_URL` format (must be PostgreSQL connection string)
+- Verify database exists: `psql -h localhost -U uw_workbench -d uw_workbench`
+- Run migrations: `alembic upgrade head`
 
 ---
 

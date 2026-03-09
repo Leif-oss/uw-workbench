@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useAiAssistant, AiMessage } from "../hooks/useAiAssistant";
+import { AI_SERVICES, copyPromptAndOpenAI } from "../utils/aiServiceSelector";
 
 export function AiAssistantPage() {
   const { messages, input, setInput, sendMessage, sendCustomMessage, reset, isLoading, error } =
@@ -86,7 +87,7 @@ export function AiAssistantPage() {
     sendCustomMessage(message, { propertyAddress });
   };
 
-  const handleCopyAndOpenChatGPT = () => {
+  const handleCopyAndOpenChatGPT = async () => {
     if (!propertyAddress.trim()) {
       alert("Please enter a property address");
       return;
@@ -145,20 +146,15 @@ Generate a full underwriting reconnaissance report for:
 
 ${propertyAddress}`;
 
-    // Copy to clipboard
-    navigator.clipboard.writeText(fullPrompt)
-      .then(() => {
-        // Open ChatGPT in new window
-        window.open('https://chat.openai.com', '_blank');
-        alert('✅ Prompt copied to clipboard!\n\n1. ChatGPT is opening in a new window\n2. Paste (Ctrl+V) into ChatGPT\n3. Hit Enter to get your report');
-      })
-      .catch((err) => {
-        alert('Failed to copy to clipboard. Please try again.');
-        console.error('Clipboard error:', err);
-      });
+    // Copy prompt and open selected AI service
+    await copyPromptAndOpenAI(
+      fullPrompt,
+      selectedAIService,
+      `✅ Prompt copied to clipboard!\n\n1. ${AI_SERVICES.find(s => s.id === selectedAIService)?.name || 'AI service'} is opening in a new window\n2. Paste (Ctrl+V) into the AI\n3. Hit Enter to get your report`
+    );
   };
 
-  const handleCopyAndOpenChatGPTForAgency = () => {
+  const handleCopyAndOpenChatGPTForAgency = async () => {
     if (!agencySearchQuery.trim()) {
       alert("Please enter an agency name or website");
       return;
@@ -231,20 +227,15 @@ Focus on finding:
 
 Begin research for: ${agencySearchQuery}`;
 
-    // Copy to clipboard
-    navigator.clipboard.writeText(fullPrompt)
-      .then(() => {
-        // Open ChatGPT in new window
-        window.open('https://chat.openai.com', '_blank');
-        alert('✅ Agency research prompt copied!\n\n1. ChatGPT is opening in a new window\n2. Paste (Ctrl+V) into ChatGPT\n3. Hit Enter to get contact/employee info');
-      })
-      .catch((err) => {
-        alert('Failed to copy to clipboard. Please try again.');
-        console.error('Clipboard error:', err);
-      });
+    // Copy prompt and open selected AI service
+    await copyPromptAndOpenAI(
+      fullPrompt,
+      selectedAIService,
+      `✅ Agency research prompt copied!\n\n1. ${AI_SERVICES.find(s => s.id === selectedAIService)?.name || 'AI service'} is opening in a new window\n2. Paste (Ctrl+V) into the AI\n3. Hit Enter to get contact/employee info`
+    );
   };
 
-  const handleCopyAndOpenChatGPTForOwnership = () => {
+  const handleCopyAndOpenChatGPTForOwnership = async () => {
     if (!namedInsured.trim() || !ownershipAddress.trim()) {
       alert("Please enter both Named Insured and Property Address");
       return;
@@ -377,20 +368,15 @@ Explicitly identify:
 Named Insured: **${namedInsured}**  
 Property: **${ownershipAddress}**${tenantInfo ? `  \nTenant: **${tenantName}**` : ""}`;
 
-    // Copy to clipboard
-    navigator.clipboard.writeText(fullPrompt)
-      .then(() => {
-        // Open ChatGPT in new window
-        window.open('https://chat.openai.com', '_blank');
-        alert('✅ Ownership research prompt copied!\n\n1. ChatGPT is opening in a new window\n2. Paste (Ctrl+V) into ChatGPT\n3. Hit Enter to get ownership analysis');
-      })
-      .catch((err) => {
-        alert('Failed to copy to clipboard. Please try again.');
-        console.error('Clipboard error:', err);
-      });
+    // Copy prompt and open selected AI service
+    await copyPromptAndOpenAI(
+      fullPrompt,
+      selectedAIService,
+      `✅ Ownership research prompt copied!\n\n1. ${AI_SERVICES.find(s => s.id === selectedAIService)?.name || 'AI service'} is opening in a new window\n2. Paste (Ctrl+V) into the AI\n3. Hit Enter to get ownership analysis`
+    );
   };
 
-  const handleCopyAndOpenChatGPTForHazard = () => {
+  const handleCopyAndOpenChatGPTForHazard = async () => {
     if (!businessQuery.trim()) {
       alert("Please enter a business class or specific business name");
       return;
@@ -565,17 +551,12 @@ If a specific business name was provided:
 
 Business/Class: **${businessQuery}**`;
 
-    // Copy to clipboard
-    navigator.clipboard.writeText(fullPrompt)
-      .then(() => {
-        // Open ChatGPT in new window
-        window.open('https://chat.openai.com', '_blank');
-        alert('✅ Business hazard research prompt copied!\n\n1. ChatGPT is opening in a new window\n2. Paste (Ctrl+V) into ChatGPT\n3. Hit Enter to get comprehensive hazard analysis');
-      })
-      .catch((err) => {
-        alert('Failed to copy to clipboard. Please try again.');
-        console.error('Clipboard error:', err);
-      });
+    // Copy prompt and open selected AI service
+    await copyPromptAndOpenAI(
+      fullPrompt,
+      selectedAIService,
+      `✅ Business hazard research prompt copied!\n\n1. ${AI_SERVICES.find(s => s.id === selectedAIService)?.name || 'AI service'} is opening in a new window\n2. Paste (Ctrl+V) into the AI\n3. Hit Enter to get comprehensive hazard analysis`
+    );
   };
 
   return (
@@ -845,6 +826,41 @@ Business/Class: **${businessQuery}**`;
                   marginBottom: 8,
                 }}
               >
+                AI Service
+              </label>
+              <select
+                value={selectedAIService}
+                onChange={(e) => setSelectedAIService(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "10px 12px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: 6,
+                  fontSize: 14,
+                  fontFamily: "inherit",
+                  boxSizing: "border-box",
+                  background: "#fff",
+                  cursor: "pointer",
+                }}
+              >
+                {AI_SERVICES.map((service) => (
+                  <option key={service.id} value={service.id}>
+                    {service.name} - {service.description}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ marginBottom: 16 }}>
+              <label
+                style={{
+                  display: "block",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: "#374151",
+                  marginBottom: 8,
+                }}
+              >
                 Property Address *
               </label>
               <input
@@ -934,7 +950,7 @@ Business/Class: **${businessQuery}**`;
                 }}
               >
                 <span>🚀</span>
-                Copy & Open ChatGPT
+                Copy & Open {AI_SERVICES.find(s => s.id === selectedAIService)?.name || 'AI'}
               </button>
             </div>
           </div>
@@ -1007,6 +1023,41 @@ Business/Class: **${businessQuery}**`;
                   marginBottom: 8,
                 }}
               >
+                AI Service
+              </label>
+              <select
+                value={selectedAIService}
+                onChange={(e) => setSelectedAIService(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "10px 12px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: 6,
+                  fontSize: 14,
+                  fontFamily: "inherit",
+                  boxSizing: "border-box",
+                  background: "#fff",
+                  cursor: "pointer",
+                }}
+              >
+                {AI_SERVICES.map((service) => (
+                  <option key={service.id} value={service.id}>
+                    {service.name} - {service.description}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ marginBottom: 16 }}>
+              <label
+                style={{
+                  display: "block",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: "#374151",
+                  marginBottom: 8,
+                }}
+              >
                 Agency Name or Website
               </label>
               <input
@@ -1065,7 +1116,7 @@ Business/Class: **${businessQuery}**`;
                 }}
               >
                 <span>🚀</span>
-                Copy Prompt & Open ChatGPT
+                Copy Prompt & Open {AI_SERVICES.find(s => s.id === selectedAIService)?.name || 'AI'}
               </button>
             </div>
           </div>
@@ -1126,6 +1177,41 @@ Business/Class: **${businessQuery}**`;
               >
                 ×
               </button>
+            </div>
+
+            <div style={{ marginBottom: 16 }}>
+              <label
+                style={{
+                  display: "block",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: "#374151",
+                  marginBottom: 8,
+                }}
+              >
+                AI Service
+              </label>
+              <select
+                value={selectedAIService}
+                onChange={(e) => setSelectedAIService(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "10px 12px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: 6,
+                  fontSize: 14,
+                  fontFamily: "inherit",
+                  boxSizing: "border-box",
+                  background: "#fff",
+                  cursor: "pointer",
+                }}
+              >
+                {AI_SERVICES.map((service) => (
+                  <option key={service.id} value={service.id}>
+                    {service.name} - {service.description}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -1256,7 +1342,7 @@ Business/Class: **${businessQuery}**`;
                 }}
               >
                 <span>🚀</span>
-                Copy Prompt & Open ChatGPT
+                Copy Prompt & Open {AI_SERVICES.find(s => s.id === selectedAIService)?.name || 'AI'}
               </button>
             </div>
           </div>
@@ -1329,6 +1415,41 @@ Business/Class: **${businessQuery}**`;
                   marginBottom: 8,
                 }}
               >
+                AI Service
+              </label>
+              <select
+                value={selectedAIService}
+                onChange={(e) => setSelectedAIService(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "10px 12px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: 6,
+                  fontSize: 14,
+                  fontFamily: "inherit",
+                  boxSizing: "border-box",
+                  background: "#fff",
+                  cursor: "pointer",
+                }}
+              >
+                {AI_SERVICES.map((service) => (
+                  <option key={service.id} value={service.id}>
+                    {service.name} - {service.description}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ marginBottom: 16 }}>
+              <label
+                style={{
+                  display: "block",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: "#374151",
+                  marginBottom: 8,
+                }}
+              >
                 Business Class or Specific Business Name
               </label>
               <input
@@ -1387,7 +1508,7 @@ Business/Class: **${businessQuery}**`;
                 }}
               >
                 <span>🚀</span>
-                Copy Prompt & Open ChatGPT
+                Copy Prompt & Open {AI_SERVICES.find(s => s.id === selectedAIService)?.name || 'AI'}
               </button>
             </div>
           </div>

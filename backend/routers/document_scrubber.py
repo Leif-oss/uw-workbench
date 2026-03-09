@@ -13,16 +13,38 @@ from pathlib import Path
 from .. import models, schemas, crud
 from ..database import get_db
 
-# Load environment variables from private folder (outside Git tracking)
-env_path = Path(__file__).parent.parent.parent / 'private' / '.env'
-load_dotenv(dotenv_path=env_path)
+# Load environment variables - check multiple locations
+# Try backend/.env first (standard location), then private/.env
+env_paths = [
+    Path(__file__).parent.parent / '.env',  # backend/.env
+    Path(__file__).parent.parent.parent / 'private' / '.env',  # private/.env (legacy)
+]
+
+for env_path in env_paths:
+    if env_path.exists():
+        load_dotenv(dotenv_path=env_path, override=False)  # Don't override if already set
+
+# Also try loading from environment (for production)
+load_dotenv(override=False)
 
 AI_API_KEY = os.getenv("AI_API_KEY", "")
-AI_MODEL = os.getenv("AI_MODEL", "gpt-4o")  # Use same model as AI Assistant
+AI_MODEL = os.getenv("AI_MODEL", "gpt-5-mini")  # Use same model as AI Assistant - GPT-5 required
+
+# Check if API key looks like a placeholder
+is_placeholder = (
+    not AI_API_KEY or
+    AI_API_KEY == "your-api-key-here" or
+    "your-api" in AI_API_KEY.lower() or
+    len(AI_API_KEY) < 20 or
+    not AI_API_KEY.startswith("sk-")
+)
 
 # Log configuration on module load
 print(f"[Document Scrubber] Loaded configuration:")
 print(f"[Document Scrubber] AI_API_KEY present: {'Yes' if AI_API_KEY else 'No'}")
+if is_placeholder and AI_API_KEY:
+    print(f"[Document Scrubber] ⚠️  WARNING: AI_API_KEY appears to be a placeholder value!")
+    print(f"[Document Scrubber] ⚠️  Please set a valid OpenAI API key in backend/.env")
 print(f"[Document Scrubber] AI_MODEL: {AI_MODEL}")
 
 # Optional imports for document processing
@@ -101,20 +123,82 @@ def extract_text_from_file(filename: str, file_bytes: bytes) -> str:
 
 def extract_with_llm(full_text: str, api_key: str, model: str = None) -> Dict[str, Any]:
     """Use OpenAI to extract structured fields from document text."""
+    # Log file for debugging - use absolute path from project root
+    project_root = Path(__file__).parent.parent.parent
+    log_file = project_root / "debug_extraction.log"
+    
+    def log_debug(msg: str):
+        """Write debug message to both console and log file."""
+        try:
+            print(f"[AI Extraction] {msg}")
+        except:
+            pass
+        try:
+            with open(log_file, "a", encoding="utf-8") as f:
+                f.write(f"[AI Extraction] {msg}\n")
+                f.flush()  # Force write to disk
+        except Exception as e:
+            try:
+                print(f"[AI Extraction] Failed to write log: {e}")
+            except:
+                pass
+    
+    # CRITICAL: Log immediately at function start - this must appear in logs
+    try:
+        log_debug("="*60)
+        log_debug("=== Starting extract_with_llm function ===")
+        log_debug(f"Parameters: full_text length={len(full_text) if full_text else 0}, api_key present={bool(api_key)}, model={model}")
+        log_debug(f"PROCESSING_AVAILABLE: {PROCESSING_AVAILABLE}")
+    except Exception as log_err:
+        # Even if logging fails, try to write directly
+        try:
+            with open(log_file, "a", encoding="utf-8") as f:
+                f.write(f"[AI Extraction] Logging failed: {log_err}\n")
+        except:
+            pass
+    
     if not PROCESSING_AVAILABLE:
+        log_debug("ERROR: Processing libraries not available")
         return {}
     
-    if not api_key or not full_text:
+    if not api_key:
+        log_debug(f"ERROR: api_key is missing or empty")
+        return {}
+    
+    # Check if API key looks like a placeholder
+    is_placeholder_key = (
+        api_key == "your-api-key-here" or
+        "your-api" in api_key.lower() or
+        len(api_key) < 20 or
+        not api_key.startswith("sk-")
+    )
+    
+    if is_placeholder_key:
+        log_debug(f"ERROR: api_key appears to be a placeholder or invalid (length: {len(api_key)}, starts with sk-: {api_key.startswith('sk-') if api_key else False})")
+        log_debug(f"ERROR: Please set a valid OpenAI API key in backend/.env file")
+        return {}
+    
+    if not full_text:
+        log_debug(f"ERROR: full_text is missing or empty")
         return {}
     
     # Use model from environment or fallback
     if model is None:
         model = AI_MODEL
     
-    client = OpenAI(api_key=api_key)
+    log_debug(f"Starting extraction with model: {model}, text length: {len(full_text)}")
+    
+    try:
+        client = OpenAI(api_key=api_key)
+        log_debug("OpenAI client created successfully")
+    except Exception as e:
+        log_debug(f"ERROR creating OpenAI client: {type(e).__name__}: {str(e)}")
+        return {}
     
     # Limit text to avoid token overrun (increased for better model)
     truncated = full_text[:20000]
+    log_debug(f"Text truncated to {len(truncated)} chars (original: {len(full_text)} chars)")
+    log_debug(f"First 500 chars of text being sent: {truncated[:500]}")
     
     schema_fields = [
         "effective_date", "expiration_date",
@@ -214,55 +298,106 @@ def extract_with_llm(full_text: str, api_key: str, model: str = None) -> Dict[st
         "9. DO NOT add extra keys or explanations\n\n"
         
         "**OUTPUT FORMAT:**\n"
-        "Return a JSON object with EXACTLY these keys (even if empty):\n"
-        f"{', '.join(schema_fields)}"
+        "You MUST return a valid JSON object with EXACTLY these keys (even if empty - use empty string \"\"):\n"
+        f"{', '.join(schema_fields)}\n\n"
+        "Return ONLY the JSON object, no other text, no markdown, no code fences, no explanations.\n"
+        "The JSON must be parseable and valid. Example format:\n"
+        '{"effective_date": "01/15/2025", "expiration_date": "", "producer_name": "ABC Insurance", ...}'
     )
     
     user = (
         "Extract all underwriting data from this submission document. "
         "Be thorough and look carefully for every field. "
-        "Return JSON with exactly the keys specified.\n\n"
+        "Return ONLY a valid JSON object with exactly the keys specified in the system prompt.\n"
+        "Do not include any markdown, code fences, or explanations - just the raw JSON object.\n\n"
         "DOCUMENT TEXT:\n\n" + truncated
     )
     
     try:
-        print(f"[AI Extraction] Calling OpenAI with model: {model}")
-        resp = client.chat.completions.create(
-            model=model,
-            messages=[
+        # Try GPT-5 first, fallback to GPT-4o if not available
+        fallback_model = "gpt-4o"
+        try:
+            available_models = client.models.list()
+            model_names = [m.id for m in available_models.data]
+            
+            if model.startswith("gpt-5") and model not in model_names:
+                if fallback_model in model_names:
+                    log_debug(f"GPT-5 model '{model}' is not available, falling back to '{fallback_model}'")
+                    model = fallback_model
+                else:
+                    raise ValueError(f"Requested model '{model}' and fallback '{fallback_model}' are not available")
+        except Exception as validation_error:
+            # If validation fails, try fallback if original is GPT-5
+            if model.startswith("gpt-5"):
+                log_debug(f"Model validation failed, attempting fallback to '{fallback_model}'")
+                model = fallback_model
+        
+        log_debug(f"Calling OpenAI API with model: {model}")
+        log_debug(f"Truncated text length: {len(truncated)} chars")
+        
+        # Build request parameters - exclude certain params for GPT-5 models
+        request_params = {
+            "model": model,
+            "messages": [
                 {"role": "system", "content": system},
                 {"role": "user", "content": user},
             ],
-            temperature=0,
-        )
-        content = resp.choices[0].message.content or ""
-        print(f"[AI Extraction] Received response, length: {len(content)} chars")
+            "response_format": {"type": "json_object"},
+        }
         
-        # Parse JSON (handle code fences)
+        # GPT-5 models don't support temperature, top_p, frequency_penalty, presence_penalty
+        if not model.startswith("gpt-5"):
+            request_params["temperature"] = 0
+        
+        # Use response_format to ensure JSON output
+        resp = client.chat.completions.create(**request_params)
+        
+        content = resp.choices[0].message.content or ""
+        log_debug(f"Received response, length: {len(content)} chars")
+        log_debug(f"First 500 chars: {content[:500]}")
+        
+        # Parse JSON (should be clean JSON due to response_format, but handle edge cases)
         content = content.strip()
         if content.startswith("```"):
-            content = content.strip("`")
-            if content.lower().startswith("json"):
-                content = content[4:]
+            # Remove code fence markers if present (shouldn't be with response_format, but just in case)
+            lines = content.split("\n")
+            content = "\n".join(lines[1:-1]) if len(lines) > 2 else content
+            if content.strip().startswith("json"):
+                content = content.strip()[4:].strip()
         
-        print(f"[AI Extraction] Parsing JSON...")
+        log_debug(f"Parsing JSON...")
         data = json.loads(content)
         if isinstance(data, dict):
             result = {k: data.get(k, "") for k in schema_fields}
             non_empty = {k: v for k, v in result.items() if v}
-            print(f"[AI Extraction] Successfully extracted {len(non_empty)} non-empty fields")
+            log_debug(f"Successfully extracted {len(non_empty)} non-empty fields")
+            log_debug(f"Fields found: {list(non_empty.keys())}")
+            if non_empty:
+                log_debug(f"Sample values: {dict(list(non_empty.items())[:3])}")
             return result
         else:
-            print(f"[AI Extraction] ERROR: Response was not a dict, got {type(data)}")
+            log_debug(f"ERROR: Response was not a dict, got {type(data)}")
             return {}
     except json.JSONDecodeError as e:
-        print(f"[AI Extraction] JSON parsing error: {e}")
-        print(f"[AI Extraction] Content was: {content[:500]}")
+        log_debug(f"JSON parsing error: {e}")
+        log_debug(f"Content was: {content[:1000]}")
+        import traceback
+        log_debug(f"Traceback: {traceback.format_exc()}")
         return {}
     except Exception as e:
-        print(f"[AI Extraction] Error: {type(e).__name__}: {str(e)}")
+        error_type = type(e).__name__
+        error_msg = str(e)
+        log_debug(f"Error: {error_type}: {error_msg}")
+        
+        # Check for authentication errors specifically
+        if "401" in error_msg or "AuthenticationError" in error_type or "invalid_api_key" in error_msg:
+            log_debug(f"⚠️  AUTHENTICATION ERROR: Invalid OpenAI API key!")
+            log_debug(f"⚠️  Please check your AI_API_KEY in backend/.env file")
+            log_debug(f"⚠️  The API key should start with 'sk-' and be at least 20 characters long")
+            log_debug(f"⚠️  Get your API key from: https://platform.openai.com/account/api-keys")
+        
         import traceback
-        traceback.print_exc()
+        log_debug(f"Traceback: {traceback.format_exc()}")
         return {}
     
     return {}
@@ -340,6 +475,14 @@ async def upload_submission(
     # Extract text
     try:
         extracted_text = extract_text_from_file(file.filename or "unknown", file_bytes)
+        # Log a sample of extracted text to verify file content
+        import datetime
+        debug_log_preview = f"[{datetime.datetime.now()}] Text extraction successful\n"
+        debug_log_preview += f"File: {file.filename}, Size: {len(file_bytes)} bytes\n"
+        debug_log_preview += f"Extracted text length: {len(extracted_text)} chars\n"
+        debug_log_preview += f"First 1000 chars: {extracted_text[:1000]}\n"
+        with open("debug_extraction.log", "a", encoding="utf-8") as f:
+            f.write(debug_log_preview + "="*80 + "\n")
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to extract text: {str(e)}")
     
@@ -353,23 +496,58 @@ async def upload_submission(
     debug_log += f"AI_MODEL: {AI_MODEL}\n"
     debug_log += f"Extracted text length: {len(extracted_text)} chars\n"
     
-    if AI_API_KEY:
+    # Check if API key is valid (not a placeholder)
+    is_valid_key = (
+        AI_API_KEY and
+        len(AI_API_KEY) >= 20 and
+        AI_API_KEY.startswith("sk-") and
+        "your-api" not in AI_API_KEY.lower()
+    )
+    
+    if AI_API_KEY and not is_valid_key:
+        debug_log += f"⚠️  WARNING: AI_API_KEY appears to be invalid or placeholder!\n"
+        debug_log += f"⚠️  Key length: {len(AI_API_KEY) if AI_API_KEY else 0}, starts with 'sk-': {AI_API_KEY.startswith('sk-') if AI_API_KEY else False}\n"
+        debug_log += f"⚠️  Please set a valid OpenAI API key in backend/.env\n"
+        debug_log += f"⚠️  Get your API key from: https://platform.openai.com/account/api-keys\n"
+    
+    if AI_API_KEY and is_valid_key:
         debug_log += "Calling AI extraction...\n"
+        debug_log += f"extracted_text length: {len(extracted_text)}, first 200 chars: {extracted_text[:200]}\n"
+        debug_log += f"PROCESSING_AVAILABLE: {PROCESSING_AVAILABLE}\n"
+        debug_log += f"AI_API_KEY type: {type(AI_API_KEY)}, length: {len(AI_API_KEY) if AI_API_KEY else 0}\n"
         try:
-            extracted_fields = extract_with_llm(extracted_text, AI_API_KEY)
-            debug_log += f"AI returned {len(extracted_fields)} fields\n"
+            debug_log += "About to call extract_with_llm...\n"
+            
+            # Wrap in try-except to catch any exceptions from extract_with_llm
+            try:
+                extracted_fields = extract_with_llm(extracted_text, AI_API_KEY)
+                debug_log += f"extract_with_llm completed, returned {len(extracted_fields)} fields\n"
+            except Exception as inner_e:
+                debug_log += f"EXCEPTION inside extract_with_llm: {type(inner_e).__name__}: {str(inner_e)}\n"
+                import traceback
+                debug_log += f"Traceback:\n{traceback.format_exc()}\n"
+                extracted_fields = {}
+            
+            debug_log += f"extract_with_llm returned {len(extracted_fields)} fields\n"
+            debug_log += f"extracted_fields type: {type(extracted_fields)}, keys: {list(extracted_fields.keys())[:5] if extracted_fields else 'empty'}\n"
             non_empty = {k: v for k, v in extracted_fields.items() if v}
             debug_log += f"Non-empty fields: {len(non_empty)}\n"
             debug_log += f"Field keys: {list(non_empty.keys())}\n"
+            if extracted_fields:
+                # Show first few non-empty fields as sample
+                sample = {k: str(v)[:50] for k, v in list(extracted_fields.items())[:5] if v}
+                debug_log += f"Sample extracted data: {sample}\n"
         except Exception as e:
             debug_log += f"ERROR in AI extraction: {type(e).__name__}: {str(e)}\n"
             import traceback
             debug_log += traceback.format_exc()
-    else:
+    elif not AI_API_KEY:
         debug_log += "WARNING: AI_API_KEY not found!\n"
+        debug_log += "Please set AI_API_KEY in backend/.env file\n"
+        debug_log += "Get your API key from: https://platform.openai.com/account/api-keys\n"
     
     # Write to debug file
-    with open("debug_extraction.log", "a") as f:
+    with open("debug_extraction.log", "a", encoding="utf-8") as f:
         f.write(debug_log + "\n" + "="*80 + "\n")
     
     # Search for matching agencies
@@ -397,10 +575,12 @@ async def upload_submission(
         "file_type": file.content_type,
         "debug_info": {
             "ai_key_present": bool(AI_API_KEY),
+            "ai_key_valid": bool(AI_API_KEY and len(AI_API_KEY) >= 20 and AI_API_KEY.startswith("sk-") and "your-api" not in AI_API_KEY.lower()),
             "ai_model": AI_MODEL,
             "total_fields": len(extracted_fields),
             "non_empty_fields": len(non_empty_fields),
-            "non_empty_keys": list(non_empty_fields.keys())
+            "non_empty_keys": list(non_empty_fields.keys()),
+            "error_message": "Invalid or missing OpenAI API key. Please set AI_API_KEY in backend/.env file." if not extracted_fields and (not AI_API_KEY or len(AI_API_KEY) < 20 or not AI_API_KEY.startswith("sk-")) else None
         }
     }
 

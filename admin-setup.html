@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Setup - UW Workbench</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f7fb;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #1c2b3a;
+            margin-top: 0;
+        }
+        .warning {
+            background: #fef3c7;
+            border: 2px solid #f59e0b;
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            color: #92400e;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #374151;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+        }
+        button:hover {
+            background: #2563eb;
+        }
+        button:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+        }
+        .message {
+            margin-top: 20px;
+            padding: 12px;
+            border-radius: 6px;
+            display: none;
+        }
+        .message.success {
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #10b981;
+            display: block;
+        }
+        .message.error {
+            background: #fee;
+            color: #c00;
+            border: 1px solid #ef4444;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Admin Setup</h1>
+        <div class="warning">
+            ⚠️ <strong>Temporary Setup Mode:</strong> This page allows you to create the first admin user without authentication. 
+            After creating your admin, this should be disabled.
+        </div>
+        
+        <form id="setupForm">
+            <div class="form-group">
+                <label for="backendUrl">Backend URL:</label>
+                <input type="text" id="backendUrl" value="https://uw-workbench-backend-4szvavge6a-uc.a.run.app" required>
+            </div>
+            <div class="form-group">
+                <label for="name">Admin Name:</label>
+                <input type="text" id="name" placeholder="e.g., Admin User" required>
+            </div>
+            <div class="form-group">
+                <label for="email">Email:</label>
+                <input type="email" id="email" placeholder="admin@company.com" required>
+            </div>
+            <div class="form-group">
+                <label for="username">Username:</label>
+                <input type="text" id="username" placeholder="admin" required>
+            </div>
+            <div class="form-group">
+                <label for="password">Password:</label>
+                <input type="password" id="password" placeholder="Enter password" required>
+            </div>
+            <div class="form-group">
+                <label for="setupToken">Setup Token:</label>
+                <input type="text" id="setupToken" value="CHANGE_THIS_IN_PRODUCTION" required>
+            </div>
+            <button type="submit" id="submitBtn">Create Admin User</button>
+        </form>
+        
+        <div id="message" class="message"></div>
+    </div>
+
+    <script>
+        document.getElementById('setupForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('submitBtn');
+            const msg = document.getElementById('message');
+            msg.className = 'message';
+            msg.textContent = '';
+            btn.disabled = true;
+            btn.textContent = 'Creating...';
+
+            const backendUrl = document.getElementById('backendUrl').value.trim();
+            const data = {
+                username: document.getElementById('username').value.trim(),
+                email: document.getElementById('email').value.trim(),
+                password: document.getElementById('password').value,
+                name: document.getElementById('name').value.trim(),
+                setup_token: document.getElementById('setupToken').value.trim()
+            };
+
+            try {
+                const response = await fetch(`${backendUrl}/admin/setup-admin`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    msg.className = 'message success';
+                    msg.innerHTML = `✅ <strong>Success!</strong> Admin user created.<br><br>
+                        Username: ${result.username}<br>
+                        Email: ${result.email}<br><br>
+                        You can now log in with these credentials.`;
+                } else {
+                    msg.className = 'message error';
+                    msg.textContent = `❌ Error: ${result.detail || 'Failed to create admin user'}`;
+                }
+            } catch (error) {
+                msg.className = 'message error';
+                msg.textContent = `❌ Error: ${error.message}`;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Create Admin User';
+            }
+        });
+    </script>
+</body>
+</html>
+
+
+

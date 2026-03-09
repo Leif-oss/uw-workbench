@@ -26,7 +26,8 @@ import {
  type Employee = {
   id: number;
   name: string;
-  office_id: number | null;
+  office_id?: number | null; // Deprecated: kept for backward compatibility
+  office_ids?: number[]; // List of office IDs (many-to-many relationship)
 };
 
  type Agency = {
@@ -54,10 +55,12 @@ import {
  type EmployeeMetrics = {
   id: number;
   name: string;
-  inPerson30: number;
-  comm30: number;
-  inPersonYtd: number;
-  commYtd: number;
+  inPerson12Mo: number;
+  emails12Mo: number;
+  phone12Mo: number;
+  inPerson30d: number;
+  emails30d: number;
+  phone30d: number;
 };
 
 type ProductionRecord = {
@@ -133,7 +136,10 @@ type ProductionRecord = {
   const office = useMemo(() => offices.find((o) => o.id === officeIdNum) || null, [offices, officeIdNum]);
 
   const officeEmployees = useMemo(
-    () => employees.filter((e) => e.office_id === officeIdNum),
+    () => employees.filter((e) => 
+      (e.office_ids && e.office_ids.includes(officeIdNum)) || 
+      (e.office_id === officeIdNum) // Backward compatibility
+    ),
     [employees, officeIdNum]
   );
 
@@ -157,11 +163,13 @@ type ProductionRecord = {
     return logs.filter((l) => (l.agency_id ? agencyIds.has(l.agency_id) : false));
   }, [logs, officeAgencies]);
 
+  const [sortColumn, setSortColumn] = useState<keyof EmployeeMetrics | null>(null);
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+
   const employeeMetrics: EmployeeMetrics[] = useMemo(() => {
-    const now = new Date();
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(now.getDate() - 30);
-    const ytdStart = new Date(now.getFullYear(), 0, 1);
+    const now = Date.now();
+    const twelveMonthsMs = 12 * 30 * 24 * 60 * 60 * 1000; // Approximate 12 months
+    const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
 
     const byName = new Map<string, EmployeeMetrics>();
     officeEmployees.forEach((emp) => {
@@ -169,10 +177,12 @@ type ProductionRecord = {
       byName.set(name.toLowerCase(), {
         id: emp.id,
         name,
-        inPerson30: 0,
-        comm30: 0,
-        inPersonYtd: 0,
-        commYtd: 0,
+        inPerson12Mo: 0,
+        emails12Mo: 0,
+        phone12Mo: 0,
+        inPerson30d: 0,
+        emails30d: 0,
+        phone30d: 0,
       });
     });
 
@@ -180,24 +190,55 @@ type ProductionRecord = {
       const user = (log.user || "").trim().toLowerCase();
       if (!byName.has(user)) return;
       const entry = byName.get(user)!;
-      const dt = new Date(log.datetime);
-      if (Number.isNaN(dt.getTime())) return;
-      const action = (log.action || "").toLowerCase();
-      const isInPerson = action.includes("in person");
-      const isComm = action.includes("phone") || action.includes("call") || action.includes("email") || action.includes("zoom");
+      const dt = new Date(log.datetime).getTime();
+      if (Number.isNaN(dt)) return;
+      const action = (log.action || "").trim();
+      const isInPerson = action === "In Person";
+      const isEmail = action === "Email" || action === "Email Sent";
+      const isPhone = action === "Call / Zoom";
 
-      if (dt >= ytdStart) {
-        if (isInPerson) entry.inPersonYtd += 1;
-        if (isComm) entry.commYtd += 1;
+      const timeDiff = now - dt;
+
+      // 12 months metrics
+      if (timeDiff <= twelveMonthsMs) {
+        if (isInPerson) entry.inPerson12Mo += 1;
+        if (isEmail) entry.emails12Mo += 1;
+        if (isPhone) entry.phone12Mo += 1;
       }
-      if (dt >= thirtyDaysAgo) {
-        if (isInPerson) entry.inPerson30 += 1;
-        if (isComm) entry.comm30 += 1;
+
+      // 30 days metrics
+      if (timeDiff <= thirtyDaysMs) {
+        if (isInPerson) entry.inPerson30d += 1;
+        if (isEmail) entry.emails30d += 1;
+        if (isPhone) entry.phone30d += 1;
       }
     });
 
-    return Array.from(byName.values());
-  }, [logsForOffice, officeEmployees]);
+    let result = Array.from(byName.values());
+
+    // Apply sorting
+    if (sortColumn) {
+      result.sort((a, b) => {
+        const aVal = a[sortColumn];
+        const bVal = b[sortColumn];
+        if (typeof aVal === "number" && typeof bVal === "number") {
+          return sortDirection === "asc" ? aVal - bVal : bVal - aVal;
+        }
+        return 0;
+      });
+    }
+
+    return result;
+  }, [logsForOffice, officeEmployees, sortColumn, sortDirection]);
+
+  const handleSort = (column: keyof EmployeeMetrics) => {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setSortColumn(column);
+      setSortDirection("desc");
+    }
+  };
 
   const filteredAgencies = useMemo(() => {
     if (!searchText.trim()) return [] as Agency[];
@@ -252,72 +293,104 @@ type ProductionRecord = {
 
   return (
     <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 16 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, justifyContent: "space-between" }}>
-        <button
-          type="button"
-          onClick={() => navigate("/crm/offices")}
-          style={{
-            padding: "6px 10px",
-            borderRadius: 8,
-            border: "1px solid #d1d5db",
-            background: "#f9fafb",
-            cursor: "pointer",
-          }}
-        >
-          Back to Offices
-        </button>
-        <div style={{ fontSize: 18, fontWeight: 700, color: "#0f2742", marginLeft: 8 }}>{officeTitle}</div>
-        {office && (() => {
-          const officeProduction = productionData.filter(p => p.office === office.code);
-          const mostRecentMonth = officeProduction.length > 0
-            ? officeProduction.map(r => r.month).sort().pop()
-            : null;
-          if (!mostRecentMonth) return null;
-          
-          const recentRecords = officeProduction.filter(r => r.month === mostRecentMonth);
-          const totalBound = recentRecords.reduce((sum, r) => sum + (r.twelve_mo_bound || 0), 0);
-          const totalQuoted = recentRecords.reduce((sum, r) => sum + (r.twelve_mo_quoted || 0), 0);
-          const totalDeclined = recentRecords.reduce((sum, r) => sum + (r.twelve_mo_decline || 0), 0);
-          const recordsWithLossRatio = recentRecords.filter(r => r.three_year_plus != null && r.three_year_plus > 0);
-          const avgLossRatio = recordsWithLossRatio.length > 0
-            ? recordsWithLossRatio.reduce((sum, r) => sum + (r.three_year_plus || 0), 0) / recordsWithLossRatio.length
-            : 0;
-          
-          if (totalBound === 0 && totalQuoted === 0 && totalDeclined === 0 && avgLossRatio === 0) {
-            return null;
-          }
-          
-          const hitRatio = totalQuoted > 0 ? (totalBound / totalQuoted) * 100 : 0;
-          
-          return (
-            <div style={{ display: "flex", gap: 24, alignItems: "center", marginLeft: "auto" }}>
-              <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>Bound</div>
-                <div style={{ fontSize: 18, fontWeight: 700, color: "#059669" }}>{totalBound.toLocaleString()}</div>
-              </div>
-              <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>Quoted</div>
-                <div style={{ fontSize: 18, fontWeight: 700, color: "#3b82f6" }}>{totalQuoted.toLocaleString()}</div>
-              </div>
-              <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>Hit Ratio</div>
-                <div style={{ fontSize: 18, fontWeight: 700, color: hitRatio > 30 ? "#059669" : hitRatio > 20 ? "#f59e0b" : "#dc2626" }}>
-                  {hitRatio > 0 ? `${hitRatio.toFixed(1)}%` : "—"}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, justifyContent: "space-between", flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <button
+            type="button"
+            onClick={() => navigate("/crm/offices")}
+            style={{
+              padding: "6px 10px",
+              borderRadius: 8,
+              border: "1px solid #d1d5db",
+              background: "#f9fafb",
+              cursor: "pointer",
+            }}
+          >
+            Back to Offices
+          </button>
+          <div style={{ fontSize: 18, fontWeight: 700, color: "#0f2742", marginLeft: 8 }}>{officeTitle}</div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          {office && (() => {
+            const officeProduction = productionData.filter(p => p.office === office.code);
+            const mostRecentMonth = officeProduction.length > 0
+              ? officeProduction.map(r => r.month).sort().pop()
+              : null;
+            if (!mostRecentMonth) return null;
+            
+            const recentRecords = officeProduction.filter(r => r.month === mostRecentMonth);
+            const totalBound = recentRecords.reduce((sum, r) => sum + (r.twelve_mo_bound || 0), 0);
+            const totalQuoted = recentRecords.reduce((sum, r) => sum + (r.twelve_mo_quoted || 0), 0);
+            const totalDeclined = recentRecords.reduce((sum, r) => sum + (r.twelve_mo_decline || 0), 0);
+            if (totalBound === 0 && totalQuoted === 0 && totalDeclined === 0) {
+              return null;
+            }
+            
+            const hitRatio = totalQuoted > 0 ? (totalBound / totalQuoted) * 100 : 0;
+            
+            return (
+              <div style={{ display: "flex", gap: 24, alignItems: "center", marginRight: 16 }}>
+                <div style={{ textAlign: "center" }}>
+                  <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>Bound</div>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: "#059669" }}>{totalBound.toLocaleString()}</div>
+                </div>
+                <div style={{ textAlign: "center" }}>
+                  <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>Quoted</div>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: "#3b82f6" }}>{totalQuoted.toLocaleString()}</div>
+                </div>
+                <div style={{ textAlign: "center" }}>
+                  <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>Hit Ratio</div>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: hitRatio > 30 ? "#059669" : hitRatio > 20 ? "#f59e0b" : "#dc2626" }}>
+                    {hitRatio > 0 ? `${hitRatio.toFixed(1)}%` : "—"}
+                  </div>
+                </div>
+                <div style={{ textAlign: "center" }}>
+                  <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>Declined</div>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: "#dc2626" }}>{totalDeclined.toLocaleString()}</div>
                 </div>
               </div>
-              <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>Declined</div>
-                <div style={{ fontSize: 18, fontWeight: 700, color: "#dc2626" }}>{totalDeclined.toLocaleString()}</div>
-              </div>
-              <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>3YR LR</div>
-                <div style={{ fontSize: 18, fontWeight: 700, color: avgLossRatio > 60 ? "#dc2626" : avgLossRatio > 50 ? "#f59e0b" : "#059669" }}>
-                  {avgLossRatio > 0 ? `${avgLossRatio.toFixed(1)}%` : "—"}
-                </div>
-              </div>
-            </div>
-          );
-        })()}
+            );
+          })()}
+          {officeIdNum && (
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  const { apiDownloadFile } = await import("../api/client");
+                  const office = offices.find((o) => o.id === officeIdNum);
+                  const filename = office
+                    ? `${office.code}_${office.name.replace(/[^a-z0-9-_]+/gi, "_")}_contacts_${new Date().toISOString().split("T")[0]}.xlsx`
+                    : `office_${officeIdNum}_contacts.xlsx`;
+                  await apiDownloadFile(`/contacts/export/office/${officeIdNum}`, filename);
+                } catch (err: any) {
+                  alert(`Failed to export contacts: ${err?.message || "Unknown error"}`);
+                }
+              }}
+              style={{
+                padding: "8px 16px",
+                backgroundColor: "#2563eb",
+                color: "white",
+                border: "none",
+                borderRadius: 8,
+                cursor: "pointer",
+                fontSize: 13,
+                fontWeight: 600,
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                marginLeft: "auto",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = "#1d4ed8";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = "#2563eb";
+              }}
+            >
+              📥 Export Office Contacts
+            </button>
+          )}
+        </div>
       </div>
 
       {error && <div style={{ color: "red", fontSize: 12 }}>{error}</div>}
@@ -335,17 +408,49 @@ type ProductionRecord = {
           <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>Employees</div>
           <div style={{
             display: "grid",
-            gridTemplateColumns: "1.2fr repeat(4, 1fr)",
+            gridTemplateColumns: "1.2fr repeat(6, 1fr)",
             gap: 8,
             fontSize: 11,
             color: "#6b7280",
             marginBottom: 6,
           }}>
             <div>Name</div>
-            <div style={{ textAlign: "right" }}>In person 30d</div>
-            <div style={{ textAlign: "right" }}>Emails + Calls 30d</div>
-            <div style={{ textAlign: "right" }}>In person YTD</div>
-            <div style={{ textAlign: "right" }}>Emails + Calls YTD</div>
+            <div 
+              style={{ textAlign: "right", cursor: "pointer", userSelect: "none" }}
+              onClick={() => handleSort("inPerson12Mo")}
+            >
+              In Person (12 Mo) {sortColumn === "inPerson12Mo" ? (sortDirection === "asc" ? "↑" : "↓") : ""}
+            </div>
+            <div 
+              style={{ textAlign: "right", cursor: "pointer", userSelect: "none" }}
+              onClick={() => handleSort("emails12Mo")}
+            >
+              Emails (12 Mo) {sortColumn === "emails12Mo" ? (sortDirection === "asc" ? "↑" : "↓") : ""}
+            </div>
+            <div 
+              style={{ textAlign: "right", cursor: "pointer", userSelect: "none" }}
+              onClick={() => handleSort("phone12Mo")}
+            >
+              Phone (12 Mo) {sortColumn === "phone12Mo" ? (sortDirection === "asc" ? "↑" : "↓") : ""}
+            </div>
+            <div 
+              style={{ textAlign: "right", cursor: "pointer", userSelect: "none" }}
+              onClick={() => handleSort("inPerson30d")}
+            >
+              In Person (30d) {sortColumn === "inPerson30d" ? (sortDirection === "asc" ? "↑" : "↓") : ""}
+            </div>
+            <div 
+              style={{ textAlign: "right", cursor: "pointer", userSelect: "none" }}
+              onClick={() => handleSort("emails30d")}
+            >
+              Emails (30d) {sortColumn === "emails30d" ? (sortDirection === "asc" ? "↑" : "↓") : ""}
+            </div>
+            <div 
+              style={{ textAlign: "right", cursor: "pointer", userSelect: "none" }}
+              onClick={() => handleSort("phone30d")}
+            >
+              Phone (30d) {sortColumn === "phone30d" ? (sortDirection === "asc" ? "↑" : "↓") : ""}
+            </div>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {employeeMetrics.map((emp) => (
@@ -353,7 +458,7 @@ type ProductionRecord = {
                 key={emp.id}
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "1.2fr repeat(4, 1fr)",
+                  gridTemplateColumns: "1.2fr repeat(6, 1fr)",
                   gap: 8,
                   alignItems: "center",
                   fontSize: 12,
@@ -379,10 +484,12 @@ type ProductionRecord = {
                 >
                   {emp.name}
                 </button>
-                <div style={{ textAlign: "right" }}>{emp.inPerson30}</div>
-                <div style={{ textAlign: "right" }}>{emp.comm30}</div>
-                <div style={{ textAlign: "right" }}>{emp.inPersonYtd}</div>
-                <div style={{ textAlign: "right" }}>{emp.commYtd}</div>
+                <div style={{ textAlign: "right" }}>{emp.inPerson12Mo}</div>
+                <div style={{ textAlign: "right" }}>{emp.emails12Mo}</div>
+                <div style={{ textAlign: "right" }}>{emp.phone12Mo}</div>
+                <div style={{ textAlign: "right" }}>{emp.inPerson30d}</div>
+                <div style={{ textAlign: "right" }}>{emp.emails30d}</div>
+                <div style={{ textAlign: "right" }}>{emp.phone30d}</div>
               </div>
             ))}
             {employeeMetrics.length === 0 && (

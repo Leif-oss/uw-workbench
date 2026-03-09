@@ -1,12 +1,65 @@
 from typing import Optional, List
 from datetime import datetime, date
-from pydantic import BaseModel, EmailStr, ConfigDict
+from pydantic import BaseModel, EmailStr, ConfigDict, model_serializer
 
 
 class OrmModel(BaseModel):
     """Base model configured for ORM attribute access (Pydantic v2 style)."""
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# --------- USER (AUTH) ---------
+class UserBase(BaseModel):
+    username: str
+
+
+class UserCreate(UserBase):
+    password: Optional[str] = None  # Optional - if not provided, user will set via link
+    email: Optional[str] = None
+    is_admin: bool = False
+    employee_id: Optional[int] = None
+    send_welcome_email: bool = True  # Send welcome email with credentials/link
+    send_password_link: bool = False  # If true, send set-password link instead of temp password
+
+
+class UserUpdate(BaseModel):
+    username: Optional[str] = None
+    email: Optional[str] = None
+    password: Optional[str] = None
+    is_active: Optional[bool] = None
+    is_admin: Optional[bool] = None
+    employee_id: Optional[int] = None
+
+
+class UserLogin(BaseModel):
+    username: str
+    password: str
+
+
+class PasswordResetRequest(BaseModel):
+    username: str  # Or email
+
+
+class PasswordReset(BaseModel):
+    token: str
+    new_password: str
+
+
+class ChangePassword(BaseModel):
+    current_password: str
+    new_password: str
+
+
+class User(UserBase, OrmModel):
+    id: int
+    email: Optional[str] = None
+    is_active: bool
+    is_admin: bool
+    created_at: datetime
+    last_login: Optional[datetime] = None
+    employee_id: Optional[int] = None
+    must_change_password: bool = False
 
 
 # --------- OFFICE ---------
@@ -27,29 +80,43 @@ class Office(OfficeBase, OrmModel):
 class EmployeeBase(BaseModel):
     name: str
     email: Optional[str] = None  # Optional in responses (some employees might not have email yet)
-    office_id: Optional[int]
+    office_id: Optional[int] = None  # Deprecated: kept for backward compatibility, use office_ids instead
+    office_ids: Optional[List[int]] = None  # List of office IDs (many-to-many relationship)
     website: Optional[str] = None
+    role: Optional[str] = None  # Role: admin, manager, underwriter, partner
 
 
 class EmployeeCreate(BaseModel):
     name: str
-    email: str  # Required when creating
-    office_id: Optional[int] = None
+    email: str  # Required when creating, must be unique
+    office_id: Optional[int] = None  # Deprecated: kept for backward compatibility, use office_ids instead
+    office_ids: Optional[List[int]] = None  # List of office IDs to assign employee to
     website: Optional[str] = None
-    password: Optional[str] = None  # Plain password for initial setup (will be hashed)
+    role: Optional[str] = None  # Role: admin, manager, underwriter, partner
+    password: Optional[str] = None  # Plain password for initial setup (will be hashed in User table)
 
 
 class EmployeeUpdate(BaseModel):
     name: Optional[str] = None
     email: Optional[str] = None
-    office_id: Optional[int] = None
+    office_id: Optional[int] = None  # Deprecated: kept for backward compatibility, use office_ids instead
+    office_ids: Optional[List[int]] = None  # List of office IDs to assign employee to
     website: Optional[str] = None
-    password: Optional[str] = None  # Plain password for update (will be hashed)
+    role: Optional[str] = None  # Role: admin, manager, underwriter, partner
+    password: Optional[str] = None  # Plain password for update (will be hashed in User table)
 
 
 class Employee(EmployeeBase, OrmModel):
     id: int
-    # Note: password_hash, password_reset_token, password_reset_expires are not exposed in API responses
+    # Note: password_hash, password_reset_token, password_reset_expires are now only in users table
+    
+    model_config = ConfigDict(from_attributes=True)
+    
+    def model_post_init(self, __context):
+        """Populate office_ids from the offices relationship after ORM loading"""
+        # This will be called after the model is created from ORM
+        # office_ids should be populated by the router/CRUD layer
+        pass
 
 
 # --------- AGENCY ---------
@@ -95,6 +162,8 @@ class ContactBase(BaseModel):
     agency_id: int
     notes: Optional[str] = None
     linkedin_url: Optional[str] = None
+    do_not_contact: Optional[bool] = False
+    contact_frequency_days: Optional[int] = 90  # Days between contacts (30/60/90/120 or null for never)
 
 
 class ContactCreate(ContactBase):
@@ -103,6 +172,39 @@ class ContactCreate(ContactBase):
 
 class Contact(ContactBase, OrmModel):
     id: int
+    
+    model_config = ConfigDict(from_attributes=True)
+    
+    @model_serializer
+    def serialize(self):
+        """Serialize ensuring do_not_contact is always included."""
+        # Get all fields from parent classes
+        result = {}
+        
+        # Include all ContactBase fields
+        for field_name in ContactBase.model_fields:
+            if hasattr(self, field_name):
+                value = getattr(self, field_name)
+                result[field_name] = value
+        
+        # Explicitly handle do_not_contact - check both attribute and __dict__
+        if hasattr(self, 'do_not_contact'):
+            result['do_not_contact'] = getattr(self, 'do_not_contact', False)
+        elif hasattr(self, '__dict__') and 'do_not_contact' in self.__dict__:
+            result['do_not_contact'] = self.__dict__['do_not_contact']
+        else:
+            result['do_not_contact'] = False
+        
+        # Ensure it's always a boolean
+        if result.get('do_not_contact') is None:
+            result['do_not_contact'] = False
+        else:
+            result['do_not_contact'] = bool(result['do_not_contact'])
+        
+        # Add id
+        result['id'] = self.id
+        
+        return result
 
 
 class ContactUpdate(BaseModel):
@@ -113,8 +215,11 @@ class ContactUpdate(BaseModel):
     agency_id: Optional[int] = None
     notes: Optional[str] = None
     linkedin_url: Optional[str] = None
-    notes: Optional[str] = None
-    linkedin_url: Optional[str] = None
+    do_not_contact: Optional[bool] = None
+    contact_frequency_days: Optional[int] = None  # Days between contacts (30/60/90/120 or null for never)
+    previous_agencies: Optional[str] = None
+    likes_hobbies: Optional[str] = None
+    additional_info: Optional[str] = None
 
 
 # --------- LOG ---------
@@ -338,6 +443,84 @@ class AIChatResponse(BaseModel):
     answer: str
     used_context: Optional[dict] = None
     error: Optional[str] = None
+
+
+# --------- EMAIL TEMPLATE ---------
+class EmailTemplateBase(BaseModel):
+    name: str
+    subject: str
+    body: str
+    category: Optional[str] = None
+
+
+class EmailTemplateCreate(EmailTemplateBase):
+    pass
+
+
+class EmailTemplateUpdate(BaseModel):
+    name: Optional[str] = None
+    subject: Optional[str] = None
+    body: Optional[str] = None
+    category: Optional[str] = None
+    is_system_template: Optional[bool] = None
+
+
+class EmailTemplate(EmailTemplateBase, OrmModel):
+    id: int
+    created_by_employee_id: Optional[int] = None
+    is_system_template: bool
+    created_at: datetime
+    updated_at: datetime
+
+
+class EmailTemplatePreview(BaseModel):
+    """Request to preview an email template with variable replacement"""
+    template_id: int
+    recipient_email: str
+    contact_id: Optional[int] = None
+    agency_id: Optional[int] = None
+
+
+class EmailTemplatePreviewResponse(BaseModel):
+    """Response with the rendered email"""
+    subject: str
+    body: str
+
+
+# --------- RENEWAL ---------
+class RenewalBase(BaseModel):
+    policy_number: str
+    insured_name: str
+    expiration_date: datetime
+    producer: Optional[str] = None
+    producer_code: Optional[str] = None
+    status: str = "pending"  # pending, quoted, non-renewed, processed
+    notes: Optional[str] = None
+    premium: Optional[float] = None
+    coverage_type: Optional[str] = None
+
+
+class RenewalCreate(RenewalBase):
+    pass
+
+
+class RenewalUpdate(BaseModel):
+    policy_number: Optional[str] = None
+    insured_name: Optional[str] = None
+    expiration_date: Optional[datetime] = None
+    producer: Optional[str] = None
+    producer_code: Optional[str] = None
+    status: Optional[str] = None
+    notes: Optional[str] = None
+    premium: Optional[float] = None
+    coverage_type: Optional[str] = None
+
+
+class Renewal(RenewalBase, OrmModel):
+    id: int
+    created_by_employee_id: int
+    created_at: datetime
+    updated_at: datetime
 
 
 # --------- AUDIT LOG ---------

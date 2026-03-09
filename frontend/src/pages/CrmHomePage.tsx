@@ -25,7 +25,8 @@ type Office = {
 type Employee = {
   id: number;
   name: string;
-  office_id: number | null;
+  office_id?: number | null; // Deprecated: kept for backward compatibility
+  office_ids?: number[]; // List of office IDs (many-to-many relationship)
 };
 
 type Log = {
@@ -40,8 +41,12 @@ type Log = {
 
 type UnderwriterStats = {
   user: string;
-  inPersonLast90: number;
-  totalYtd: number;
+  inPerson12Mo: number;
+  emails12Mo: number;
+  phone12Mo: number;
+  inPerson30d: number;
+  emails30d: number;
+  phone30d: number;
 };
 
 const CrmHomePage: React.FC = () => {
@@ -51,6 +56,9 @@ const CrmHomePage: React.FC = () => {
   const [selectedOfficeId, setSelectedOfficeId] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isExportingContacts, setIsExportingContacts] = useState(false);
+  const [sortColumn, setSortColumn] = useState<keyof UnderwriterStats | null>(null);
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -76,36 +84,50 @@ const CrmHomePage: React.FC = () => {
   }, [selectedOfficeId]);
 
   const underwriterStats = useMemo(() => {
-    const now = new Date();
-    const ninetyDaysAgo = new Date();
-    ninetyDaysAgo.setDate(now.getDate() - 90);
-    const currentYear = now.getFullYear();
+    const now = Date.now();
+    const twelveMonthsMs = 12 * 30 * 24 * 60 * 60 * 1000; // Approximate 12 months
+    const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
 
     const statsMap = new Map<string, UnderwriterStats>();
 
     logs.forEach((log) => {
       const user = (log.user || "").trim();
       if (!user) return;
-      const logDate = new Date(log.datetime);
-      if (Number.isNaN(logDate.getTime())) return;
-      const action = (log.action || "").toLowerCase();
+      const userKey = user.toLowerCase();
+      const logDate = new Date(log.datetime).getTime();
+      if (Number.isNaN(logDate)) return;
+      const action = (log.action || "").trim();
 
-      const current = statsMap.get(user) || {
+      const current = statsMap.get(userKey) || {
         user,
-        inPersonLast90: 0,
-        totalYtd: 0,
+        inPerson12Mo: 0,
+        emails12Mo: 0,
+        phone12Mo: 0,
+        inPerson30d: 0,
+        emails30d: 0,
+        phone30d: 0,
       };
 
-      if (logDate.getFullYear() === currentYear) {
-        current.totalYtd += 1;
+      const timeDiff = now - logDate;
+      const isInPerson = action === "In Person";
+      const isEmail = action === "Email" || action === "Email Sent";
+      const isPhone = action === "Call / Zoom";
+
+      // 12 months metrics
+      if (timeDiff <= twelveMonthsMs) {
+        if (isInPerson) current.inPerson12Mo += 1;
+        if (isEmail) current.emails12Mo += 1;
+        if (isPhone) current.phone12Mo += 1;
       }
 
-      const isInPerson = action.includes("in person");
-      if (isInPerson && logDate >= ninetyDaysAgo) {
-        current.inPersonLast90 += 1;
+      // 30 days metrics
+      if (timeDiff <= thirtyDaysMs) {
+        if (isInPerson) current.inPerson30d += 1;
+        if (isEmail) current.emails30d += 1;
+        if (isPhone) current.phone30d += 1;
       }
 
-      statsMap.set(user, current);
+      statsMap.set(userKey, current);
     });
 
     let result = Array.from(statsMap.values());
@@ -113,21 +135,38 @@ const CrmHomePage: React.FC = () => {
     if (selectedOfficeId) {
       const allowedUsers = new Set(
         employees
-          .filter((emp) => emp.office_id === selectedOfficeId)
-          .map((emp) => (emp.name || "").trim())
+          .filter((emp) => 
+            (emp.office_ids && emp.office_ids.includes(selectedOfficeId)) || 
+            (emp.office_id === selectedOfficeId) // Backward compatibility
+          )
+          .map((emp) => (emp.name || "").trim().toLowerCase())
       );
-      result = result.filter((s) => allowedUsers.has((s.user || "").trim()));
+      result = result.filter((s) => allowedUsers.has((s.user || "").trim().toLowerCase()));
     }
 
-    result.sort((a, b) => {
-      if (b.inPersonLast90 !== a.inPersonLast90) {
-        return b.inPersonLast90 - a.inPersonLast90;
-      }
-      return b.totalYtd - a.totalYtd;
-    });
+    // Apply sorting
+    if (sortColumn) {
+      result.sort((a, b) => {
+        const aVal = a[sortColumn];
+        const bVal = b[sortColumn];
+        if (typeof aVal === "number" && typeof bVal === "number") {
+          return sortDirection === "asc" ? aVal - bVal : bVal - aVal;
+        }
+        return 0;
+      });
+    }
 
     return result;
-  }, [logs, employees, selectedOfficeId]);
+  }, [logs, employees, selectedOfficeId, sortColumn, sortDirection]);
+
+  const handleSort = (column: keyof UnderwriterStats) => {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setSortColumn(column);
+      setSortDirection("desc");
+    }
+  };
 
   const sidebar = (
     <>
@@ -195,45 +234,6 @@ const CrmHomePage: React.FC = () => {
         {error && <div style={{ color: "red", fontSize: 12 }}>{error}</div>}
         {isLoading && <div style={{ fontSize: 12, color: "#6b7280" }}>Loading CRM data…</div>}
 
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-          <div
-            style={{
-              ...cardStyle,
-              flex: 1,
-              minWidth: 180,
-            }}
-          >
-            <div style={kpiLabelStyle}>
-              YTD New Business Premium
-            </div>
-            <div style={kpiValueStyle}>$1,234,567</div>
-          </div>
-          <div
-            style={{
-              ...cardStyle,
-              flex: 1,
-              minWidth: 180,
-            }}
-          >
-            <div style={kpiLabelStyle}>
-              YTD New Business Count
-            </div>
-            <div style={kpiValueStyle}>123</div>
-          </div>
-          <div
-            style={{
-              ...cardStyle,
-              flex: 1,
-              minWidth: 180,
-            }}
-          >
-            <div style={kpiLabelStyle}>
-              % Up vs Prior Year
-            </div>
-            <div style={{ ...kpiValueStyle, color: "#16a34a" }}>+8.4%</div>
-          </div>
-        </div>
-
         <div
           style={{
             ...panelStyle,
@@ -247,8 +247,42 @@ const CrmHomePage: React.FC = () => {
               <thead>
                 <tr>
                   <th style={tableHeaderStickyStyle}>Underwriter</th>
-                  <th style={tableHeaderStickyStyle}>In-person calls (last 90 days)</th>
-                  <th style={tableHeaderStickyStyle}>Total marketing calls (YTD)</th>
+                  <th 
+                    style={{ ...tableHeaderStickyStyle, cursor: "pointer", userSelect: "none" }}
+                    onClick={() => handleSort("inPerson12Mo")}
+                  >
+                    In Person (12 Mo) {sortColumn === "inPerson12Mo" ? (sortDirection === "asc" ? "↑" : "↓") : ""}
+                  </th>
+                  <th 
+                    style={{ ...tableHeaderStickyStyle, cursor: "pointer", userSelect: "none" }}
+                    onClick={() => handleSort("emails12Mo")}
+                  >
+                    Emails (12 Mo) {sortColumn === "emails12Mo" ? (sortDirection === "asc" ? "↑" : "↓") : ""}
+                  </th>
+                  <th 
+                    style={{ ...tableHeaderStickyStyle, cursor: "pointer", userSelect: "none" }}
+                    onClick={() => handleSort("phone12Mo")}
+                  >
+                    Phone (12 Mo) {sortColumn === "phone12Mo" ? (sortDirection === "asc" ? "↑" : "↓") : ""}
+                  </th>
+                  <th 
+                    style={{ ...tableHeaderStickyStyle, cursor: "pointer", userSelect: "none" }}
+                    onClick={() => handleSort("inPerson30d")}
+                  >
+                    In Person (30d) {sortColumn === "inPerson30d" ? (sortDirection === "asc" ? "↑" : "↓") : ""}
+                  </th>
+                  <th 
+                    style={{ ...tableHeaderStickyStyle, cursor: "pointer", userSelect: "none" }}
+                    onClick={() => handleSort("emails30d")}
+                  >
+                    Emails (30d) {sortColumn === "emails30d" ? (sortDirection === "asc" ? "↑" : "↓") : ""}
+                  </th>
+                  <th 
+                    style={{ ...tableHeaderStickyStyle, cursor: "pointer", userSelect: "none" }}
+                    onClick={() => handleSort("phone30d")}
+                  >
+                    Phone (30d) {sortColumn === "phone30d" ? (sortDirection === "asc" ? "↑" : "↓") : ""}
+                  </th>
                 </tr>
               </thead>
             <tbody>
@@ -282,14 +316,18 @@ const CrmHomePage: React.FC = () => {
                         uw.user
                       )}
                     </td>
-                    <td style={tableCellStyle}>{uw.inPersonLast90}</td>
-                    <td style={tableCellStyle}>{uw.totalYtd}</td>
+                    <td style={tableCellStyle}>{uw.inPerson12Mo}</td>
+                    <td style={tableCellStyle}>{uw.emails12Mo}</td>
+                    <td style={tableCellStyle}>{uw.phone12Mo}</td>
+                    <td style={tableCellStyle}>{uw.inPerson30d}</td>
+                    <td style={tableCellStyle}>{uw.emails30d}</td>
+                    <td style={tableCellStyle}>{uw.phone30d}</td>
                   </tr>
                 );
               })}
               {underwriterStats.length === 0 && (
                 <tr>
-                  <td colSpan={3} style={{ ...tableCellStyle, textAlign: "center", fontSize: 12, color: "#6b7280" }}>
+                  <td colSpan={7} style={{ ...tableCellStyle, textAlign: "center", fontSize: 12, color: "#6b7280" }}>
                     {selectedOfficeId ? "No marketing logs found for the selected office yet." : "No marketing logs found yet."}
                   </td>
                 </tr>
@@ -298,6 +336,52 @@ const CrmHomePage: React.FC = () => {
           </table>
           </div>
         </div>
+
+        {/* Export My Contacts Button - Bottom Right */}
+        <button
+          type="button"
+          onClick={async () => {
+            if (isExportingContacts) return;
+            setIsExportingContacts(true);
+            try {
+              const { apiDownloadFile } = await import("../api/client");
+              const filename = `my_contacts_${new Date().toISOString().split("T")[0]}.xlsx`;
+              await apiDownloadFile("/contacts/export/my-contacts", filename);
+            } catch (err: any) {
+              alert(`Failed to export contacts: ${err?.message || "Unknown error"}`);
+            } finally {
+              setIsExportingContacts(false);
+            }
+          }}
+          disabled={isExportingContacts}
+          style={{
+            position: "fixed",
+            bottom: 20,
+            right: 20,
+            padding: "12px 24px",
+            backgroundColor: isExportingContacts ? "#9ca3af" : "#2563eb",
+            color: "white",
+            border: "none",
+            borderRadius: 8,
+            cursor: isExportingContacts ? "not-allowed" : "pointer",
+            fontSize: 14,
+            fontWeight: 600,
+            boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+            zIndex: 1000,
+          }}
+          onMouseEnter={(e) => {
+            if (!isExportingContacts) {
+              e.currentTarget.style.backgroundColor = "#1d4ed8";
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (!isExportingContacts) {
+              e.currentTarget.style.backgroundColor = "#2563eb";
+            }
+          }}
+        >
+          {isExportingContacts ? "⏳ Exporting..." : "📥 Download My Contacts"}
+        </button>
     </WorkbenchLayout>
   );
 };

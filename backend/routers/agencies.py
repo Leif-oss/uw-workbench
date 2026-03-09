@@ -17,7 +17,7 @@ router = APIRouter(
     tags=["agencies"]
 )
 
-@router.get("/", response_model=List[schemas.Agency])
+@router.get("", response_model=List[schemas.Agency])
 def get_agencies(
     request: Request,
     user: dict = Depends(get_current_user),
@@ -28,13 +28,14 @@ def get_agencies(
     
     query = db.query(models.Agency)
     
-    # Admin can see all agencies
+    # Admin can see all agencies (no filtering)
     if "admin" not in user.get("groups", []):
-        # Filter by user's office
+        # Non-admin: filter by user's office if they have one
         user_office_id = user.get("office_id")
-        if not user_office_id:
-            return []  # User not associated with office, return empty
-        query = query.filter(models.Agency.office_id == user_office_id)
+        if user_office_id:
+            query = query.filter(models.Agency.office_id == user_office_id)
+        # If no office_id, return all agencies (allow access in dev mode)
+        # In production, this might be restricted differently
     
     agencies = query.all()
     
@@ -62,7 +63,7 @@ def get_agency(
     
     return agency
 
-@router.post("/", response_model=schemas.Agency)
+@router.post("", response_model=schemas.Agency)
 def create_agency(
     agency: schemas.AgencyCreate,
     request: Request,
@@ -72,18 +73,24 @@ def create_agency(
     """Create a new agency. Non-admin users can only create agencies in their office."""
     require_authenticated(user)
     
-    # Enforce office_id matches user's office (unless admin)
-    user_office_id = user.get("office_id")
+    # Enforce office_id matches user's office assignments (unless admin)
+    user_office_ids = user.get("office_ids", [])
+    # Backward compatibility: if office_ids not available, use office_id
+    if not user_office_ids:
+        user_office_id = user.get("office_id")
+        if user_office_id:
+            user_office_ids = [user_office_id]
+    
     agency_data = agency.model_dump()
     
     if "admin" not in user.get("groups", []):
-        if not user_office_id:
+        if not user_office_ids:
             raise HTTPException(
                 status_code=403,
                 detail="User not associated with an office. Cannot create agencies."
             )
-        # Check if user is trying to create in their office
-        if agency_data.get("office_id") != user_office_id:
+        # Check if user is trying to create in one of their assigned offices
+        if agency_data.get("office_id") not in user_office_ids:
             raise HTTPException(
                 status_code=403,
                 detail="You can only create agencies in your assigned office"

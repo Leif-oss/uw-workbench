@@ -1,0 +1,28 @@
+# App Engine configuration (Alternative to Cloud Run)
+# Usage: gcloud app deploy
+
+runtime: python311
+
+env_variables:
+  # These should be set via Secret Manager in production
+  # For App Engine, use: gcloud app deploy --env-vars-file .env.yaml
+  CORS_ORIGINS: 'https://YOUR-FRONTEND-URL.com'
+  ENVIRONMENT: 'production'
+
+instance_class: F2
+automatic_scaling:
+  min_instances: 1
+  max_instances: 10
+  target_cpu_utilization: 0.6
+
+handlers:
+  - url: /.*
+    script: auto
+
+# Note: App Engine requires a specific directory structure
+# You may need to restructure or use Cloud Run instead (recommended)
+
+
+
+
+

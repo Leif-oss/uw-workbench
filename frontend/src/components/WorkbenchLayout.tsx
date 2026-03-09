@@ -3,7 +3,7 @@ import React, { ReactNode } from "react";
 interface WorkbenchLayoutProps {
   title: string;
   subtitle?: string;
-  rightNote?: string;
+  rightNote?: string | ReactNode;
   sidebar?: ReactNode;
   children: ReactNode;
 }
@@ -39,7 +39,9 @@ export const WorkbenchLayout: React.FC<WorkbenchLayoutProps> = ({
           )}
         </div>
         {rightNote && (
-          <div style={{ fontSize: 12, color: "#9ca3af" }}>{rightNote}</div>
+          <div style={{ fontSize: 12, color: "#9ca3af", display: "flex", alignItems: "center", gap: 12 }}>
+            {typeof rightNote === "string" ? rightNote : rightNote}
+          </div>
         )}
       </header>
 

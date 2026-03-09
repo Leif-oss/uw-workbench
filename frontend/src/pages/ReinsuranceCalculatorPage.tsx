@@ -343,19 +343,38 @@ const ReinsuranceCalculatorPage: React.FC = () => {
             <tbody>
               <tr>
                 <td style={tableCellStyle}>Group 1</td>
-                <td style={tableCellStyle}>{formatPercent(result.group1Pct)}</td>
+                <td style={{
+                  ...tableCellStyle,
+                  fontSize: 14,
+                  fontWeight: 700,
+                  color: "#1e40af",
+                }}>
+                  {formatPercent(result.group1Pct)}
+                </td>
                 <td style={tableCellStyle}>{formatCurrency(result.group1Amt)}</td>
                 <td style={tableCellStyle}>{formatCurrency(result.group1Cap)}</td>
               </tr>
               <tr>
                 <td style={tableCellStyle}>Group 2</td>
-                <td style={tableCellStyle}>{formatPercent(result.group2Pct)}</td>
+                <td style={{
+                  ...tableCellStyle,
+                  fontSize: 14,
+                  fontWeight: 700,
+                  color: "#1e40af",
+                }}>
+                  {formatPercent(result.group2Pct)}
+                </td>
                 <td style={tableCellStyle}>{formatCurrency(result.group2Amt)}</td>
                 <td style={tableCellStyle}>{formatCurrency(result.group2Cap)}</td>
               </tr>
               <tr>
                 <td style={tableCellStyle}>Group 3</td>
-                <td style={{ ...tableCellStyle, color: typeof result.group3Pct === 'string' && result.group3Pct.includes('⚠️') ? '#dc2626' : 'inherit', fontWeight: typeof result.group3Pct === 'string' && result.group3Pct.includes('⚠️') ? 600 : 400 }}>
+                <td style={{
+                  ...tableCellStyle,
+                  fontSize: 14,
+                  fontWeight: 700,
+                  color: typeof result.group3Pct === 'string' && result.group3Pct.includes('⚠️') ? '#dc2626' : '#1e40af',
+                }}>
                   {formatPercent(result.group3Pct)}
                 </td>
                 <td style={tableCellStyle}>{formatCurrency(result.group3Amt)}</td>

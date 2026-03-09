@@ -1,6 +1,7 @@
 import React from "react";
 import { WorkbenchLayout } from "../components/WorkbenchLayout";
-import { cardStyle, sidebarHeadingStyle } from "../ui/designSystem";
+import { WorkflowTool } from "../components/WorkflowTool";
+import { sidebarHeadingStyle } from "../ui/designSystem";
 
 export const WorkbenchPage: React.FC = () => {
   const sidebar = (
@@ -17,19 +18,11 @@ export const WorkbenchPage: React.FC = () => {
   return (
     <WorkbenchLayout
       title="Underwriting Workbench – Workbench"
-      subtitle="Central hub for tasks, renewals, and follow-ups (coming soon)"
-      rightNote="Workbench · stub version"
+      subtitle="Central hub for tasks, renewals, and follow-ups"
+      rightNote="Workbench"
       sidebar={sidebar}
     >
-      <div
-        style={{
-          ...cardStyle,
-          fontSize: 13,
-          color: "#374151",
-        }}
-      >
-        Workbench content (tasks, queues, workflows) will be built here.
-      </div>
+      <WorkflowTool />
     </WorkbenchLayout>
   );
 };

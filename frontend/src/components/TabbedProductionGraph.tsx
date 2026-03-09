@@ -40,6 +40,7 @@ export const TabbedProductionGraph: React.FC<TabbedProductionGraphProps> = ({
   metricsData,
 }) => {
   const [activeTab, setActiveTab] = useState<TabType>("all");
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   // Process data for the active tab
   const graphData = useMemo(() => {
@@ -122,69 +123,200 @@ export const TabbedProductionGraph: React.FC<TabbedProductionGraphProps> = ({
   return (
     <div style={{ ...cardStyle, padding: 20 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, paddingRight: 20 }}>
-        <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: "#111827", flex: 1 }}>
-          {title}
-        </h3>
-        
-        {/* Tabs */}
-        <div style={{ display: "flex", gap: 4, background: "#f3f4f6", padding: 4, borderRadius: 8 }}>
-          {(["all", "standard", "surplus"] as TabType[]).map((tab) => (
-            <button
-              key={tab}
-              type="button"
-              onClick={() => setActiveTab(tab)}
-              style={{
-                padding: "6px 12px",
-                borderRadius: 6,
-                fontSize: 12,
-                fontWeight: 600,
-                border: "none",
-                cursor: "pointer",
-                background: activeTab === tab ? "#ffffff" : "transparent",
-                color: activeTab === tab ? "#1d4ed8" : "#6b7280",
-                boxShadow: activeTab === tab ? "0 1px 2px rgba(0,0,0,0.1)" : "none",
-                transition: "all 0.2s",
-              }}
-            >
-              {tabLabels[tab]}
-            </button>
-          ))}
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1 }}>
+          {/* Collapse/Expand Button */}
+          <button
+            type="button"
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            style={{
+              width: 28,
+              height: 28,
+              borderRadius: 6,
+              border: "1px solid #d1d5db",
+              background: "#ffffff",
+              color: "#6b7280",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 16,
+              fontWeight: 600,
+              transition: "all 0.2s",
+              padding: 0,
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = "#f3f4f6";
+              e.currentTarget.style.borderColor = "#9ca3af";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = "#ffffff";
+              e.currentTarget.style.borderColor = "#d1d5db";
+            }}
+            title={isCollapsed ? "Expand graph" : "Collapse graph"}
+          >
+            {isCollapsed ? "+" : "−"}
+          </button>
+          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: "#111827" }}>
+            {title}
+          </h3>
         </div>
+        
+        {/* Tabs - only show when expanded */}
+        {!isCollapsed && (
+          <div style={{ display: "flex", gap: 4, background: "#f3f4f6", padding: 4, borderRadius: 8 }}>
+            {(["all", "standard", "surplus"] as TabType[]).map((tab) => (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setActiveTab(tab)}
+                style={{
+                  padding: "6px 12px",
+                  borderRadius: 6,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  border: "none",
+                  cursor: "pointer",
+                  background: activeTab === tab ? "#ffffff" : "transparent",
+                  color: activeTab === tab ? "#1d4ed8" : "#6b7280",
+                  boxShadow: activeTab === tab ? "0 1px 2px rgba(0,0,0,0.1)" : "none",
+                  transition: "all 0.2s",
+                }}
+              >
+                {tabLabels[tab]}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {graphData.monthlyData.length === 0 ? (
         <div style={{ fontSize: 12, color: "#9ca3af", padding: 40, textAlign: "center", background: "#f9fafb", borderRadius: 8 }}>
           No production data available for {tabLabels[activeTab]}
         </div>
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {/* Metrics row - Current YTD in middle, Bound/Quoted/etc on right */}
-          <div style={{ display: "flex", gap: 20, alignItems: "center", marginBottom: 4, paddingRight: 20, position: "relative" }}>
-            {/* Summary Stats - Center, above legend - positioned absolutely to align with legend */}
-            <div style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", display: "flex", gap: 20, alignItems: "center" }}>
+      ) : isCollapsed ? (
+        // Collapsed view: Show only YTD summary with bar comparison
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {/* YTD Summary Cards */}
+          <div style={{ display: "flex", gap: 16, justifyContent: "center", flexWrap: "wrap" }}>
+            <div style={{ 
+              padding: "16px 24px", 
+              background: "#eff6ff", 
+              borderRadius: 8,
+              minWidth: 140,
+              textAlign: "center"
+            }}>
+              <div style={{ fontSize: 11, color: "#1e40af", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>
+                Current YTD
+              </div>
+              <div style={{ fontSize: 20, fontWeight: 700, color: "#1e40af" }}>
+                {formatCurrency(graphData.currentYearTotal)}
+              </div>
+            </div>
+            <div style={{ 
+              padding: "16px 24px", 
+              background: "#f3f4f6", 
+              borderRadius: 8,
+              minWidth: 140,
+              textAlign: "center"
+            }}>
+              <div style={{ fontSize: 11, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>
+                Prior YTD
+              </div>
+              <div style={{ fontSize: 20, fontWeight: 700, color: "#6b7280" }}>
+                {formatCurrency(graphData.priorYearTotal)}
+              </div>
+            </div>
+            <div style={{ 
+              padding: "16px 24px", 
+              background: graphData.percentChange >= 0 ? "#ecfdf5" : "#fef2f2", 
+              borderRadius: 8,
+              minWidth: 140,
+              textAlign: "center"
+            }}>
+              <div style={{ 
+                fontSize: 11, 
+                color: graphData.percentChange >= 0 ? "#059669" : "#dc2626", 
+                textTransform: "uppercase", 
+                letterSpacing: "0.05em", 
+                marginBottom: 4 
+              }}>
+                Year-over-Year
+              </div>
+              <div style={{ 
+                fontSize: 20, 
+                fontWeight: 700, 
+                color: graphData.percentChange >= 0 ? "#059669" : "#dc2626" 
+              }}>
+                {graphData.percentChange >= 0 ? "+" : ""}{graphData.percentChange.toFixed(1)}%
+              </div>
+            </div>
+          </div>
+
+          {/* Underwriting Metrics - if available */}
+          {showMetrics && metricsData && (
+            <div style={{ display: "flex", gap: 20, alignItems: "center", justifyContent: "center", flexWrap: "wrap", paddingTop: 8, borderTop: "1px solid #e5e7eb" }}>
               <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: 10, color: "#6b7280", marginBottom: 2 }}>Current YTD</div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: "#1d4ed8" }}>
-                  {formatCurrency(graphData.currentYearTotal)}
+                <div style={{ fontSize: 10, color: "#6b7280", marginBottom: 2 }}>Bound</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: "#059669" }}>
+                  {metricsData.bound > 0 ? metricsData.bound.toLocaleString() : "—"}
                 </div>
               </div>
               <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: 10, color: "#6b7280", marginBottom: 2 }}>Prior YTD</div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: "#6b7280" }}>
-                  {formatCurrency(graphData.priorYearTotal)}
+                <div style={{ fontSize: 10, color: "#6b7280", marginBottom: 2 }}>Quoted</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: "#3b82f6" }}>
+                  {metricsData.quoted > 0 ? metricsData.quoted.toLocaleString() : "—"}
                 </div>
               </div>
               <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: 10, color: "#6b7280", marginBottom: 2 }}>Change</div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: graphData.percentChange >= 0 ? "#059669" : "#dc2626" }}>
-                  {graphData.percentChange >= 0 ? "+" : ""}{graphData.percentChange.toFixed(1)}%
+                <div style={{ fontSize: 10, color: "#6b7280", marginBottom: 2 }}>Hit Ratio</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: metricsData.quoted > 0 && (metricsData.bound / metricsData.quoted) * 100 > 30 ? "#059669" : metricsData.quoted > 0 && (metricsData.bound / metricsData.quoted) * 100 > 20 ? "#f59e0b" : metricsData.quoted > 0 ? "#dc2626" : "#6b7280" }}>
+                  {metricsData.quoted > 0 ? `${((metricsData.bound / metricsData.quoted) * 100).toFixed(1)}%` : "—"}
+                </div>
+              </div>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 10, color: "#6b7280", marginBottom: 2 }}>Declined</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: "#dc2626" }}>
+                  {metricsData.declined > 0 ? metricsData.declined.toLocaleString() : "—"}
+                </div>
+              </div>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 10, color: "#6b7280", marginBottom: 2 }}>3YR LR</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: metricsData.lossRatio > 60 ? "#dc2626" : metricsData.lossRatio > 50 ? "#f59e0b" : metricsData.lossRatio > 0 ? "#059669" : "#6b7280" }}>
+                  {metricsData.lossRatio > 0 ? `${metricsData.lossRatio.toFixed(1)}%` : "—"}
                 </div>
               </div>
             </div>
-            
-            {/* Underwriting Metrics - Right aligned */}
-            {showMetrics && metricsData && (
-              <div style={{ display: "flex", gap: 20, alignItems: "center", marginLeft: "auto" }}>
+          )}
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {/* YTD Summary - Show in expanded view too */}
+          <div style={{ display: "flex", gap: 20, alignItems: "center", justifyContent: "center", marginBottom: 8 }}>
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontSize: 10, color: "#6b7280", marginBottom: 2 }}>Current YTD</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#1d4ed8" }}>
+                {formatCurrency(graphData.currentYearTotal)}
+              </div>
+            </div>
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontSize: 10, color: "#6b7280", marginBottom: 2 }}>Prior YTD</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#6b7280" }}>
+                {formatCurrency(graphData.priorYearTotal)}
+              </div>
+            </div>
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontSize: 10, color: "#6b7280", marginBottom: 2 }}>Change</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: graphData.percentChange >= 0 ? "#059669" : "#dc2626" }}>
+                {graphData.percentChange >= 0 ? "+" : ""}{graphData.percentChange.toFixed(1)}%
+              </div>
+            </div>
+          </div>
+
+          {/* Metrics row - Only show Underwriting Metrics if available */}
+          {showMetrics && metricsData && (
+            <div style={{ display: "flex", gap: 20, alignItems: "center", marginBottom: 4, paddingRight: 20, justifyContent: "flex-end" }}>
+              {/* Underwriting Metrics - Right aligned */}
+              <div style={{ display: "flex", gap: 20, alignItems: "center" }}>
                 <div style={{ textAlign: "center" }}>
                   <div style={{ fontSize: 10, color: "#6b7280", marginBottom: 2 }}>Bound</div>
                   <div style={{ fontSize: 14, fontWeight: 700, color: "#059669" }}>
@@ -216,27 +348,99 @@ export const TabbedProductionGraph: React.FC<TabbedProductionGraphProps> = ({
                   </div>
                 </div>
               </div>
-            )}
-          </div>
-
-          {/* Legend */}
-          <div style={{ display: "flex", gap: 24, justifyContent: "center", fontSize: 12, marginBottom: 12 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <div style={{ width: 24, height: 3, background: "#3b82f6", borderRadius: 2 }}></div>
-              <span style={{ color: "#374151", fontWeight: 600 }}>Current Year</span>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <div style={{ width: 24, height: 3, background: "#9ca3af", borderRadius: 2 }}></div>
-              <span style={{ color: "#374151", fontWeight: 600 }}>Prior Year</span>
-            </div>
-          </div>
+          )}
 
           {/* Line Graph Container */}
-          <div style={{ position: "relative", height, padding: "20px 40px 40px 90px" }}>
+          <div style={{ position: "relative", height, padding: "20px 40px 40px 80px" }}>
+            {(() => {
+              // Calculate intervals for Y-axis labels (same logic as SVG)
+              const maxValue = Math.max(
+                ...graphData.monthlyData.flatMap(d => [d.currentYear, d.priorYear]),
+                1
+              );
+              
+              const getNiceInterval = (max: number, targetLines: number = 7) => {
+                const magnitude = Math.pow(10, Math.floor(Math.log10(max)));
+                const normalized = max / magnitude;
+                
+                let interval = magnitude;
+                if (normalized > 8) {
+                  interval = magnitude * 10;
+                } else if (normalized > 4) {
+                  interval = magnitude * 5;
+                } else if (normalized > 2) {
+                  interval = magnitude * 2;
+                } else {
+                  interval = magnitude;
+                }
+                
+                const numLines = Math.ceil(maxValue / interval) + 1;
+                if (numLines < targetLines - 1) {
+                  if (interval === magnitude * 10) {
+                    interval = magnitude * 5;
+                  } else if (interval === magnitude * 5) {
+                    interval = magnitude * 2;
+                  } else if (interval === magnitude * 2) {
+                    interval = magnitude;
+                  } else {
+                    interval = magnitude / 2;
+                  }
+                }
+                
+                return interval;
+              };
+              
+              const interval = getNiceInterval(maxValue, 7);
+              const numIntervals = Math.ceil(maxValue / interval);
+              const gridLines = Array.from({ length: numIntervals + 1 }, (_, i) => i * interval);
+              
+              const formatShortCurrency = (val: number) => {
+                if (val >= 1000000) {
+                  return `$${(val / 1000000).toFixed(1)}M`;
+                } else if (val >= 1000) {
+                  return `$${(val / 1000).toFixed(0)}K`;
+                }
+                return formatCurrency(val);
+              };
+              
+              const containerHeight = height - 60; // Subtract top (20px) and bottom (40px) padding
+              
+              return gridLines.map((value) => {
+                // Calculate Y position in SVG viewBox coordinates (0-280)
+                const yPosInSvg = 280 - (maxValue > 0 ? (value / maxValue) * 280 : 0);
+                // Convert to percentage (0-100%)
+                const yPercent = (yPosInSvg / 280) * 100;
+                // Convert to pixel position in container (accounting for padding)
+                const topOffset = 20 + (yPercent / 100) * containerHeight;
+                
+                return (
+                  <div
+                    key={`y-label-${value}`}
+                    style={{
+                      position: "absolute",
+                      left: 0,
+                      top: `${topOffset}px`,
+                      transform: "translateY(-50%)",
+                      fontSize: 11,
+                      color: "#6b7280",
+                      fontWeight: 500,
+                      textAlign: "right",
+                      width: "70px",
+                      paddingRight: "10px",
+                      pointerEvents: "none",
+                    }}
+                  >
+                    {formatShortCurrency(value)}
+                  </div>
+                );
+              });
+            })()}
+            
             <svg 
               width="100%" 
               height="100%" 
-              style={{ overflow: "visible" }}
+              style={{ overflow: "hidden" }}
               viewBox="0 0 800 280"
               preserveAspectRatio="none"
             >
@@ -309,43 +513,23 @@ export const TabbedProductionGraph: React.FC<TabbedProductionGraphProps> = ({
 
                 return (
                   <>
-                    {/* Grid lines with dollar amounts */}
+                    {/* Grid lines */}
                     {gridLines.map((value) => {
                       const yPos = 280 - (maxValue > 0 ? (value / maxValue) * 280 : 0);
-                      // Format currency with shorter format for large numbers
-                      const formatShortCurrency = (val: number) => {
-                        if (val >= 1000000) {
-                          return `$${(val / 1000000).toFixed(1)}M`;
-                        } else if (val >= 1000) {
-                          return `$${(val / 1000).toFixed(0)}K`;
-                        }
-                        return formatCurrency(val);
-                      };
                       return (
-                        <g key={value}>
-                          <line
-                            x1="0"
-                            y1={yPos}
-                            x2="800"
-                            y2={yPos}
-                            stroke="#e5e7eb"
-                            strokeWidth="1"
-                            vectorEffect="non-scaling-stroke"
-                          />
-                          <text
-                            x="-15"
-                            y={yPos + 4}
-                            fontSize="11"
-                            fill="#6b7280"
-                            textAnchor="end"
-                            vectorEffect="non-scaling-stroke"
-                            fontWeight="500"
-                          >
-                            {formatShortCurrency(value)}
-                          </text>
-                        </g>
+                        <line
+                          key={value}
+                          x1="0"
+                          y1={yPos}
+                          x2="800"
+                          y2={yPos}
+                          stroke="#e5e7eb"
+                          strokeWidth="1"
+                          vectorEffect="non-scaling-stroke"
+                        />
                       );
                     })}
+                    
                     
                     {/* Prior Year Line */}
                     <path
