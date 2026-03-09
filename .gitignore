@@ -19,7 +19,10 @@ private/**/*
 !.env.example
 .env.local
 .env.*.local
+.env.backup
+*.env.backup
 backend/.env
+backend/.env.backup
 frontend/.env
 
 # Database files - contain sensitive data
