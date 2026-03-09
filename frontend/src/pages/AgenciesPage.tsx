@@ -72,7 +72,9 @@ type Employee = {
 
   name: string;
 
-  office_id: number | null;
+  office_id?: number | null; // Deprecated: kept for backward compatibility
+
+  office_ids?: number[]; // List of office IDs (many-to-many relationship)
 
 };
 
@@ -95,6 +97,8 @@ type Contact = {
   linkedin_url?: string | null;
 
   notes?: string | null;
+
+  do_not_contact?: boolean;
 
 };
 
@@ -461,7 +465,10 @@ const AgenciesPage: React.FC = () => {
   const underwritersForSelectedAgency = useMemo(
     () => {
       if (!selectedAgency || !selectedAgency.office_id) return [];
-      return employees.filter((e) => e.office_id === selectedAgency.office_id);
+      return employees.filter((e) => 
+        (e.office_ids && e.office_ids.includes(selectedAgency.office_id!)) || 
+        (e.office_id === selectedAgency.office_id) // Backward compatibility
+      );
     },
     [selectedAgency, employees],
   );
@@ -616,43 +623,6 @@ const AgenciesPage: React.FC = () => {
 
 
 
-  const handleDeleteAgency = async (id: number) => {
-
-    try {
-
-      setLoading(true);
-
-      setStatus(`Deleting agency ID ${id}...`);
-
-      await apiDelete(`/agencies/${id}`);
-
-      const data = await apiGet<Agency[]>("/agencies");
-
-      setAgencies(data);
-
-      if (selectedAgency && selectedAgency.id === id) {
-
-        setSelectedAgency(null);
-
-        setContacts([]);
-
-        setLogs([]);
-
-      }
-
-      setStatus(`Agency ID ${id} deleted.`);
-
-    } catch (err: any) {
-
-      setStatus(`Delete agency failed: ${err?.message || err}`);
-
-    } finally {
-
-      setLoading(false);
-
-    }
-
-  };
 
 
 
@@ -1298,8 +1268,6 @@ const AgenciesPage: React.FC = () => {
 
                         style={{
 
-                          marginRight: 6,
-
                           padding: "2px 6px",
 
                           borderRadius: 6,
@@ -1315,42 +1283,6 @@ const AgenciesPage: React.FC = () => {
                       >
 
                         Select
-
-                      </button>
-
-                      <button
-
-                        type="button"
-
-                        onClick={(e) => {
-
-                          e.stopPropagation();
-
-                          handleDeleteAgency(ag.id);
-
-                        }}
-
-                        style={{
-
-                          padding: "2px 6px",
-
-                          borderRadius: 6,
-
-                          border: "1px solid #f87171",
-
-                          background: "#fef2f2",
-
-                          color: "#b91c1c",
-
-                          cursor: "pointer",
-
-                        }}
-
-                        disabled={loading || secondaryLoading}
-
-                      >
-
-                        Delete
 
                       </button>
 

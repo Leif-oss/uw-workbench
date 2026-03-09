@@ -40,13 +40,19 @@ const crmItems: NavItem[] = [
   { id: "crm-offices", label: "Offices", path: "/crm/offices" },
   { id: "crm-agencies", label: "Agencies", path: "/crm/agencies" },
   { id: "crm-employees", label: "Employees", path: "/crm/employees" },
-  { id: "crm-reports", label: "Marketing Tools", path: "/crm/reports" },
+  { id: "crm-marketing-tools", label: "Marketing Tools", path: "/crm/marketing-tools" },
 ];
 
-const workbenchItems: NavItem[] = [
+// Base workbench items (available to all users)
+const baseWorkbenchItems: NavItem[] = [
   { id: "workbench-reinsurance", label: "Reinsurance Calc", path: "/workbench/reinsurance-calculator" },
-  { id: "workbench-scrubber", label: "Document Scrubber", path: "/workbench/document-scrubber" },
   { id: "workbench-ai", label: "AI Assistant", path: "/workbench/ai-assistant" },
+];
+
+// Admin-only workbench items
+const adminWorkbenchItems: NavItem[] = [
+  { id: "workbench-scrubber", label: "Document Scrubber", path: "/workbench/document-scrubber" },
+  { id: "workbench-draft-intake", label: "Draft Intake", path: "/workbench/draft-intake" },
 ];
 
 function Sidebar() {
@@ -54,6 +60,7 @@ function Sidebar() {
   const isCrm = location.pathname.startsWith("/crm");
   const isWorkbench = location.pathname.startsWith("/workbench");
   const isAdmin = location.pathname.startsWith("/admin");
+  const isUserAdmin = localStorage.getItem("is_admin") === "true";
   
   let itemsToRender: NavItem[] = [];
   let sectionTitle = "UW Workbench";
@@ -62,7 +69,11 @@ function Sidebar() {
     itemsToRender = crmItems;
     sectionTitle = "Agency Management";
   } else if (isWorkbench) {
-    itemsToRender = workbenchItems;
+    // Combine base items with admin items if user is admin
+    itemsToRender = [...baseWorkbenchItems];
+    if (isUserAdmin) {
+      itemsToRender = [...baseWorkbenchItems, ...adminWorkbenchItems];
+    }
     sectionTitle = "Workbench";
   } else if (isAdmin) {
     itemsToRender = [];

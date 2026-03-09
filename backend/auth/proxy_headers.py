@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from .. import models
+from sqlalchemy.orm import selectinload
 
 # Trusted proxy IPs (set via environment variable, comma-separated)
 # Can be individual IPs or CIDR ranges like "10.0.0.0/8"
@@ -60,10 +61,11 @@ async def get_current_user(
     x_authenticated_user: Optional[str] = Header(None, alias="X-Authenticated-User"),
     x_groups: Optional[str] = Header(None, alias="X-Groups"),
     x_forwarded_for: Optional[str] = Header(None, alias="X-Forwarded-For"),
+    authorization: Optional[str] = Header(None),
     db: Session = Depends(get_db),
 ) -> Dict:
     """
-    Extract current user from proxy headers or dev mode.
+    Extract current user from session token, proxy headers, or dev mode.
     
     Returns dict with:
     - email: str
@@ -71,6 +73,70 @@ async def get_current_user(
     - employee_id: Optional[int]
     - office_id: Optional[int]
     """
+    # TEMPORARY SETUP MODE: Allow temporary admin access when no auth token is provided
+    # TODO: Remove this after creating first admin user and re-enabling auth
+    TEMP_SETUP_MODE = os.getenv("TEMP_SETUP_MODE", "false").lower() == "true"
+    
+    # Check for Bearer token first (session-based auth)
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization[7:]  # Remove "Bearer " prefix
+        from ..routers.auth import get_session
+        session_obj = get_session(token, db)
+        if session_obj and session_obj.user:
+            user = session_obj.user
+            # Map username to email for compatibility
+            user_email = f"{user.username}@local"
+            # Grant admin access based on user.is_admin flag
+            groups = ["admin"] if user.is_admin else []
+            
+            # Try to find employee linked to user
+            employee = None
+            if user.employee_id:
+                employee = db.query(models.Employee).options(
+                    selectinload(models.Employee.offices)
+                ).filter(models.Employee.id == user.employee_id).first()
+            else:
+                # Fallback: try to find employee by username/email
+                employee = db.query(models.Employee).options(
+                    selectinload(models.Employee.offices)
+                ).filter(
+                    models.Employee.email.contains(user.username)
+                ).first()
+            
+            # Get office IDs from many-to-many relationship
+            office_ids = []
+            primary_office_id = None
+            if employee:
+                if hasattr(employee, 'offices') and employee.offices:
+                    office_ids = [o.id for o in employee.offices]
+                elif employee.office_id:
+                    # Backward compatibility: if only office_id is set, use it
+                    office_ids = [employee.office_id]
+                primary_office_id = office_ids[0] if office_ids else employee.office_id
+            
+            return {
+                "email": user_email,
+                "groups": groups,
+                "employee_id": employee.id if employee else None,
+                "office_id": primary_office_id,  # Deprecated: kept for backward compatibility, uses first office
+                "office_ids": office_ids,  # Many-to-many relationship - all offices
+                "is_authenticated": True,
+            }
+        # If token is invalid/expired, require authentication
+        elif not (session_obj and session_obj.user):
+            # Invalid or expired token - require login
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid or expired authentication token. Please log in again."
+            )
+    
+    # If no authorization header, require authentication
+    if not authorization:
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication required. Please log in."
+        )
+    
     client_ip = request.client.host if request.client else "unknown"
     
     # Handle X-Forwarded-For (proxy may set this)
@@ -88,16 +154,46 @@ async def get_current_user(
     
     # Get user email
     user_email = None
+    used_fallback_employee = False  # Track if we used fallback employee lookup
     
     if DEV_MODE:
-        # Development mode: use header if present, otherwise use dev user or default to admin
+        # Development mode: use header if present, otherwise use dev user or configured default
         if x_authenticated_user:
             user_email = x_authenticated_user.lower().strip()
         elif DEV_USER_EMAIL:
             user_email = DEV_USER_EMAIL.lower().strip()
         else:
-            # Default to admin user in dev mode
-            user_email = "leif@deanshomer.com"
+            # Use DEV_ADMIN_EMAIL environment variable, or try to find first employee
+            dev_admin_email = os.getenv("DEV_ADMIN_EMAIL", "")
+            if dev_admin_email:
+                user_email = dev_admin_email.lower().strip()
+            else:
+                # In dev mode, try to find first employee with email
+                # This allows dev to work without configuration
+                import logging
+                dev_logger = logging.getLogger(__name__)
+                dev_logger.warning(
+                    "DEV_ADMIN_EMAIL not set. Attempting to find first employee for dev mode. "
+                    "Set DEV_ADMIN_EMAIL environment variable to avoid this warning."
+                )
+                
+                # Try to find an employee with an email
+                employee = db.query(models.Employee).options(
+                    selectinload(models.Employee.offices)
+                ).filter(
+                    models.Employee.email.isnot(None)
+                ).first()
+                
+                if employee and employee.email:
+                    user_email = employee.email.lower().strip()
+                    used_fallback_employee = True
+                    dev_logger.info(f"Using employee email for dev mode: {user_email}")
+                else:
+                    # Last resort: require header or env var
+                    raise HTTPException(
+                        status_code=401,
+                        detail="Missing authentication. Set DEV_ADMIN_EMAIL environment variable or provide X-Authenticated-User header."
+                    )
     else:
         # Production: require header
         if not x_authenticated_user:
@@ -112,20 +208,33 @@ async def get_current_user(
     if x_groups:
         groups = [g.strip() for g in x_groups.split(",") if g.strip()]
     
-    # Grant admin access to leif@deanshomer.com
-    if user_email == "leif@deanshomer.com" and "admin" not in groups:
+    # Grant admin access to configured admin email (if set)
+    admin_email = os.getenv("ADMIN_EMAIL", "")
+    dev_admin_email = os.getenv("DEV_ADMIN_EMAIL", "")
+    if admin_email and user_email == admin_email.lower().strip() and "admin" not in groups:
+        groups.append("admin")
+    # Also grant admin to DEV_ADMIN_EMAIL in dev mode
+    if DEV_MODE and dev_admin_email and user_email == dev_admin_email.lower().strip() and "admin" not in groups:
         groups.append("admin")
     
     # In dev mode, check for DEV_USER_GROUPS environment variable
+    # Also grant admin if we used fallback employee lookup (for dev convenience)
     if DEV_MODE:
         dev_groups = os.getenv("DEV_USER_GROUPS", "")
         if dev_groups and user_email == (DEV_USER_EMAIL or user_email):
             dev_groups_list = [g.strip() for g in dev_groups.split(",") if g.strip()]
             groups.extend(dev_groups_list)
             groups = list(set(groups))  # Remove duplicates
+        
+        # In dev mode, if we used fallback employee lookup, grant admin for convenience
+        # This makes dev mode work without configuration
+        if used_fallback_employee and "admin" not in groups:
+            groups.append("admin")
     
-    # Look up Employee record to get office_id
-    employee = db.query(models.Employee).filter(
+    # Look up Employee record to get office_ids (many-to-many relationship)
+    employee = db.query(models.Employee).options(
+        selectinload(models.Employee.offices)
+    ).filter(
         models.Employee.email == user_email
     ).first()
     
@@ -137,15 +246,29 @@ async def get_current_user(
             "email": user_email,
             "groups": groups,
             "employee_id": None,
-            "office_id": None,
+            "office_id": None,  # Deprecated: kept for backward compatibility
+            "office_ids": [],  # Many-to-many relationship
             "is_authenticated": True,
         }
+    
+    # Get office IDs from many-to-many relationship
+    office_ids = []
+    if hasattr(employee, 'offices') and employee.offices:
+        office_ids = [o.id for o in employee.offices]
+    elif employee.office_id:
+        # Backward compatibility: if only office_id is set, use it
+        office_ids = [employee.office_id]
+    
+    # For backward compatibility, set office_id to first office (if any)
+    # This is used by some authorization checks
+    primary_office_id = office_ids[0] if office_ids else employee.office_id
     
     return {
         "email": user_email,
         "groups": groups,
         "employee_id": employee.id,
-        "office_id": employee.office_id,
+        "office_id": primary_office_id,  # Deprecated: kept for backward compatibility, uses first office
+        "office_ids": office_ids,  # Many-to-many relationship - all offices
         "is_authenticated": True,
     }
 
@@ -183,24 +306,28 @@ def require_office_access(
     if not for_modification:
         return True
     
-    # For modification, user must have an office_id and it must match
-    user_office_id = user.get("office_id")
-    if not user_office_id:
-        raise HTTPException(
-            status_code=403,
-            detail="User not associated with an office. Cannot modify data."
-        )
-    
-    # If target_office_id is None, only admins can modify (already handled above)
-    # For non-admins, if target has no office, deny access
+    # For modification, user must have an office_id/office_ids and it must match (if target has an office)
+    # If target_office_id is None, allow modification (employee has no office - anyone can modify)
     if target_office_id is None:
+        return True
+    
+    # Get user's office IDs (many-to-many relationship)
+    user_office_ids = user.get("office_ids", [])
+    # Backward compatibility: if office_ids not available, use office_id
+    if not user_office_ids:
+        user_office_id = user.get("office_id")
+        if user_office_id:
+            user_office_ids = [user_office_id]
+    
+    if not user_office_ids:
+        # User has no office but target has an office - deny access (unless admin, already handled)
         raise HTTPException(
             status_code=403,
-            detail="Cannot modify data without an office assignment"
+            detail="User not associated with an office. Cannot modify data for employees with offices."
         )
     
-    # Check if office_id matches
-    if user_office_id != target_office_id:
+    # User and target both have offices - user must be assigned to target office
+    if target_office_id not in user_office_ids:
         raise HTTPException(
             status_code=403,
             detail="You can only modify data from your assigned office"

@@ -7,7 +7,8 @@ import { cardStyle } from "../ui/designSystem";
 type Employee = {
   id: number;
   name: string;
-  office_id: number | null;
+  office_id?: number | null; // Deprecated: kept for backward compatibility
+  office_ids?: number[]; // List of office IDs (many-to-many relationship)
 };
 
 type Office = {
@@ -93,15 +94,25 @@ const CrmUnderwritersPage: React.FC = () => {
     return productionData.filter(p => agencyCodes.has(p.agency_code.toUpperCase()));
   }, [productionData, underwriterAgencies, selectedUnderwriterId]);
 
-  // Group employees by office
+  // Group employees by office (handling many-to-many relationship)
   const employeesByOffice = useMemo(() => {
     const grouped = new Map<number, Employee[]>();
     employees.forEach(emp => {
-      const officeId = emp.office_id || 0;
-      if (!grouped.has(officeId)) {
-        grouped.set(officeId, []);
-      }
-      grouped.get(officeId)!.push(emp);
+      // Get all office IDs for this employee (many-to-many relationship)
+      const employeeOfficeIds = emp.office_ids || (emp.office_id ? [emp.office_id] : [0]);
+      
+      // Add employee to each office they're assigned to
+      employeeOfficeIds.forEach((officeId) => {
+        const key = officeId || 0;
+        if (!grouped.has(key)) {
+          grouped.set(key, []);
+        }
+        // Avoid duplicates - check if employee is already in this office group
+        const officeGroup = grouped.get(key)!;
+        if (!officeGroup.find(e => e.id === emp.id)) {
+          officeGroup.push(emp);
+        }
+      });
     });
     return grouped;
   }, [employees]);

@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { WorkbenchLayout } from "../components/WorkbenchLayout";
 import { TabbedProductionGraph } from "../components/TabbedProductionGraph";
+import { WorkflowTool } from "../components/WorkflowTool";
 import { cardStyle, sidebarHeadingStyle } from "../ui/designSystem";
 import { apiGet } from "../api/client";
 
@@ -40,9 +41,30 @@ interface ProductionMetrics {
   monthlyData: MonthlyData[];
 }
 
+interface Office {
+  id: number;
+  code: string;
+  name: string;
+}
+
+interface OfficeMetrics {
+  officeCode: string;
+  officeName: string;
+  currentYearTotal: number;
+  priorYearTotal: number;
+  percentChange: number;
+  agencyCount: number;
+  newBusinessCount: number;
+  totalBound: number;
+  totalQuoted: number;
+  totalDeclined: number;
+  avgLossRatio: number;
+}
+
 export const DashboardPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [productionData, setProductionData] = useState<ProductionRecord[]>([]);
+  const [offices, setOffices] = useState<Office[]>([]);
   const [metrics, setMetrics] = useState<ProductionMetrics>({
     currentYearTotal: 0,
     priorYearTotal: 0,
@@ -54,8 +76,12 @@ export const DashboardPage: React.FC = () => {
   useEffect(() => {
     const fetchProductionData = async () => {
       try {
-        const data = await apiGet<ProductionRecord[]>("/production");
+        const [data, officesData] = await Promise.all([
+          apiGet<ProductionRecord[]>("/production"),
+          apiGet<Office[]>("/offices"),
+        ]);
         setProductionData(data);
+        setOffices(officesData || []);
         
         // Group by month and calculate totals for each month
         const monthlyTotals = new Map<string, { currentYear: number; priorYear: number }>();
@@ -121,6 +147,89 @@ export const DashboardPage: React.FC = () => {
     fetchProductionData();
   }, []);
 
+  // Calculate office-level metrics
+  const officeMetrics = useMemo(() => {
+    if (!productionData.length || !offices.length) return [];
+
+    const officeMap = new Map<string, OfficeMetrics>();
+    
+    // Initialize office metrics
+    offices.forEach(office => {
+      officeMap.set(office.code, {
+        officeCode: office.code,
+        officeName: office.name,
+        currentYearTotal: 0,
+        priorYearTotal: 0,
+        percentChange: 0,
+        agencyCount: 0,
+        newBusinessCount: 0,
+        totalBound: 0,
+        totalQuoted: 0,
+        totalDeclined: 0,
+        avgLossRatio: 0,
+      });
+    });
+
+    // Get most recent month
+    const mostRecentMonth = productionData.length > 0
+      ? productionData.map(r => r.month).sort().pop()
+      : null;
+
+    // Get latest record per agency
+    const latestByAgency = new Map<string, ProductionRecord>();
+    productionData.forEach((record) => {
+      const key = `${record.office}_${record.agency_code}`;
+      const existing = latestByAgency.get(key);
+      if (!existing || record.month > existing.month) {
+        latestByAgency.set(key, record);
+      }
+    });
+
+    // Aggregate by office
+    latestByAgency.forEach((record) => {
+      const office = officeMap.get(record.office);
+      if (office) {
+        office.currentYearTotal += record.all_ytd_nb || 0;
+        office.priorYearTotal += record.pytd_nb || 0;
+        office.agencyCount++;
+        if (record.all_ytd_nb && record.all_ytd_nb > 0) {
+          office.newBusinessCount++;
+        }
+      }
+    });
+
+    // Get most recent month metrics
+    if (mostRecentMonth) {
+      const recentRecords = productionData.filter(r => r.month === mostRecentMonth);
+      recentRecords.forEach((record) => {
+        const office = officeMap.get(record.office);
+        if (office) {
+          office.totalBound += record.twelve_mo_bound || 0;
+          office.totalQuoted += record.twelve_mo_quoted || 0;
+          office.totalDeclined += record.twelve_mo_decline || 0;
+        }
+      });
+
+      // Calculate average loss ratio per office
+      officeMap.forEach((office) => {
+        const officeRecentRecords = recentRecords.filter(r => r.office === office.officeCode);
+        const recordsWithLossRatio = officeRecentRecords.filter(r => r.three_year_plus != null && r.three_year_plus > 0);
+        if (recordsWithLossRatio.length > 0) {
+          office.avgLossRatio = recordsWithLossRatio.reduce((sum, r) => sum + (r.three_year_plus || 0), 0) / recordsWithLossRatio.length;
+        }
+      });
+    }
+
+    // Calculate percent change
+    officeMap.forEach((office) => {
+      office.percentChange = office.priorYearTotal > 0
+        ? ((office.currentYearTotal - office.priorYearTotal) / office.priorYearTotal) * 100
+        : 0;
+    });
+
+    return Array.from(officeMap.values()).sort((a, b) => a.officeCode.localeCompare(b.officeCode));
+  }, [productionData, offices]);
+
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
@@ -154,70 +263,8 @@ export const DashboardPage: React.FC = () => {
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          {/* Main Metrics Cards */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
-            {/* Current Year Card */}
-            <div
-              style={{
-                ...cardStyle,
-                background: "linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)",
-                color: "#fff",
-                padding: "20px",
-              }}
-            >
-              <div style={{ fontSize: 11, opacity: 0.9, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                Current Year YTD
-              </div>
-              <div style={{ fontSize: 28, fontWeight: 700, marginBottom: 8 }}>
-                {formatCurrency(metrics.currentYearTotal)}
-              </div>
-              <div style={{ fontSize: 12, opacity: 0.8 }}>
-                New Business Premium
-              </div>
-            </div>
-
-            {/* Prior Year Card */}
-            <div
-              style={{
-                ...cardStyle,
-                background: "linear-gradient(135deg, #6b7280 0%, #9ca3af 100%)",
-                color: "#fff",
-                padding: "20px",
-              }}
-            >
-              <div style={{ fontSize: 11, opacity: 0.9, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                Prior Year YTD
-              </div>
-              <div style={{ fontSize: 28, fontWeight: 700, marginBottom: 8 }}>
-                {formatCurrency(metrics.priorYearTotal)}
-              </div>
-              <div style={{ fontSize: 12, opacity: 0.8 }}>
-                New Business Premium
-              </div>
-            </div>
-
-            {/* Year-over-Year Change */}
-            <div
-              style={{
-                ...cardStyle,
-                background: metrics.percentChange >= 0 
-                  ? "linear-gradient(135deg, #059669 0%, #10b981 100%)" 
-                  : "linear-gradient(135deg, #dc2626 0%, #ef4444 100%)",
-                color: "#fff",
-                padding: "20px",
-              }}
-            >
-              <div style={{ fontSize: 11, opacity: 0.9, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                Year-over-Year Change
-              </div>
-              <div style={{ fontSize: 28, fontWeight: 700, marginBottom: 8 }}>
-                {metrics.percentChange >= 0 ? "+" : ""}{metrics.percentChange.toFixed(1)}%
-              </div>
-              <div style={{ fontSize: 12, opacity: 0.8 }}>
-                {metrics.percentChange >= 0 ? "Growth" : "Decline"} vs Prior Year
-              </div>
-            </div>
-          </div>
+          {/* Workflow Tool - User-specific renewals */}
+          <WorkflowTool />
 
           {/* Tabbed Production Graph */}
           <TabbedProductionGraph
@@ -226,18 +273,26 @@ export const DashboardPage: React.FC = () => {
             height={320}
           />
 
-          {/* Additional Metrics */}
+          {/* Total Company Metrics */}
           <div style={{ ...cardStyle, padding: 20 }}>
-            <h3 style={{ margin: "0 0 12px 0", fontSize: 16, fontWeight: 600, color: "#111827" }}>
-              New Business Activity
+            <h3 style={{ margin: "0 0 16px 0", fontSize: 16, fontWeight: 600, color: "#111827" }}>
+              Company Totals (All Offices)
             </h3>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
               <div>
                 <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                  Agencies with New Business
+                  Current YTD New Business
                 </div>
                 <div style={{ fontSize: 24, fontWeight: 700, color: "#1e40af" }}>
-                  {metrics.newBusinessCount}
+                  {formatCurrency(metrics.currentYearTotal)}
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                  Prior YTD New Business
+                </div>
+                <div style={{ fontSize: 24, fontWeight: 700, color: "#6b7280" }}>
+                  {formatCurrency(metrics.priorYearTotal)}
                 </div>
               </div>
               <div>
@@ -249,8 +304,99 @@ export const DashboardPage: React.FC = () => {
                   {formatCurrency(metrics.currentYearTotal - metrics.priorYearTotal)}
                 </div>
               </div>
+              <div>
+                <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                  % Change
+                </div>
+                <div style={{ fontSize: 24, fontWeight: 700, color: metrics.percentChange >= 0 ? "#059669" : "#dc2626" }}>
+                  {metrics.percentChange >= 0 ? "+" : ""}
+                  {metrics.percentChange.toFixed(1)}%
+                </div>
+              </div>
             </div>
           </div>
+
+          {/* Office Status Breakdown */}
+          {officeMetrics.length > 0 && (
+            <div style={{ ...cardStyle, padding: 20 }}>
+              <h3 style={{ margin: "0 0 16px 0", fontSize: 16, fontWeight: 600, color: "#111827" }}>
+                Office Status & Metrics
+              </h3>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16 }}>
+                {officeMetrics.map((office) => (
+                  <div
+                    key={office.officeCode}
+                    style={{
+                      padding: 16,
+                      background: "#f9fafb",
+                      borderRadius: 8,
+                      border: "1px solid #e5e7eb",
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                      <div>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: "#111827" }}>
+                          {office.officeName}
+                        </div>
+                        <div style={{ fontSize: 11, color: "#6b7280" }}>
+                          {office.officeCode}
+                        </div>
+                      </div>
+                      <div style={{
+                        fontSize: 12,
+                        fontWeight: 600,
+                        color: office.percentChange >= 0 ? "#059669" : "#dc2626",
+                        padding: "4px 8px",
+                        background: office.percentChange >= 0 ? "#d1fae5" : "#fee2e2",
+                        borderRadius: 4,
+                      }}>
+                        {office.percentChange >= 0 ? "+" : ""}
+                        {office.percentChange.toFixed(1)}%
+                      </div>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, fontSize: 12 }}>
+                      <div>
+                        <div style={{ color: "#6b7280", marginBottom: 2 }}>YTD New Business</div>
+                        <div style={{ fontWeight: 600, color: "#111827" }}>
+                          {formatCurrency(office.currentYearTotal)}
+                        </div>
+                      </div>
+                      <div>
+                        <div style={{ color: "#6b7280", marginBottom: 2 }}>Agencies</div>
+                        <div style={{ fontWeight: 600, color: "#111827" }}>
+                          {office.agencyCount}
+                        </div>
+                      </div>
+                      <div>
+                        <div style={{ color: "#6b7280", marginBottom: 2 }}>With New Business</div>
+                        <div style={{ fontWeight: 600, color: "#111827" }}>
+                          {office.newBusinessCount}
+                        </div>
+                      </div>
+                      <div>
+                        <div style={{ color: "#6b7280", marginBottom: 2 }}>12 Mo Bound</div>
+                        <div style={{ fontWeight: 600, color: "#059669" }}>
+                          {office.totalBound.toLocaleString()}
+                        </div>
+                      </div>
+                      <div>
+                        <div style={{ color: "#6b7280", marginBottom: 2 }}>12 Mo Quoted</div>
+                        <div style={{ fontWeight: 600, color: "#3b82f6" }}>
+                          {office.totalQuoted.toLocaleString()}
+                        </div>
+                      </div>
+                      <div>
+                        <div style={{ color: "#6b7280", marginBottom: 2 }}>12 Mo Declined</div>
+                        <div style={{ fontWeight: 600, color: "#dc2626" }}>
+                          {office.totalDeclined.toLocaleString()}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Underwriting Metrics */}
           {(() => {

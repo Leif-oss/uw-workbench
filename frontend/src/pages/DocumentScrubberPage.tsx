@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { WorkbenchLayout } from "../components/WorkbenchLayout";
 import { cardStyle, primaryButtonStyle, secondaryButtonStyle, inputStyle, labelStyle, selectStyle } from "../ui/designSystem";
+import { API_BASE_URL, getAuthHeaders } from "../api/client";
 
 type ExtractedFields = {
   effective_date?: string;
@@ -133,8 +134,9 @@ export const DocumentScrubberPage: React.FC = () => {
       
       console.log("Uploading file:", selectedFile.name);
       
-      const response = await fetch("http://127.0.0.1:8000/submissions/upload", {
+      const response = await fetch(`${API_BASE_URL}/submissions/upload`, {
         method: "POST",
+        headers: getAuthHeaders(),
         body: formData,
       });
       
@@ -153,20 +155,68 @@ export const DocumentScrubberPage: React.FC = () => {
       console.log("Extracted fields keys:", Object.keys(data.extracted_fields || {}));
       console.log("Number of fields:", Object.keys(data.extracted_fields || {}).length);
       
+      // Check for API key issues
+      if (data.debug_info?.error_message) {
+        alert(`⚠️ ${data.debug_info.error_message}\n\nPlease set a valid OpenAI API key in backend/.env file.\nGet your API key from: https://platform.openai.com/account/api-keys`);
+        setIsUploading(false);
+        return;
+      }
+      
+      if (data.debug_info && !data.debug_info.ai_key_valid && data.debug_info.ai_key_present) {
+        alert(`⚠️ Invalid OpenAI API Key\n\nThe API key in backend/.env appears to be invalid or a placeholder.\nPlease set a valid OpenAI API key.\nGet your API key from: https://platform.openai.com/account/api-keys`);
+        setIsUploading(false);
+        return;
+      }
+      
+      // Check if no fields were extracted
+      const nonEmptyFields = data.debug_info?.non_empty_fields || 0;
+      if (nonEmptyFields === 0 && data.debug_info?.ai_key_valid === false) {
+        alert(`⚠️ No Data Extracted\n\nThis is likely because the OpenAI API key is invalid or missing.\nPlease check your AI_API_KEY in backend/.env file.\n\nIf the API key is correct, the document may not contain extractable data.`);
+      }
+      
+      // Ensure extracted_fields is an object and has all expected fields
+      // Clean up any null/undefined values and convert to empty strings
+      const rawFields: Record<string, any> = data.extracted_fields || {};
+      const extractedFields: ExtractedFields = {} as ExtractedFields;
+      Object.keys(rawFields).forEach(key => {
+        const value = rawFields[key];
+        // Convert null/undefined to empty string, keep other values as-is
+        const cleanValue = (value === null || value === undefined) ? "" : String(value);
+        // Safely assign to ExtractedFields
+        (extractedFields as Record<string, string>)[key] = cleanValue;
+      });
+      
+      console.log("Setting editedFields with:", extractedFields);
+      console.log("Sample values:", {
+        effective_date: extractedFields.effective_date,
+        producer_name: extractedFields.producer_name,
+        insured_name: extractedFields.insured_name
+      });
+      console.log("All field keys:", Object.keys(extractedFields));
+      
       setExtractedText(data.extracted_text || "");
-      setExtractedFields(data.extracted_fields || {});
-      setEditedFields(data.extracted_fields || {});
+      setExtractedFields(extractedFields);
+      // IMPORTANT: Ensure editedFields gets all extracted fields, even empty ones
+      // Use a fresh object to ensure React detects the change
+      setEditedFields({ ...extractedFields });
       setAgencyMatches(data.agency_matches || []);
       
-      // Initialize all fields as verified (checked) by default
+      // Initialize all fields as verified (checked) by default if they have non-empty values
       const initialVerified: Record<string, boolean> = {};
-      Object.keys(data.extracted_fields || {}).forEach(key => {
-        if (data.extracted_fields[key]) {
+      Object.keys(extractedFields).forEach(key => {
+        const value = (extractedFields as Record<string, string | undefined>)[key];
+        // Check if value is truthy and not just whitespace
+        if (value && typeof value === 'string' && value.trim()) {
           initialVerified[key] = true; // Auto-check fields that have values
+        } else if (value && typeof value !== 'string') {
+          // Handle non-string values
+          initialVerified[key] = true;
         }
       });
       setVerifiedFields(initialVerified);
       setShowReviewForm(true);
+      
+      console.log("State updated - editedFields should now have", Object.keys(extractedFields).length, "keys");
       
       // Auto-select agency if only one match
       if (data.agency_matches && data.agency_matches.length === 1) {
@@ -190,8 +240,11 @@ export const DocumentScrubberPage: React.FC = () => {
       if (fields.contact_email) params.append("contact_email", fields.contact_email);
       
       const response = await fetch(
-        `http://127.0.0.1:8000/submissions/search-contacts/${agencyId}?${params.toString()}`,
-        { method: "POST" }
+        `${API_BASE_URL}/submissions/search-contacts/${agencyId}?${params.toString()}`,
+        { 
+          method: "POST",
+          headers: getAuthHeaders(),
+        }
       );
       
       if (response.ok) {
@@ -230,9 +283,14 @@ export const DocumentScrubberPage: React.FC = () => {
     }
     
     try {
-      const response = await fetch("http://127.0.0.1:8000/contacts", {
+      const headers = {
+        "Content-Type": "application/json",
+        ...getAuthHeaders(),
+      };
+      
+      const response = await fetch(`${API_BASE_URL}/contacts`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
           name: newContactName,
           title: newContactTitle,
@@ -349,9 +407,14 @@ export const DocumentScrubberPage: React.FC = () => {
     try {
       const verifiedData = getVerifiedData();
       
-      const response = await fetch("http://127.0.0.1:8000/submissions/", {
+      const headers = {
+        "Content-Type": "application/json",
+        ...getAuthHeaders(),
+      };
+      
+      const response = await fetch(`${API_BASE_URL}/submissions/`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
           ...verifiedData,
           agency_id: selectedAgencyId,
@@ -438,16 +501,24 @@ export const DocumentScrubberPage: React.FC = () => {
         </div>
 
         {/* Extraction Status */}
-        {showReviewForm && Object.keys(editedFields).length > 0 && (
+        {showReviewForm && (
           <div style={cardStyle}>
             <div style={{ marginBottom: 16, padding: 12, background: "#f0f9ff", borderRadius: 8, border: "1px solid #0ea5e9" }}>
               <div style={{ fontWeight: 600, marginBottom: 8 }}>📊 Extraction Status:</div>
               <div style={{ fontSize: 13 }}>
                 Total fields returned: {Object.keys(editedFields).length}<br/>
-                Fields with values: {Object.values(editedFields).filter(v => v && v.trim()).length}<br/>
-                {Object.values(editedFields).filter(v => v && v.trim()).length === 0 && (
+                Fields with values: {Object.values(editedFields).filter(v => v && typeof v === 'string' ? v.trim() : v).length}<br/>
+                {Object.keys(editedFields).length === 0 ? (
                   <div style={{ color: "#dc2626", marginTop: 8, fontWeight: 600 }}>
-                    ⚠️ AI extracted text but found no specific fields. The document may not contain underwriting data, or the AI couldn't parse it.
+                    ⚠️ No fields were extracted. You can manually enter data in the form below.
+                  </div>
+                ) : Object.values(editedFields).filter(v => v && typeof v === 'string' ? v.trim() : v).length === 0 ? (
+                  <div style={{ color: "#dc2626", marginTop: 8, fontWeight: 600 }}>
+                    ⚠️ AI extracted fields but all are empty. The document may not contain underwriting data, or the AI couldn't parse it. You can manually enter data below.
+                  </div>
+                ) : (
+                  <div style={{ color: "#059669", marginTop: 8, fontWeight: 600 }}>
+                    ✓ Successfully extracted {Object.values(editedFields).filter(v => v && typeof v === 'string' ? v.trim() : v).length} field(s) with data. Review and verify below.
                   </div>
                 )}
               </div>

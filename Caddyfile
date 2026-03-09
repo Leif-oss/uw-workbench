@@ -1,0 +1,56 @@
+# Caddy Reverse Proxy Configuration for UW Workbench
+# Using domain: dhcrm.com (with www redirect)
+
+# Redirect www to non-www (or handle both)
+dhcrm.com, www.dhcrm.com {
+    log {
+        output file /var/log/caddy/access.log
+        format console
+    }
+
+    # Redirect www to non-www (optional - you can remove this if you want both to work)
+    @www {
+        host www.dhcrm.com
+    }
+    redir @www https://dhcrm.com{uri} permanent
+
+    # Security Headers
+    header {
+        # HTTP Strict Transport Security (HSTS)
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        
+        # Content Security Policy - Secure (no unsafe-inline/unsafe-eval in scripts)
+        Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://api.openai.com; frame-ancestors 'self'; base-uri 'self'; form-action 'self';"
+        
+        # Referrer Policy
+        Referrer-Policy "strict-origin-when-cross-origin"
+        
+        # Permissions Policy
+        Permissions-Policy "geolocation=(), microphone=(), camera=(), payment=(), usb=(), magnetometer=(), gyroscope=(), accelerometer=()"
+        
+        # Remove server header for security
+        -Server
+        
+        # Additional security headers
+        X-Frame-Options "SAMEORIGIN"
+        X-Content-Type-Options "nosniff"
+        X-XSS-Protection "1; mode=block"
+    }
+
+    handle /api/* {
+        uri strip_prefix /api
+        reverse_proxy backend:8000 {
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+        }
+    }
+
+    handle {
+        reverse_proxy frontend:3000 {
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+        }
+    }
+}

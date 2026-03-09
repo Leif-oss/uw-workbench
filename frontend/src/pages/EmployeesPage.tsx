@@ -31,7 +31,8 @@ type Office = {
 type Employee = {
   id: number;
   name: string;
-  office_id: number | null;
+  office_id?: number | null; // Deprecated: kept for backward compatibility
+  office_ids?: number[]; // List of office IDs (many-to-many relationship)
   // We will treat everyone as "active" for now; we can add is_active later
 };
 
@@ -86,6 +87,7 @@ type Contact = {
   linkedin_url: string | null;
   notes: string | null;
   agency_id: number;
+  contact_frequency_days?: number | null;
 };
 
 interface EmployeeWithOffice extends Employee {
@@ -171,13 +173,25 @@ export const EmployeesPage: React.FC = () => {
       }
       const group = groups.get(emp.name)!;
       group.employeeIds.push(emp.id);
-      group.officeIds.push(emp.office_id);
       
-      const office = officeById.get(emp.office_id);
-      if (office) {
-        group.officeCodes.push(office.code);
-        group.officeNames.push(office.name);
-      }
+      // Get all office IDs for this employee (many-to-many relationship)
+      const employeeOfficeIds = emp.office_ids || (emp.office_id ? [emp.office_id] : []);
+      
+      // Add each office to the group
+      employeeOfficeIds.forEach((officeId) => {
+        if (!group.officeIds.includes(officeId)) {
+          group.officeIds.push(officeId);
+        }
+        const office = officeById.get(officeId);
+        if (office) {
+          if (!group.officeCodes.includes(office.code)) {
+            group.officeCodes.push(office.code);
+          }
+          if (!group.officeNames.includes(office.name)) {
+            group.officeNames.push(office.name);
+          }
+        }
+      });
     });
     
     return Array.from(groups.values()).sort((a, b) => a.name.localeCompare(b.name));
@@ -268,34 +282,53 @@ export const EmployeesPage: React.FC = () => {
       });
   }, [logs, selectedEmployee]);
 
-  const employeeTotalLogs = employeeLogs.length;
-
-  const employeeLogsLast30 = useMemo(() => {
+  // Calculate activity metrics for employee
+  const employeeActivityMetrics = useMemo(() => {
     const now = Date.now();
+    const twelveMonthsMs = 12 * 30 * 24 * 60 * 60 * 1000; // Approximate 12 months
     const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
 
-    return employeeLogs.filter((log) => {
+    const logs12Months = employeeLogs.filter((log) => {
+      const dt = new Date(log.datetime).getTime();
+      if (Number.isNaN(dt)) return false;
+      return now - dt <= twelveMonthsMs;
+    });
+
+    const logs30Days = employeeLogs.filter((log) => {
       const dt = new Date(log.datetime).getTime();
       if (Number.isNaN(dt)) return false;
       return now - dt <= thirtyDaysMs;
-    }).length;
+    });
+
+    const inPerson12Mo = logs12Months.filter(log => log.action === "In Person").length;
+    const emails12Mo = logs12Months.filter(log => log.action === "Email" || log.action === "Email Sent").length;
+    const phone12Mo = logs12Months.filter(log => log.action === "Call / Zoom").length;
+    const inPerson30d = logs30Days.filter(log => log.action === "In Person").length;
+    const emails30d = logs30Days.filter(log => log.action === "Email" || log.action === "Email Sent").length;
+    const phone30d = logs30Days.filter(log => log.action === "Call / Zoom").length;
+
+    return {
+      inPerson12Mo,
+      emails12Mo,
+      phone12Mo,
+      inPerson30d,
+      emails30d,
+      phone30d,
+    };
   }, [employeeLogs]);
 
   const employeeAgencies = useMemo(() => {
     if (!selectedEmployee) return [];
 
     const empIds = selectedEmployee.employeeIds;
-    const empName = selectedEmployee.name.trim().toLowerCase();
 
+    // Filter agencies where this employee is the CURRENT primary underwriter
+    // Only use primary_underwriter_id - do NOT fall back to name matching
+    // This ensures contacts switch correctly when primary underwriter changes
     return agencies
       .filter((ag) => {
-        const matchesId =
-          typeof ag.primary_underwriter_id === "number" && empIds.includes(ag.primary_underwriter_id);
-
-        const matchesName =
-          (ag.primary_underwriter || "").trim().toLowerCase() === empName;
-
-        return matchesId || matchesName;
+        // Match by primary_underwriter_id only (most accurate)
+        return typeof ag.primary_underwriter_id === "number" && empIds.includes(ag.primary_underwriter_id);
       })
       .sort((a, b) => {
         const an = (a.name || "").toLowerCase();
@@ -393,24 +426,35 @@ export const EmployeesPage: React.FC = () => {
   }, [selectedEmployee, employeeAgencies, production]);
 
   // Calculate contacts needing attention (not contacted in 90+ days or never)
+  // Shows all contacts from agencies where this employee is the CURRENT primary underwriter
+  // When primary underwriter changes, contacts automatically switch to new underwriter
   const contactsNeedingAttention = useMemo(() => {
     if (!selectedEmployee || employeeAgencies.length === 0) return [];
 
+    // Get agency IDs where this employee is CURRENTLY the primary underwriter
     const agencyIds = new Set(employeeAgencies.map((ag) => ag.id));
     const now = Date.now();
     const ninetyDaysMs = 90 * 24 * 60 * 60 * 1000;
 
-    // Get all contacts for employee's agencies
-    const employeeContacts = contacts.filter((contact) => agencyIds.has(contact.agency_id));
+    // Get ALL contacts from agencies where this employee is the primary underwriter
+    // Exclude contacts with contact_frequency_days === null (never contact)
+    const employeeContacts = contacts.filter((contact) => {
+      return agencyIds.has(contact.agency_id) && contact.contact_frequency_days !== null;
+    });
 
-    // For each contact, find the most recent log for their agency
+    // For each contact, find the most recent log specifically for that contact
     const contactsWithLastContact = employeeContacts.map((contact) => {
-      const agencyLogs = logs.filter((log) => log.agency_id === contact.agency_id);
+      // Look for logs specifically for this contact (by contact_id)
+      // This ensures we track when THIS specific contact was contacted, not just the agency
+      const contactLogs = logs.filter((log) => 
+        log.contact_id !== null && log.contact_id === contact.id
+      );
       
       let mostRecentLog: Log | null = null;
       let mostRecentTime = 0;
 
-      agencyLogs.forEach((log) => {
+      // Find the most recent contact-specific log
+      contactLogs.forEach((log) => {
         const logTime = new Date(log.datetime).getTime();
         if (!Number.isNaN(logTime) && logTime > mostRecentTime) {
           mostRecentTime = logTime;
@@ -420,20 +464,32 @@ export const EmployeesPage: React.FC = () => {
 
       const agency = agencies.find((ag) => ag.id === contact.agency_id);
 
+      // Calculate days since last contact
+      // If no contact-specific logs exist, contact was never contacted (daysSinceContact = Infinity)
+      const daysSinceContact = mostRecentLog 
+        ? Math.floor((now - mostRecentTime) / (24 * 60 * 60 * 1000)) 
+        : Infinity;
+
+      // Get the contact's frequency setting (default to 90 if not set)
+      const frequencyDays = contact.contact_frequency_days ?? 90;
+
       return {
         contact,
         agency,
         lastContactDate: mostRecentLog ? new Date(mostRecentLog.datetime) : null,
-        daysSinceContact: mostRecentLog ? Math.floor((now - mostRecentTime) / (24 * 60 * 60 * 1000)) : Infinity,
+        daysSinceContact,
+        frequencyDays,
       };
     });
 
-    // Filter to only contacts that need attention (>90 days or never)
+    // Filter to only contacts that need attention:
+    // - Never been contacted (daysSinceContact = Infinity)
+    // - Last contacted more than their frequency_days ago (daysSinceContact > frequencyDays)
     const needsAttention = contactsWithLastContact.filter(
-      (item) => item.daysSinceContact > 90 || item.daysSinceContact === Infinity
+      (item) => item.daysSinceContact > item.frequencyDays || item.daysSinceContact === Infinity
     );
 
-    // Sort by agency name, then contact name
+    // Sort by agency name, then contact name for easy browsing
     return needsAttention.sort((a, b) => {
       const agencyA = (a.agency?.name || "").toLowerCase();
       const agencyB = (b.agency?.name || "").toLowerCase();
@@ -759,29 +815,53 @@ export const EmployeesPage: React.FC = () => {
           </div>
 
           {/* Activity Stats */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 12 }}>
             <div style={{ ...panelStyle, padding: 16 }}>
               <div style={{ fontSize: 11, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>
-                Total Calls
+                In Person (12 Mo)
               </div>
               <div style={{ fontSize: 24, fontWeight: 700, color: "#1e40af" }}>
-                {employeeTotalLogs}
+                {employeeActivityMetrics.inPerson12Mo}
               </div>
             </div>
             <div style={{ ...panelStyle, padding: 16 }}>
               <div style={{ fontSize: 11, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>
-                Last 30 Days
+                Emails (12 Mo)
               </div>
               <div style={{ fontSize: 24, fontWeight: 700, color: "#059669" }}>
-                {employeeLogsLast30}
+                {employeeActivityMetrics.emails12Mo}
               </div>
             </div>
             <div style={{ ...panelStyle, padding: 16 }}>
               <div style={{ fontSize: 11, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>
-                Agencies
+                Phone (12 Mo)
               </div>
               <div style={{ fontSize: 24, fontWeight: 700, color: "#7c3aed" }}>
-                {employeeAgenciesCount}
+                {employeeActivityMetrics.phone12Mo}
+              </div>
+            </div>
+            <div style={{ ...panelStyle, padding: 16 }}>
+              <div style={{ fontSize: 11, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>
+                In Person (30d)
+              </div>
+              <div style={{ fontSize: 24, fontWeight: 700, color: "#1e40af" }}>
+                {employeeActivityMetrics.inPerson30d}
+              </div>
+            </div>
+            <div style={{ ...panelStyle, padding: 16 }}>
+              <div style={{ fontSize: 11, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>
+                Emails (30d)
+              </div>
+              <div style={{ fontSize: 24, fontWeight: 700, color: "#059669" }}>
+                {employeeActivityMetrics.emails30d}
+              </div>
+            </div>
+            <div style={{ ...panelStyle, padding: 16 }}>
+              <div style={{ fontSize: 11, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>
+                Phone (30d)
+              </div>
+              <div style={{ fontSize: 24, fontWeight: 700, color: "#7c3aed" }}>
+                {employeeActivityMetrics.phone30d}
               </div>
             </div>
           </div>
@@ -798,34 +878,6 @@ export const EmployeesPage: React.FC = () => {
               </div>
             ) : (
               <>
-                {/* Production Metrics */}
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 20 }}>
-                  <div style={{ padding: 12, background: "#eff6ff", borderRadius: 8 }}>
-                    <div style={{ fontSize: 11, color: "#1e40af", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>
-                      Current Year YTD
-                    </div>
-                    <div style={{ fontSize: 20, fontWeight: 700, color: "#1e40af" }}>
-                      ${(employeeProduction.currentYearTotal / 1000).toFixed(0)}k
-                    </div>
-                  </div>
-                  <div style={{ padding: 12, background: "#f3f4f6", borderRadius: 8 }}>
-                    <div style={{ fontSize: 11, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>
-                      Prior Year YTD
-                    </div>
-                    <div style={{ fontSize: 20, fontWeight: 700, color: "#6b7280" }}>
-                      ${(employeeProduction.priorYearTotal / 1000).toFixed(0)}k
-                    </div>
-                  </div>
-                  <div style={{ padding: 12, background: employeeProduction.percentChange >= 0 ? "#ecfdf5" : "#fef2f2", borderRadius: 8 }}>
-                    <div style={{ fontSize: 11, color: employeeProduction.percentChange >= 0 ? "#059669" : "#dc2626", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>
-                      Year-over-Year
-                    </div>
-                    <div style={{ fontSize: 20, fontWeight: 700, color: employeeProduction.percentChange >= 0 ? "#059669" : "#dc2626" }}>
-                      {employeeProduction.percentChange >= 0 ? "+" : ""}{employeeProduction.percentChange.toFixed(1)}%
-                    </div>
-                  </div>
-                </div>
-
                 {/* Production Graph */}
                 {employeeProductionData.length > 0 ? (
                   <TabbedProductionGraph
@@ -941,7 +993,7 @@ export const EmployeesPage: React.FC = () => {
               Recent Marketing Calls
             </h3>
 
-            {employeeTotalLogs === 0 ? (
+            {employeeActivityMetrics.inPerson12Mo === 0 && employeeActivityMetrics.emails12Mo === 0 && employeeActivityMetrics.phone12Mo === 0 && employeeActivityMetrics.inPerson30d === 0 && employeeActivityMetrics.emails30d === 0 && employeeActivityMetrics.phone30d === 0 ? (
               <div style={{ fontSize: 13, color: "#9ca3af", padding: 20, textAlign: "center" }}>
                 No marketing calls found for this employee yet.
               </div>

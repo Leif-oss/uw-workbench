@@ -1,0 +1,130 @@
+# Google Cloud Build configuration for CI/CD
+steps:
+  # Build and push backend image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/uw-workbench-backend:$BUILD_ID'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/uw-workbench-backend:latest'
+      - './backend'
+    id: 'build-backend'
+
+  # Push backend image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - '--all-tags'
+      - 'gcr.io/$PROJECT_ID/uw-workbench-backend'
+    id: 'push-backend'
+    waitFor: ['build-backend']
+
+  # Deploy backend to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'uw-workbench-backend'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/uw-workbench-backend:$BUILD_ID'
+      - '--region'
+      - 'us-central1'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--memory=512Mi'
+      - '--cpu=1'
+      - '--timeout=300'
+      - '--max-instances=10'
+      - '--set-secrets=AI_API_KEY=ai-api-key:latest,SMTP_HOST=smtp-host:latest,SMTP_PORT=smtp-port:latest,SMTP_USER=smtp-user:latest,SMTP_PASSWORD=smtp-password:latest,SMTP_FROM_EMAIL=smtp-from-email:latest,SMTP_FROM_NAME=smtp-from-name:latest,DB_PASSWORD=db-password:latest'
+      - '--set-env-vars=ENVIRONMENT=production,TEMP_SETUP_MODE=true,DB_USER=postgres,DB_NAME=uw_workbench,CLOUD_SQL_CONNECTION_NAME=ultra-ace-481723-e6:us-central1:uw-workbench-db'
+      - '--add-cloudsql-instances'
+      - 'ultra-ace-481723-e6:us-central1:uw-workbench-db'
+    id: 'deploy-backend'
+    waitFor: ['push-backend']
+
+  # Get backend URL for frontend build
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: bash
+    args:
+      - '-c'
+      - |
+        BACKEND_URL=$$(gcloud run services describe uw-workbench-backend --region=us-central1 --format="value(status.url)")
+        echo "Backend URL: $$BACKEND_URL"
+        echo "$$BACKEND_URL" > /workspace/backend-url.txt
+    id: 'get-backend-url'
+    waitFor: ['deploy-backend']
+
+  # Build and push frontend image with backend URL
+  - name: 'gcr.io/cloud-builders/docker'
+    entrypoint: bash
+    args:
+      - '-c'
+      - |
+        BACKEND_URL=$$(cat /workspace/backend-url.txt)
+        echo "Building frontend with backend URL: $$BACKEND_URL"
+        docker build \
+          --build-arg VITE_API_URL=$$BACKEND_URL \
+          -t gcr.io/$PROJECT_ID/uw-workbench-frontend:$BUILD_ID \
+          -t gcr.io/$PROJECT_ID/uw-workbench-frontend:latest \
+          ./frontend
+    id: 'build-frontend'
+    waitFor: ['get-backend-url']
+
+  # Push frontend image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - '--all-tags'
+      - 'gcr.io/$PROJECT_ID/uw-workbench-frontend'
+    id: 'push-frontend'
+    waitFor: ['build-frontend']
+
+  # Deploy frontend to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'uw-workbench-frontend'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/uw-workbench-frontend:$BUILD_ID'
+      - '--region'
+      - 'us-central1'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--memory=256Mi'
+      - '--set-env-vars=ENVIRONMENT=production'
+    id: 'deploy-frontend'
+    waitFor: ['push-frontend']
+
+  # Update backend CORS and FRONTEND_URL with frontend URL
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: bash
+    args:
+      - '-c'
+      - |
+        FRONTEND_URL=$$(gcloud run services describe uw-workbench-frontend --region=us-central1 --format="value(status.url)")
+        echo "Frontend URL: $$FRONTEND_URL"
+        echo "Updating backend CORS and FRONTEND_URL with frontend URL..."
+        gcloud run services update uw-workbench-backend \
+          --region=us-central1 \
+          --update-env-vars="CORS_ORIGINS=$$FRONTEND_URL,FRONTEND_URL=$$FRONTEND_URL"
+    id: 'update-cors'
+    waitFor: ['deploy-frontend']
+
+images:
+  - 'gcr.io/$PROJECT_ID/uw-workbench-backend:$BUILD_ID'
+  - 'gcr.io/$PROJECT_ID/uw-workbench-backend:latest'
+  - 'gcr.io/$PROJECT_ID/uw-workbench-frontend:$BUILD_ID'
+  - 'gcr.io/$PROJECT_ID/uw-workbench-frontend:latest'
+
+options:
+  machineType: 'E2_HIGHCPU_8'
+  logging: CLOUD_LOGGING_ONLY
+
+timeout: '1200s'
+

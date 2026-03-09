@@ -9,6 +9,7 @@ from ..auth.proxy_headers import (
     require_office_access,
     require_authenticated,
 )
+from ..routers.admin import require_admin
 from ..services.audit import log_audit_event, get_entity_snapshot
 
 router = APIRouter(prefix="/offices", tags=["offices"])
@@ -86,3 +87,70 @@ def create_office(
         )
     
     return new_office
+
+
+@router.delete("/{office_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_office(
+    office_id: int,
+    request: Request,
+    user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Delete an office. Only admins can delete offices.
+    
+    The office can only be deleted if it has no associated employees or agencies.
+    This endpoint requires admin authentication.
+    """
+    require_authenticated(user)
+    require_admin(user)
+    
+    office = db.get(models.Office, office_id)
+    if not office:
+        raise HTTPException(status_code=404, detail="Office not found")
+    
+    # Check if office has employees (check both many-to-many relationship and legacy office_id)
+    # Count employees through the many-to-many relationship
+    employee_count_m2m = db.query(models.Employee).join(
+        models.employee_offices
+    ).filter(models.employee_offices.c.office_id == office_id).count()
+    
+    # Count employees through legacy office_id field
+    employee_count_legacy = db.query(models.Employee).filter(
+        models.Employee.office_id == office_id
+    ).count()
+    
+    # Total employee count (using distinct to avoid double-counting)
+    employee_count = max(employee_count_m2m, employee_count_legacy)
+    
+    # Check agencies
+    agency_count = db.query(models.Agency).filter(models.Agency.office_id == office_id).count()
+    
+    if employee_count > 0 or agency_count > 0:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot delete office: {employee_count} employee(s) and {agency_count} agency/agencies are associated with this office. Please reassign or delete them first."
+        )
+    
+    office_snapshot = get_entity_snapshot(office)
+    
+    db.delete(office)
+    db.commit()
+    
+    # Log delete action
+    if request:
+        log_audit_event(
+            actor_email=user["email"],
+            action="DELETE",
+            entity_type="office",
+            entity_id=office_id,
+            office_id=office_id,
+            actor_employee_id=user.get("employee_id"),
+            details={"deleted": office_snapshot},
+            request_path=str(request.url.path),
+            request_method="DELETE",
+            ip_address=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent"),
+            db=db,
+        )
+    
+    return None
