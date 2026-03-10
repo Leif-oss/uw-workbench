@@ -88,8 +88,33 @@ const CrmHomePage: React.FC = () => {
     const twelveMonthsMs = 12 * 30 * 24 * 60 * 60 * 1000; // Approximate 12 months
     const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
 
-    const statsMap = new Map<string, UnderwriterStats>();
+    // Get employees for the selected office (or all employees if no office selected)
+    const relevantEmployees = selectedOfficeId
+      ? employees.filter((emp) => 
+          (emp.office_ids && emp.office_ids.includes(selectedOfficeId)) || 
+          (emp.office_id === selectedOfficeId) // Backward compatibility
+        )
+      : employees;
 
+    // Initialize stats map with all relevant employees (so they show up even with no logs)
+    const statsMap = new Map<string, UnderwriterStats>();
+    relevantEmployees.forEach((emp) => {
+      const empName = (emp.name || "").trim();
+      if (empName) {
+        const userKey = empName.toLowerCase();
+        statsMap.set(userKey, {
+          user: empName,
+          inPerson12Mo: 0,
+          emails12Mo: 0,
+          phone12Mo: 0,
+          inPerson30d: 0,
+          emails30d: 0,
+          phone30d: 0,
+        });
+      }
+    });
+
+    // Process logs to update stats
     logs.forEach((log) => {
       const user = (log.user || "").trim();
       if (!user) return;
@@ -97,6 +122,14 @@ const CrmHomePage: React.FC = () => {
       const logDate = new Date(log.datetime).getTime();
       if (Number.isNaN(logDate)) return;
       const action = (log.action || "").trim();
+
+      // Only process logs for relevant employees (if office is selected)
+      if (selectedOfficeId) {
+        const allowedUserNames = new Set(
+          relevantEmployees.map((emp) => (emp.name || "").trim().toLowerCase())
+        );
+        if (!allowedUserNames.has(userKey)) return;
+      }
 
       const current = statsMap.get(userKey) || {
         user,
@@ -131,18 +164,6 @@ const CrmHomePage: React.FC = () => {
     });
 
     let result = Array.from(statsMap.values());
-
-    if (selectedOfficeId) {
-      const allowedUsers = new Set(
-        employees
-          .filter((emp) => 
-            (emp.office_ids && emp.office_ids.includes(selectedOfficeId)) || 
-            (emp.office_id === selectedOfficeId) // Backward compatibility
-          )
-          .map((emp) => (emp.name || "").trim().toLowerCase())
-      );
-      result = result.filter((s) => allowedUsers.has((s.user || "").trim().toLowerCase()));
-    }
 
     // Apply sorting
     if (sortColumn) {

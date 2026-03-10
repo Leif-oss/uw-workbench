@@ -711,10 +711,10 @@ type ProductionRecord = {
       </div>
       <div
         style={{
-          padding: 16,
+          padding: "12px 10px",
           display: "grid",
-          gridTemplateColumns: "1.1fr 1.4fr 1.3fr",
-          gap: 16,
+          gridTemplateColumns: "1.2fr 1.5fr 0.9fr",
+          gap: 10,
           alignItems: "flex-start",
         }}
       >
@@ -2157,12 +2157,12 @@ type ProductionRecord = {
       </div>
 
       {/* RIGHT COLUMN: Log form + history */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        <div style={{ ...cardStyle, display: "flex", flexDirection: "column", gap: 8 }}>
-          <div style={{ fontSize: 13, fontWeight: 600 }}>Log New Marketing Call</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 0, maxWidth: "100%" }}>
+        <div style={{ ...cardStyle, display: "flex", flexDirection: "column", gap: 6, padding: "10px 12px" }}>
+          <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>Log New Marketing Call</div>
           
           {/* Contact Select */}
-          <label style={{ fontSize: 12, color: "#374151", display: "block" }}>
+          <label style={{ fontSize: 11, color: "#374151", display: "block" }}>
             Contact
             <select
               value={selectedContactId || ""}
@@ -2173,7 +2173,7 @@ type ProductionRecord = {
                   setPrimaryContactId(contactId);
                 }
               }}
-              style={selectStyle}
+              style={{ ...selectStyle, fontSize: 12, padding: "6px 8px" }}
             >
               <option value="">Select a contact...</option>
               {contacts.map((c) => (
@@ -2185,12 +2185,12 @@ type ProductionRecord = {
           </label>
 
           {/* Underwriter Select */}
-          <label style={{ fontSize: 12, color: "#374151", display: "block" }}>
+          <label style={{ fontSize: 11, color: "#374151", display: "block" }}>
             Underwriter
             <select
               value={selectedUnderwriter}
               onChange={(e) => setSelectedUnderwriter(e.target.value)}
-              style={selectStyle}
+              style={{ ...selectStyle, fontSize: 12, padding: "6px 8px" }}
             >
               <option value="">Select an underwriter...</option>
               {underwritersForOffice.map((uw) => (
@@ -2201,12 +2201,12 @@ type ProductionRecord = {
             </select>
           </label>
 
-          <label style={{ fontSize: 12, color: "#374151", display: "block" }}>
+          <label style={{ fontSize: 11, color: "#374151", display: "block" }}>
             Action
             <select
               value={logAction}
               onChange={(e) => setLogAction(e.target.value as LogAction)}
-              style={inputStyle}
+              style={{ ...inputStyle, fontSize: 12, padding: "6px 8px" }}
             >
               {LOG_ACTION_OPTIONS.map((opt) => (
                 <option key={opt} value={opt}>
@@ -2216,48 +2216,49 @@ type ProductionRecord = {
             </select>
           </label>
 
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <label style={{ fontSize: 12, color: "#374151", flex: 1, minWidth: 140 }}>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            <label style={{ fontSize: 11, color: "#374151", flex: 1, minWidth: 120 }}>
               Date
               <input
                 type="date"
                 value={logDate}
                 onChange={(e) => setLogDate(e.target.value)}
-                style={inputStyle}
+                style={{ ...inputStyle, fontSize: 12, padding: "6px 8px" }}
               />
             </label>
           </div>
 
-          <label style={{ fontSize: 12, color: "#374151", display: "block" }}>
+          <label style={{ fontSize: 11, color: "#374151", display: "block" }}>
             Notes
             <textarea
               value={logNotes}
               onChange={(e) => setLogNotes(e.target.value)}
-              rows={4}
-              style={{ ...inputStyle, resize: "vertical" }}
+              rows={3}
+              style={{ ...inputStyle, resize: "vertical", fontSize: 12, padding: "6px 8px" }}
             />
           </label>
 
-          {logError && <div style={{ color: "red", fontSize: 12 }}>{logError}</div>}
+          {logError && <div style={{ color: "red", fontSize: 11 }}>{logError}</div>}
           {hasAttemptedSubmit && !isLogFormValid && !logError && (
-            <div style={{ color: "#b91c1c", fontSize: 12 }}>
+            <div style={{ color: "#b91c1c", fontSize: 11 }}>
               Contact, underwriter, action, and date are required to save a log.
             </div>
           )}
-          {logSuccess && <div style={{ color: "#16a34a", fontSize: 12 }}>{logSuccess}</div>}
+          {logSuccess && <div style={{ color: "#16a34a", fontSize: 11 }}>{logSuccess}</div>}
 
-          <div style={{ display: "flex", justifyContent: "flex-end" }}>
+          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 4 }}>
             <button
               type="button"
               onClick={handleCreateLog}
               style={{
-                padding: "8px 12px",
-                borderRadius: 8,
+                padding: "6px 10px",
+                borderRadius: 6,
                 border: "1px solid #2563eb",
                 background: "#2563eb",
                 color: "#ffffff",
                 cursor: "pointer",
                 fontWeight: 600,
+                fontSize: 12,
               }}
               disabled={isSavingLog || !isLogFormValid}
             >
@@ -2266,8 +2267,8 @@ type ProductionRecord = {
           </div>
         </div>
 
-        <div style={cardStyle}>
-          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Marketing Log History</div>
+        <div style={{ ...cardStyle, padding: "10px 12px" }}>
+          <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Marketing Log History</div>
           {logsForAgency.length === 0 ? (
             <div style={{ fontSize: 12, color: "#6b7280" }}>No marketing logs yet for this agency.</div>
           ) : (
@@ -2390,6 +2391,27 @@ type ProductionRecord = {
                                         >
                                           [more]
                                         </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleDeleteLog(log.id)}
+                                          style={{
+                                            marginLeft: 8,
+                                            border: "1px solid #ef4444",
+                                            background: "#fff",
+                                            color: "#b91c1c",
+                                            borderRadius: 4,
+                                            padding: "2px 8px",
+                                            fontSize: 11,
+                                            cursor: "pointer",
+                                            whiteSpace: "nowrap",
+                                            fontWeight: 500,
+                                            display: "inline-block",
+                                            verticalAlign: "baseline",
+                                          }}
+                                          disabled={isDeletingLogId === log.id}
+                                        >
+                                          {isDeletingLogId === log.id ? "Deleting..." : "Delete"}
+                                        </button>
                                       </div>
                                     ) : hasLongNotes && isExpanded ? (
                                       <div style={{ lineHeight: 1.5 }}>
@@ -2417,33 +2439,80 @@ type ProductionRecord = {
                                         >
                                           [less]
                                         </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleDeleteLog(log.id)}
+                                          style={{
+                                            marginLeft: 8,
+                                            border: "1px solid #ef4444",
+                                            background: "#fff",
+                                            color: "#b91c1c",
+                                            borderRadius: 4,
+                                            padding: "2px 8px",
+                                            fontSize: 11,
+                                            cursor: "pointer",
+                                            whiteSpace: "nowrap",
+                                            fontWeight: 500,
+                                            display: "inline-block",
+                                            verticalAlign: "baseline",
+                                          }}
+                                          disabled={isDeletingLogId === log.id}
+                                        >
+                                          {isDeletingLogId === log.id ? "Deleting..." : "Delete"}
+                                        </button>
                                       </div>
                                     ) : (
-                                      <span style={{ wordBreak: "break-word", whiteSpace: "pre-wrap", lineHeight: 1.5, display: "inline-block" }}>{log.notes}</span>
+                                      <span style={{ wordBreak: "break-word", whiteSpace: "pre-wrap", lineHeight: 1.5, display: "inline-block" }}>
+                                        {log.notes}
+                                        <button
+                                          type="button"
+                                          onClick={() => handleDeleteLog(log.id)}
+                                          style={{
+                                            marginLeft: 8,
+                                            border: "1px solid #ef4444",
+                                            background: "#fff",
+                                            color: "#b91c1c",
+                                            borderRadius: 4,
+                                            padding: "2px 8px",
+                                            fontSize: 11,
+                                            cursor: "pointer",
+                                            whiteSpace: "nowrap",
+                                            fontWeight: 500,
+                                            display: "inline-block",
+                                            verticalAlign: "baseline",
+                                          }}
+                                          disabled={isDeletingLogId === log.id}
+                                        >
+                                          {isDeletingLogId === log.id ? "Deleting..." : "Delete"}
+                                        </button>
+                                      </span>
                                     )
                                   ) : (
-                                    <span style={{ color: "#9ca3af" }}>—</span>
+                                    <span style={{ color: "#9ca3af" }}>
+                                      —
+                                      <button
+                                        type="button"
+                                        onClick={() => handleDeleteLog(log.id)}
+                                        style={{
+                                          marginLeft: 8,
+                                          border: "1px solid #ef4444",
+                                          background: "#fff",
+                                          color: "#b91c1c",
+                                          borderRadius: 4,
+                                          padding: "2px 8px",
+                                          fontSize: 11,
+                                          cursor: "pointer",
+                                          whiteSpace: "nowrap",
+                                          fontWeight: 500,
+                                          display: "inline-block",
+                                          verticalAlign: "baseline",
+                                        }}
+                                        disabled={isDeletingLogId === log.id}
+                                      >
+                                        {isDeletingLogId === log.id ? "Deleting..." : "Delete"}
+                                      </button>
+                                    </span>
                                   )}
-                                </div>
-                                <div style={{ flexShrink: 0 }}>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleDeleteLog(log.id)}
-                                    style={{
-                                      border: "1px solid #ef4444",
-                                      background: "#fff",
-                                      color: "#b91c1c",
-                                      borderRadius: 4,
-                                      padding: "2px 8px",
-                                      fontSize: 11,
-                                      cursor: "pointer",
-                                      whiteSpace: "nowrap",
-                                      fontWeight: 500,
-                                    }}
-                                    disabled={isDeletingLogId === log.id}
-                                  >
-                                    {isDeletingLogId === log.id ? "Deleting..." : "Delete"}
-                                  </button>
                                 </div>
                               </div>
                             </td>

@@ -23,21 +23,11 @@ def get_agencies(
     user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Get all agencies, filtered by user's office access."""
+    """Get all agencies. All authenticated users can view all agencies."""
     require_authenticated(user)
     
-    query = db.query(models.Agency)
-    
-    # Admin can see all agencies (no filtering)
-    if "admin" not in user.get("groups", []):
-        # Non-admin: filter by user's office if they have one
-        user_office_id = user.get("office_id")
-        if user_office_id:
-            query = query.filter(models.Agency.office_id == user_office_id)
-        # If no office_id, return all agencies (allow access in dev mode)
-        # In production, this might be restricted differently
-    
-    agencies = query.all()
+    # All users can see all agencies - no filtering for viewing
+    agencies = db.query(models.Agency).all()
     
     # Skip audit logging for VIEW actions to improve performance
     # Only log CREATE, UPDATE, DELETE operations
