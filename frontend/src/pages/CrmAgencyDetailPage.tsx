@@ -713,7 +713,7 @@ type ProductionRecord = {
         style={{
           padding: "12px 10px",
           display: "grid",
-          gridTemplateColumns: "1fr 1.2fr 1fr",
+          gridTemplateColumns: "1.2fr 1.5fr 0.9fr",
           gap: 10,
           alignItems: "flex-start",
         }}
@@ -2157,8 +2157,8 @@ type ProductionRecord = {
       </div>
 
       {/* RIGHT COLUMN: Log form + history */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        <div style={{ ...cardStyle, display: "flex", flexDirection: "column", gap: 6, padding: "12px 14px" }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 0, maxWidth: "100%" }}>
+        <div style={{ ...cardStyle, display: "flex", flexDirection: "column", gap: 6, padding: "10px 12px" }}>
           <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>Log New Marketing Call</div>
           
           {/* Contact Select */}
@@ -2267,8 +2267,8 @@ type ProductionRecord = {
           </div>
         </div>
 
-        <div style={cardStyle}>
-          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Marketing Log History</div>
+        <div style={{ ...cardStyle, padding: "10px 12px" }}>
+          <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Marketing Log History</div>
           {logsForAgency.length === 0 ? (
             <div style={{ fontSize: 12, color: "#6b7280" }}>No marketing logs yet for this agency.</div>
           ) : (

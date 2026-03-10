@@ -68,31 +68,35 @@ export const tableContainerStyle: React.CSSProperties = {
   overflow: "auto",
   borderRadius: 10,
   border: "1px solid #e5e7eb",
+  maxWidth: "100%",
 };
 
 export const tableBaseStyle: React.CSSProperties = {
   width: "100%",
+  maxWidth: "100%",
   borderCollapse: "collapse",
-  fontSize: 12,
+  fontSize: 11,
+  tableLayout: "auto",
 };
 
 export const tableHeaderCellStyle: React.CSSProperties = {
-  padding: "6px 8px",
+  padding: "4px 6px",
   textAlign: "left",
   borderBottom: "1px solid #f1f5f9",
   whiteSpace: "nowrap",
   fontWeight: 500,
   color: "#6b7280",
-  fontSize: 11,
+  fontSize: 10,
   textTransform: "uppercase",
   letterSpacing: "0.05em",
 };
 
 export const tableCellStyle: React.CSSProperties = {
-  padding: "6px 8px",
+  padding: "4px 6px",
   textAlign: "left",
   borderBottom: "1px solid #f1f5f9",
   whiteSpace: "nowrap",
+  fontSize: 11,
 };
 
 export const selectStyle: React.CSSProperties = {
