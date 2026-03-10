@@ -48,15 +48,16 @@ export const WorkbenchLayout: React.FC<WorkbenchLayoutProps> = ({
       <main
         style={{
           display: "flex",
-          padding: 16,
-          gap: 16,
+          padding: "16px 12px",
+          gap: 12,
           minHeight: "calc(100vh - 56px)",
         }}
       >
         {sidebar && (
           <aside
             style={{
-              width: 260,
+              width: 240,
+              flexShrink: 0,
               background: "#ffffff",
               borderRadius: 12,
               padding: 14,
@@ -70,7 +71,7 @@ export const WorkbenchLayout: React.FC<WorkbenchLayoutProps> = ({
           </aside>
         )}
 
-        <section style={{ flex: 1, display: "flex", flexDirection: "column", gap: 12 }}>
+        <section style={{ flex: 1, display: "flex", flexDirection: "column", gap: 12, minWidth: 0 }}>
           {children}
         </section>
       </main>
