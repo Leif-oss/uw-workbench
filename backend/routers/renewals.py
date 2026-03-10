@@ -19,9 +19,15 @@ def get_renewals(
     """Get all renewals for the current user"""
     employee_id = user.get("employee_id")
     if not employee_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Employee ID not found")
+        # If user has no employee_id, return empty list (not an error, just no renewals)
+        return []
     
+    # Explicitly filter by employee_id to ensure user only sees their own renewals
     renewals = crud.get_renewals(db, employee_id=employee_id, status=status)
+    
+    # Double-check: filter out any renewals that don't belong to this user (safety check)
+    renewals = [r for r in renewals if r.created_by_employee_id == employee_id]
+    
     return renewals
 
 
