@@ -102,6 +102,7 @@ type ProductionRecord = {
 
   const [contactSearch, setContactSearch] = useState("");
   const [selectedContactId, setSelectedContactId] = useState<number | null>(null);
+  const [selectedContactIds, setSelectedContactIds] = useState<number[]>([]);
   const [primaryContactId, setPrimaryContactId] = useState<number | null>(null);
 
   const [selectedUnderwriter, setSelectedUnderwriter] = useState<string>("");
@@ -115,7 +116,7 @@ type ProductionRecord = {
   const [isDeletingLogId, setIsDeletingLogId] = useState<number | null>(null);
   const [expandedLogId, setExpandedLogId] = useState<number | null>(null);
   const isLogFormValid = Boolean(
-    selectedContactId && selectedUnderwriter.trim() && logAction.trim() && logDate
+    selectedContactIds.length > 0 && selectedUnderwriter.trim() && logAction.trim() && logDate
   );
 
   const [newContactName, setNewContactName] = useState("");
@@ -447,8 +448,8 @@ type ProductionRecord = {
       return;
     }
     
-    if (!selectedContactId) {
-      setLogError("A contact must be selected.");
+    if (selectedContactIds.length === 0) {
+      setLogError("At least one contact must be selected.");
       return;
     }
     
@@ -477,33 +478,41 @@ type ProductionRecord = {
       
       const office = agency?.office_id ? String(agency.office_id) : null;
       
-      // Get the contact name to freeze in the log
-      const contactObj = contacts.find(c => c.id === selectedContactId);
-      const contactName = contactObj?.name || null;
+      // Create a log entry for each selected contact
+      const logPromises = selectedContactIds.map(async (contactId) => {
+        const contactObj = contacts.find(c => c.id === contactId);
+        const contactName = contactObj?.name || null;
+        
+        const payload = {
+          user: selectedUnderwriter.trim(),
+          datetime: datetimeIso,
+          action: logAction.trim(),
+          agency_id: agencyIdNum,
+          office,
+          notes: logNotes.trim() || null,
+          contact_id: contactId,
+          contact: contactName,
+        };
+        
+        return apiPost<Log, typeof payload>("/logs", payload);
+      });
       
-      // Create single log entry
-      const payload = {
-        user: selectedUnderwriter.trim(),
-        datetime: datetimeIso,
-        action: logAction.trim(),
-        agency_id: agencyIdNum,
-        office,
-        notes: logNotes.trim() || null,
-        contact_id: selectedContactId,
-        contact: contactName,
-      };
-      
-      await apiPost<Log, typeof payload>("/logs", payload);
+      await Promise.all(logPromises);
       
       // Refresh logs
       const refreshed = await apiGet<Log[]>(`/logs?agency_id=${agencyIdNum}`);
       setLogs(refreshed || []);
       
+      // Save count before clearing
+      const contactCount = selectedContactIds.length;
+      
       // Clear form
       setLogNotes("");
       setLogAction("In Person");
       setLogDate("");
-      setLogSuccess("Marketing log saved.");
+      setSelectedContactIds([]);
+      setSelectedContactId(null);
+      setLogSuccess(`Marketing log saved for ${contactCount} contact(s).`);
       setHasAttemptedSubmit(false);
       
       // Clear success message after 3 seconds
@@ -2161,27 +2170,39 @@ type ProductionRecord = {
         <div style={{ ...cardStyle, display: "flex", flexDirection: "column", gap: 8 }}>
           <div style={{ fontSize: 13, fontWeight: 600 }}>Log New Marketing Call</div>
           
-          {/* Contact Select */}
+          {/* Contact Select - Multi-select */}
           <label style={{ fontSize: 12, color: "#374151", display: "block" }}>
-            Contact
+            Contacts (select multiple for one call)
             <select
-              value={selectedContactId || ""}
+              multiple
+              value={selectedContactIds.map(id => String(id))}
               onChange={(e) => {
-                const contactId = e.target.value ? Number(e.target.value) : null;
-                setSelectedContactId(contactId);
-                if (contactId) {
-                  setPrimaryContactId(contactId);
+                const selected = Array.from(e.target.selectedOptions, option => Number(option.value));
+                setSelectedContactIds(selected);
+                // Also update single selection for backward compatibility
+                setSelectedContactId(selected.length > 0 ? selected[0] : null);
+                if (selected.length > 0) {
+                  setPrimaryContactId(selected[0]);
                 }
               }}
-              style={selectStyle}
+              style={{
+                ...selectStyle,
+                minHeight: "120px",
+                padding: "8px",
+              }}
+              size={Math.min(contacts.length + 1, 6)}
             >
-              <option value="">Select a contact...</option>
               {contacts.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}{c.title ? ` - ${c.title}` : ""}
                 </option>
               ))}
             </select>
+            <div style={{ fontSize: 11, color: "#6b7280", marginTop: 4 }}>
+              {selectedContactIds.length > 0 
+                ? `${selectedContactIds.length} contact(s) selected. Hold Ctrl/Cmd to select multiple.`
+                : "Hold Ctrl (Windows) or Cmd (Mac) to select multiple contacts."}
+            </div>
           </label>
 
           {/* Underwriter Select */}
@@ -2241,7 +2262,7 @@ type ProductionRecord = {
           {logError && <div style={{ color: "red", fontSize: 12 }}>{logError}</div>}
           {hasAttemptedSubmit && !isLogFormValid && !logError && (
             <div style={{ color: "#b91c1c", fontSize: 12 }}>
-              Contact, underwriter, action, and date are required to save a log.
+              At least one contact, underwriter, action, and date are required to save a log.
             </div>
           )}
           {logSuccess && <div style={{ color: "#16a34a", fontSize: 12 }}>{logSuccess}</div>}
