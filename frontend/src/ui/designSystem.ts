@@ -5,7 +5,7 @@ export const appBackground = "#f3f4f6";
 export const cardStyle: React.CSSProperties = {
   background: "#ffffff",
   borderRadius: 12,
-  padding: "16px 20px",
+  padding: "12px 14px",
   boxShadow: "0 1px 3px rgba(15, 23, 42, 0.08)",
 };
 
