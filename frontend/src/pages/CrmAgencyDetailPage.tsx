@@ -2391,6 +2391,27 @@ type ProductionRecord = {
                                         >
                                           [more]
                                         </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleDeleteLog(log.id)}
+                                          style={{
+                                            marginLeft: 8,
+                                            border: "1px solid #ef4444",
+                                            background: "#fff",
+                                            color: "#b91c1c",
+                                            borderRadius: 4,
+                                            padding: "2px 8px",
+                                            fontSize: 11,
+                                            cursor: "pointer",
+                                            whiteSpace: "nowrap",
+                                            fontWeight: 500,
+                                            display: "inline-block",
+                                            verticalAlign: "baseline",
+                                          }}
+                                          disabled={isDeletingLogId === log.id}
+                                        >
+                                          {isDeletingLogId === log.id ? "Deleting..." : "Delete"}
+                                        </button>
                                       </div>
                                     ) : hasLongNotes && isExpanded ? (
                                       <div style={{ lineHeight: 1.5 }}>
@@ -2418,33 +2439,80 @@ type ProductionRecord = {
                                         >
                                           [less]
                                         </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleDeleteLog(log.id)}
+                                          style={{
+                                            marginLeft: 8,
+                                            border: "1px solid #ef4444",
+                                            background: "#fff",
+                                            color: "#b91c1c",
+                                            borderRadius: 4,
+                                            padding: "2px 8px",
+                                            fontSize: 11,
+                                            cursor: "pointer",
+                                            whiteSpace: "nowrap",
+                                            fontWeight: 500,
+                                            display: "inline-block",
+                                            verticalAlign: "baseline",
+                                          }}
+                                          disabled={isDeletingLogId === log.id}
+                                        >
+                                          {isDeletingLogId === log.id ? "Deleting..." : "Delete"}
+                                        </button>
                                       </div>
                                     ) : (
-                                      <span style={{ wordBreak: "break-word", whiteSpace: "pre-wrap", lineHeight: 1.5, display: "inline-block" }}>{log.notes}</span>
+                                      <span style={{ wordBreak: "break-word", whiteSpace: "pre-wrap", lineHeight: 1.5, display: "inline-block" }}>
+                                        {log.notes}
+                                        <button
+                                          type="button"
+                                          onClick={() => handleDeleteLog(log.id)}
+                                          style={{
+                                            marginLeft: 8,
+                                            border: "1px solid #ef4444",
+                                            background: "#fff",
+                                            color: "#b91c1c",
+                                            borderRadius: 4,
+                                            padding: "2px 8px",
+                                            fontSize: 11,
+                                            cursor: "pointer",
+                                            whiteSpace: "nowrap",
+                                            fontWeight: 500,
+                                            display: "inline-block",
+                                            verticalAlign: "baseline",
+                                          }}
+                                          disabled={isDeletingLogId === log.id}
+                                        >
+                                          {isDeletingLogId === log.id ? "Deleting..." : "Delete"}
+                                        </button>
+                                      </span>
                                     )
                                   ) : (
-                                    <span style={{ color: "#9ca3af" }}>—</span>
+                                    <span style={{ color: "#9ca3af" }}>
+                                      —
+                                      <button
+                                        type="button"
+                                        onClick={() => handleDeleteLog(log.id)}
+                                        style={{
+                                          marginLeft: 8,
+                                          border: "1px solid #ef4444",
+                                          background: "#fff",
+                                          color: "#b91c1c",
+                                          borderRadius: 4,
+                                          padding: "2px 8px",
+                                          fontSize: 11,
+                                          cursor: "pointer",
+                                          whiteSpace: "nowrap",
+                                          fontWeight: 500,
+                                          display: "inline-block",
+                                          verticalAlign: "baseline",
+                                        }}
+                                        disabled={isDeletingLogId === log.id}
+                                      >
+                                        {isDeletingLogId === log.id ? "Deleting..." : "Delete"}
+                                      </button>
+                                    </span>
                                   )}
-                                </div>
-                                <div style={{ flexShrink: 0 }}>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleDeleteLog(log.id)}
-                                    style={{
-                                      border: "1px solid #ef4444",
-                                      background: "#fff",
-                                      color: "#b91c1c",
-                                      borderRadius: 4,
-                                      padding: "2px 8px",
-                                      fontSize: 11,
-                                      cursor: "pointer",
-                                      whiteSpace: "nowrap",
-                                      fontWeight: 500,
-                                    }}
-                                    disabled={isDeletingLogId === log.id}
-                                  >
-                                    {isDeletingLogId === log.id ? "Deleting..." : "Delete"}
-                                  </button>
                                 </div>
                               </div>
                             </td>
