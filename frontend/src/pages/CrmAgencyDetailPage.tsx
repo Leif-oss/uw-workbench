@@ -308,6 +308,42 @@ type ProductionRecord = {
     return contacts[0] || null;
   }, [contacts, primaryContactId]);
 
+  // Load new business count for selected contact
+  const loadNewBusinessCount = async () => {
+    if (!selectedContact?.id) {
+      setContactNewBusinessCount(null);
+      return;
+    }
+    try {
+      const response = await apiGet<{ contact_id: number; count: number; months: number }>(
+        `/contacts/${selectedContact.id}/new-business-count?months=12`
+      );
+      setContactNewBusinessCount(response.count);
+    } catch (err) {
+      console.error("Failed to load new business count", err);
+      setContactNewBusinessCount(0);
+    }
+  };
+
+  useEffect(() => {
+    loadNewBusinessCount();
+  }, [selectedContact?.id]);
+
+  // Listen for new business creation events
+  useEffect(() => {
+    const handleNewBusinessCreated = (event: CustomEvent) => {
+      // Refresh counter if the created business is for the currently selected contact
+      if (selectedContact?.id && event.detail?.contactId === selectedContact.id) {
+        loadNewBusinessCount();
+      }
+    };
+
+    window.addEventListener('newBusinessCreated', handleNewBusinessCreated as EventListener);
+    return () => {
+      window.removeEventListener('newBusinessCreated', handleNewBusinessCreated as EventListener);
+    };
+  }, [selectedContact?.id]);
+
   const logsForAgency = useMemo(() => logs, [logs]);
 
   const getContactedInfoForContact = (contactId: number) => {
