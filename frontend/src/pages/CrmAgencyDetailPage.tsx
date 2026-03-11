@@ -754,7 +754,7 @@ type ProductionRecord = {
         style={{
           padding: "12px 10px",
           display: "grid",
-          gridTemplateColumns: "1.2fr 1.5fr 0.9fr",
+          gridTemplateColumns: "0.9fr 1.5fr 0.9fr",
           gap: 10,
           alignItems: "flex-start",
         }}
