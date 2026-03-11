@@ -489,29 +489,27 @@ def get_new_business(db: Session, employee_id: Optional[int] = None, status: Opt
         effective_date = item.effective_date.date() if isinstance(item.effective_date, datetime) else item.effective_date
         days_since_effective = (today - effective_date).days
         
-        # Calculate if this item should show today
-        if item.frequency_days == 1:
-            # Daily - show every day (including future dates)
+        # Show items that are due today or in the future
+        # Frequency determines when to show recurring items, but we always show upcoming items
+        if days_since_effective < 0:
+            # Future date - always show upcoming items
             should_show = True
-        elif item.frequency_days == 7:
-            # Weekly - show on effective date and every 7 days after
-            # If effective date is in the future, show it
-            if days_since_effective < 0:
-                should_show = True  # Show future items
-            else:
-                should_show = days_since_effective % 7 == 0
-        elif item.frequency_days == 14:
-            # Bi-weekly - show on effective date and every 14 days after
-            # If effective date is in the future, show it
-            if days_since_effective < 0:
-                should_show = True  # Show future items
-            else:
-                should_show = days_since_effective % 14 == 0
+        elif days_since_effective == 0:
+            # Today is the effective date - always show
+            should_show = True
         else:
-            # Default to weekly behavior
-            if days_since_effective < 0:
-                should_show = True  # Show future items
+            # Past date - show based on frequency
+            if item.frequency_days == 1:
+                # Daily - show every day
+                should_show = True
+            elif item.frequency_days == 7:
+                # Weekly - show every 7 days
+                should_show = days_since_effective % 7 == 0
+            elif item.frequency_days == 14:
+                # Bi-weekly - show every 14 days
+                should_show = days_since_effective % 14 == 0
             else:
+                # Default to weekly behavior
                 should_show = days_since_effective % item.frequency_days == 0
         
         if should_show:
