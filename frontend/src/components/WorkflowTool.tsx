@@ -404,7 +404,7 @@ export const WorkflowTool: React.FC = () => {
       if (contactId) {
         payload.contact_id = parseInt(contactId);
       }
-      await apiPost<NewBusiness>("/new-business", payload);
+      const created = await apiPost<NewBusiness>("/new-business", payload);
       alert("New business item created successfully");
       setShowNewBusinessForm(false);
       setNewBusinessForm({
@@ -417,6 +417,13 @@ export const WorkflowTool: React.FC = () => {
       // Clear URL params
       window.history.replaceState({}, "", window.location.pathname);
       await loadNewBusiness();
+      
+      // Dispatch event to notify other components (like contact page) that new business was created
+      if (contactId) {
+        window.dispatchEvent(new CustomEvent('newBusinessCreated', { 
+          detail: { contactId: parseInt(contactId) } 
+        }));
+      }
     } catch (err: any) {
       console.error("Failed to create new business", err);
       alert(`Failed to create new business: ${err?.message || "Unknown error"}`);

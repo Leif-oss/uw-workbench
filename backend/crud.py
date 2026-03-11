@@ -568,8 +568,8 @@ def update_new_business(db: Session, new_business_id: int, payload: schemas.NewB
     return new_business
 
 
-def get_new_business_count_for_contact(db: Session, contact_id: int, months: int = 12) -> int:
-    """Get count of new business items submitted by a contact in the last N months"""
+def get_new_business_count_for_contact(db: Session, contact_id: int, employee_id: int, months: int = 12) -> int:
+    """Get count of new business items submitted by a contact in the last N months, created by the specified employee"""
     from datetime import datetime, timedelta
     
     cutoff_date = datetime.utcnow() - timedelta(days=months * 30)  # Approximate months
@@ -578,6 +578,7 @@ def get_new_business_count_for_contact(db: Session, contact_id: int, months: int
         select(models.NewBusiness)
         .where(
             models.NewBusiness.contact_id == contact_id,
+            models.NewBusiness.created_by_employee_id == employee_id,
             models.NewBusiness.created_at >= cutoff_date
         )
     ).scalars().all()

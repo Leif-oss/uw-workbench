@@ -277,15 +277,19 @@ def get_contact_new_business_count(
     db: Session = Depends(get_db),
     user: dict = Depends(get_current_user)
 ):
-    """Get count of new business items submitted by a contact in the last N months"""
+    """Get count of new business items submitted by a contact in the last N months, created by the current user"""
     require_authenticated(user)
+    
+    employee_id = user.get("employee_id")
+    if not employee_id:
+        return {"contact_id": contact_id, "count": 0, "months": months}
     
     # Verify contact exists
     contact = crud.get_contact(db, contact_id)
     if not contact:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Contact not found")
     
-    count = crud.get_new_business_count_for_contact(db, contact_id, months)
+    count = crud.get_new_business_count_for_contact(db, contact_id, employee_id, months)
     return {"contact_id": contact_id, "count": count, "months": months}
 
 
