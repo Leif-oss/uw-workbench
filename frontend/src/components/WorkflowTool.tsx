@@ -396,10 +396,14 @@ export const WorkflowTool: React.FC = () => {
     }
 
     try {
-      const payload = {
+      const contactId = searchParams.get("contactId");
+      const payload: any = {
         ...newBusinessForm,
         effective_date: new Date(newBusinessForm.effective_date).toISOString(),
       };
+      if (contactId) {
+        payload.contact_id = parseInt(contactId);
+      }
       await apiPost<NewBusiness>("/new-business", payload);
       alert("New business item created successfully");
       setShowNewBusinessForm(false);
@@ -410,6 +414,8 @@ export const WorkflowTool: React.FC = () => {
         effective_date: "",
         frequency_days: 7,
       });
+      // Clear URL params
+      window.history.replaceState({}, "", window.location.pathname);
       await loadNewBusiness();
     } catch (err: any) {
       console.error("Failed to create new business", err);
