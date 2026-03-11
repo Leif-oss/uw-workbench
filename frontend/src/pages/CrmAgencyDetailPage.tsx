@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { apiGet, apiPost, apiPut, apiDelete } from "../api/client";
 import { LOG_ACTION_OPTIONS, LogAction } from "../constants/logActions";
@@ -128,7 +128,7 @@ type ProductionRecord = {
   const [isAddingContact, setIsAddingContact] = useState(false);
   const [showUploadFormat, setShowUploadFormat] = useState(false);
   const [isUploadingContacts, setIsUploadingContacts] = useState(false);
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [isEditingContact, setIsEditingContact] = useState(false);
   const [editContactName, setEditContactName] = useState("");
