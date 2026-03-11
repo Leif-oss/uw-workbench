@@ -17,6 +17,7 @@ import AgentSearchPage from "./pages/AgentSearchPage";
 import CrmOfficeDetailPage from "./pages/CrmOfficeDetailPage";
 import CrmAgencyDetailPage from "./pages/CrmAgencyDetailPage";
 import ReinsuranceCalculatorPage from "./pages/ReinsuranceCalculatorPage";
+import CalculatorsPage from "./pages/CalculatorsPage";
 import DocumentScrubberPage from "./pages/DocumentScrubberPage";
 import AiAssistantPage from "./pages/AiAssistantPage";
 import DraftIntakePage from "./pages/DraftIntakePage";
@@ -78,6 +79,7 @@ function App() {
         <Route path="/offices" element={<OfficesPage />} />
         <Route path="/workbench" element={<WorkbenchPage />} />
         <Route path="/workbench/reinsurance-calculator" element={<ReinsuranceCalculatorPage />} />
+        <Route path="/workbench/calculators" element={<CalculatorsPage />} />
         <Route path="/workbench/document-scrubber" element={<DocumentScrubberPage />} />
         <Route path="/workbench/ai-assistant" element={<AiAssistantPage />} />
         <Route path="/workbench/draft-intake" element={<DraftIntakePage />} />

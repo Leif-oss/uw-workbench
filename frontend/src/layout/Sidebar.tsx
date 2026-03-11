@@ -46,6 +46,7 @@ const crmItems: NavItem[] = [
 // Base workbench items (available to all users)
 const baseWorkbenchItems: NavItem[] = [
   { id: "workbench-reinsurance", label: "Reinsurance Calc", path: "/workbench/reinsurance-calculator" },
+  { id: "workbench-calculators", label: "Calculators", path: "/workbench/calculators" },
   { id: "workbench-ai", label: "AI Assistant", path: "/workbench/ai-assistant" },
 ];
 
