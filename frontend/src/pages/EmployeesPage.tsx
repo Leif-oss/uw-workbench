@@ -258,11 +258,12 @@ export const EmployeesPage: React.FC = () => {
     }
   }, [searchParams, employees]);
 
-  useEffect(() => {
-    if (!selectedEmployee && filteredEmployees.length > 0) {
-      setSelectedEmployeeId(filteredEmployees[0].employeeIds[0]);
-    }
-  }, [filteredEmployees, selectedEmployee]);
+  // Don't auto-select first employee - show list view by default
+  // useEffect(() => {
+  //   if (!selectedEmployee && filteredEmployees.length > 0) {
+  //     setSelectedEmployeeId(filteredEmployees[0].employeeIds[0]);
+  //   }
+  // }, [filteredEmployees, selectedEmployee]);
 
   const employeeLogs = useMemo(() => {
     if (!selectedEmployee) return [];
@@ -503,72 +504,305 @@ export const EmployeesPage: React.FC = () => {
     });
   }, [selectedEmployee, employeeAgencies, contacts, logs, agencies]);
 
-  const sidebar = (
+  // Calculate activity metrics for all employees (for list view)
+  const allEmployeeStats = useMemo(() => {
+    const now = Date.now();
+    const twelveMonthsMs = 12 * 30 * 24 * 60 * 60 * 1000;
+    const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+    const priorTwelveMonthsMs = 24 * 30 * 24 * 60 * 60 * 1000; // 12-24 months ago for comparison
+
+    // Initialize stats map with all employees
+    const statsMap = new Map<string, {
+      user: string;
+      inPerson12Mo: number;
+      emails12Mo: number;
+      phone12Mo: number;
+      inPerson30d: number;
+      emails30d: number;
+      phone30d: number;
+      inPerson12MoPrior: number; // For % calculation
+      emails12MoPrior: number;
+      phone12MoPrior: number;
+    }>();
+
+    employees.forEach((emp) => {
+      const empName = (emp.name || "").trim();
+      if (empName) {
+        const userKey = empName.toLowerCase();
+        statsMap.set(userKey, {
+          user: empName,
+          inPerson12Mo: 0,
+          emails12Mo: 0,
+          phone12Mo: 0,
+          inPerson30d: 0,
+          emails30d: 0,
+          phone30d: 0,
+          inPerson12MoPrior: 0,
+          emails12MoPrior: 0,
+          phone12MoPrior: 0,
+        });
+      }
+    });
+
+    // Process logs
+    logs.forEach((log) => {
+      const user = (log.user || "").trim();
+      if (!user) return;
+      const userKey = user.toLowerCase();
+      const logDate = new Date(log.datetime).getTime();
+      if (Number.isNaN(logDate)) return;
+      const action = (log.action || "").trim();
+      const timeDiff = now - logDate;
+
+      const current = statsMap.get(userKey);
+      if (!current) return;
+
+      const isInPerson = action === "In Person";
+      const isEmail = action === "Email" || action === "Email Sent";
+      const isPhone = action === "Call / Zoom";
+
+      // Current 12 months (0-12 months ago)
+      if (timeDiff <= twelveMonthsMs) {
+        if (isInPerson) current.inPerson12Mo += 1;
+        if (isEmail) current.emails12Mo += 1;
+        if (isPhone) current.phone12Mo += 1;
+      }
+
+      // Prior 12 months (12-24 months ago) for comparison
+      if (timeDiff > twelveMonthsMs && timeDiff <= priorTwelveMonthsMs) {
+        if (isInPerson) current.inPerson12MoPrior += 1;
+        if (isEmail) current.emails12MoPrior += 1;
+        if (isPhone) current.phone12MoPrior += 1;
+      }
+
+      // 30 days
+      if (timeDiff <= thirtyDaysMs) {
+        if (isInPerson) current.inPerson30d += 1;
+        if (isEmail) current.emails30d += 1;
+        if (isPhone) current.phone30d += 1;
+      }
+
+      statsMap.set(userKey, current);
+    });
+
+    return Array.from(statsMap.values());
+  }, [logs, employees]);
+
+  // Group employees by office for sidebar
+  const employeesByOffice = useMemo(() => {
+    const byOffice = new Map<number, GroupedEmployee[]>();
+    
+    filteredEmployees.forEach((group) => {
+      group.officeIds.forEach((officeId) => {
+        if (!byOffice.has(officeId)) {
+          byOffice.set(officeId, []);
+        }
+        byOffice.get(officeId)!.push(group);
+      });
+    });
+
+    // Sort offices and employees within each office
+    const result: Array<{ office: Office; employees: GroupedEmployee[] }> = [];
+    offices.forEach((office) => {
+      const officeEmployees = byOffice.get(office.id) || [];
+      if (officeEmployees.length > 0) {
+        result.push({
+          office,
+          employees: officeEmployees.sort((a, b) => a.name.localeCompare(b.name)),
+        });
+      }
+    });
+
+    return result.sort((a, b) => a.office.code.localeCompare(b.office.code));
+  }, [filteredEmployees, offices]);
+
+  const sidebar = selectedEmployeeId ? null : (
     <>
       <div>
         <h2 style={sidebarHeadingStyle}>
-          Employees
+          Employees by Office
         </h2>
-        <div style={{ marginBottom: 10 }}>
-          <input
-            style={inputStyle}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search name or office..."
-          />
-        </div>
-
-        <div style={{ marginBottom: 10 }}>
-          <select
-            style={selectStyle}
-            value={officeFilter}
-            onChange={(e) => setOfficeFilter(e.target.value)}
-          >
-            <option value="all">All offices</option>
-            {offices.map((o) => (
-              <option key={o.id} value={String(o.id)}>
-                {o.code}
-              </option>
-            ))}
-          </select>
+        <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 8 }}>
+          Click an employee to view details
         </div>
       </div>
 
-      <div style={{ fontSize: 11, color: "#9ca3af", marginBottom: 8 }}>
-        {filteredEmployees.length} employee{filteredEmployees.length === 1 ? "" : "s"}
+      <div style={{ overflowY: "auto", flex: 1 }}>
+        <div style={tableContainerStyle}>
+          <table style={tableBaseStyle}>
+            <thead>
+              <tr>
+                <th style={tableHeaderStickyStyle}>Office</th>
+                <th style={tableHeaderStickyStyle}>Employee</th>
+              </tr>
+            </thead>
+            <tbody>
+              {employeesByOffice.map(({ office, employees: officeEmployees }) => (
+                <React.Fragment key={office.id}>
+                  {officeEmployees.map((group) => {
+                    const isSelected = selectedEmployee && selectedEmployee.name === group.name;
+                    return (
+                      <tr
+                        key={`${office.id}-${group.name}`}
+                        onClick={() => setSelectedEmployeeId(group.employeeIds[0])}
+                        style={{
+                          cursor: "pointer",
+                          transition: "background-color 0.1s ease",
+                          backgroundColor: isSelected ? "#dbeafe" : "transparent",
+                        }}
+                      >
+                        <td style={tableCellStyle}>{office.code}</td>
+                        <td style={tableCellStyle}>{group.name}</td>
+                      </tr>
+                    );
+                  })}
+                </React.Fragment>
+              ))}
+              {employeesByOffice.length === 0 && (
+                <tr>
+                  <td colSpan={2} style={{ ...tableCellStyle, textAlign: "center", color: "#9ca3af" }}>
+                    No employees found
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
+    </>
+  );
 
-      {/* Employee List Table */}
-      <div style={{ flex: 1, overflowY: "auto", marginTop: 10 }}>
-        <table style={{ width: "100%", fontSize: 12, borderCollapse: "collapse" }}>
+
+  // Activity metrics table for list view (when no employee selected)
+  const [sortColumn, setSortColumn] = useState<keyof typeof allEmployeeStats[0] | null>(null);
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+
+  const handleSort = (column: keyof typeof allEmployeeStats[0]) => {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setSortColumn(column);
+      setSortDirection("desc");
+    }
+  };
+
+  const sortedEmployeeStats = useMemo(() => {
+    if (!sortColumn) return allEmployeeStats;
+    return [...allEmployeeStats].sort((a, b) => {
+      const aVal = a[sortColumn];
+      const bVal = b[sortColumn];
+      if (typeof aVal === "number" && typeof bVal === "number") {
+        return sortDirection === "asc" ? aVal - bVal : bVal - aVal;
+      }
+      return 0;
+    });
+  }, [allEmployeeStats, sortColumn, sortDirection]);
+
+  const calculatePercentChange = (current: number, prior: number): number => {
+    if (prior === 0) return current > 0 ? 100 : 0;
+    return ((current - prior) / prior) * 100;
+  };
+
+  const listPanel = !selectedEmployeeId ? (
+    <section
+      style={{
+        ...panelStyle,
+        flex: 1,
+        minHeight: 320,
+      }}
+    >
+      <div style={sectionHeadingStyle}>Underwriter Marketing Activity</div>
+      <div style={tableContainerStyle}>
+        <table style={tableBaseStyle}>
+          <thead>
+            <tr>
+              <th style={tableHeaderStickyStyle}>Underwriter</th>
+              <th 
+                style={{ ...tableHeaderStickyStyle, cursor: "pointer", userSelect: "none" }}
+                onClick={() => handleSort("inPerson12Mo")}
+              >
+                In Person (12 Mo) {sortColumn === "inPerson12Mo" ? (sortDirection === "asc" ? "↑" : "↓") : ""}
+              </th>
+              <th 
+                style={{ ...tableHeaderStickyStyle, cursor: "pointer", userSelect: "none" }}
+                onClick={() => handleSort("emails12Mo")}
+              >
+                Emails (12 Mo) {sortColumn === "emails12Mo" ? (sortDirection === "asc" ? "↑" : "↓") : ""}
+              </th>
+              <th 
+                style={{ ...tableHeaderStickyStyle, cursor: "pointer", userSelect: "none" }}
+                onClick={() => handleSort("phone12Mo")}
+              >
+                Phone (12 Mo) {sortColumn === "phone12Mo" ? (sortDirection === "asc" ? "↑" : "↓") : ""}
+              </th>
+              <th 
+                style={{ ...tableHeaderStickyStyle, cursor: "pointer", userSelect: "none" }}
+                onClick={() => handleSort("inPerson30d")}
+              >
+                In Person (30d) {sortColumn === "inPerson30d" ? (sortDirection === "asc" ? "↑" : "↓") : ""}
+              </th>
+              <th 
+                style={{ ...tableHeaderStickyStyle, cursor: "pointer", userSelect: "none" }}
+                onClick={() => handleSort("emails30d")}
+              >
+                Emails (30d) {sortColumn === "emails30d" ? (sortDirection === "asc" ? "↑" : "↓") : ""}
+              </th>
+              <th 
+                style={{ ...tableHeaderStickyStyle, cursor: "pointer", userSelect: "none" }}
+                onClick={() => handleSort("phone30d")}
+              >
+                Phone (30d) {sortColumn === "phone30d" ? (sortDirection === "asc" ? "↑" : "↓") : ""}
+              </th>
+              <th style={tableHeaderStickyStyle}>% Change</th>
+            </tr>
+          </thead>
           <tbody>
-            {filteredEmployees.map((group) => {
-              const isSelected = selectedEmployee && selectedEmployee.name === group.name;
-              const officeDisplay = group.officeCodes.length > 0 
-                ? group.officeCodes.join(", ") 
-                : "—";
+            {sortedEmployeeStats.map((stat) => {
+              const employee = employees.find(e => e.name.toLowerCase() === stat.user.toLowerCase());
+              const inPersonChange = calculatePercentChange(stat.inPerson12Mo, stat.inPerson12MoPrior);
+              const emailsChange = calculatePercentChange(stat.emails12Mo, stat.emails12MoPrior);
+              const phoneChange = calculatePercentChange(stat.phone12Mo, stat.phone12MoPrior);
+              const avgChange = (inPersonChange + emailsChange + phoneChange) / 3;
               
               return (
                 <tr
-                  key={group.name}
-                  onClick={() => setSelectedEmployeeId(group.employeeIds[0])}
+                  key={stat.user}
+                  onClick={() => {
+                    if (employee) {
+                      setSelectedEmployeeId(employee.id);
+                    }
+                  }}
                   style={{
                     cursor: "pointer",
                     transition: "background-color 0.1s ease",
-                    backgroundColor: isSelected ? "#dbeafe" : "transparent",
-                    borderBottom: "1px solid #f3f4f6",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = "#f9fafb";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = "transparent";
                   }}
                 >
-                  <td style={{ padding: "8px 4px" }}>
-                    <div style={{ fontWeight: 600, color: "#111827" }}>{group.name}</div>
-                    <div style={{ fontSize: 11, color: "#6b7280" }}>{officeDisplay}</div>
+                  <td style={tableCellStyle}>{stat.user}</td>
+                  <td style={tableCellStyle}>{stat.inPerson12Mo}</td>
+                  <td style={tableCellStyle}>{stat.emails12Mo}</td>
+                  <td style={tableCellStyle}>{stat.phone12Mo}</td>
+                  <td style={tableCellStyle}>{stat.inPerson30d}</td>
+                  <td style={tableCellStyle}>{stat.emails30d}</td>
+                  <td style={tableCellStyle}>{stat.phone30d}</td>
+                  <td style={{
+                    ...tableCellStyle,
+                    color: avgChange >= 0 ? "#059669" : "#dc2626",
+                    fontWeight: 600,
+                  }}>
+                    {avgChange >= 0 ? "+" : ""}{avgChange.toFixed(1)}%
                   </td>
                 </tr>
               );
             })}
-            {filteredEmployees.length === 0 && (
+            {sortedEmployeeStats.length === 0 && (
               <tr>
-                <td style={{ padding: "8px 4px", textAlign: "center", fontSize: 11, color: "#9ca3af" }}>
+                <td colSpan={8} style={{ ...tableCellStyle, textAlign: "center", color: "#9ca3af" }}>
                   No employees found
                 </td>
               </tr>
@@ -576,160 +810,31 @@ export const EmployeesPage: React.FC = () => {
           </tbody>
         </table>
       </div>
-    </>
-  );
-
-  const kpiCards = (
-    <div
-      style={{
-        display: "flex",
-        gap: 12,
-        flexWrap: "wrap",
-      }}
-    >
-      <div style={cardStyle}>
-        <div style={kpiLabelStyle}>
-          Total Employees
-        </div>
-        <div style={kpiValueStyle}>
-          {totalEmployees}
-        </div>
-        <div style={kpiSubtextStyle}>
-          In the database
-        </div>
-      </div>
-
-      <div style={cardStyle}>
-        <div style={kpiLabelStyle}>
-          In View
-        </div>
-        <div style={kpiValueStyle}>
-          {totalInView}
-        </div>
-        <div style={kpiSubtextStyle}>
-          Matching current filters
-        </div>
-      </div>
-
-      <div style={cardStyle}>
-        <div style={kpiLabelStyle}>
-          Offices in View
-        </div>
-        <div style={kpiValueStyle}>
-          {officesInView}
-        </div>
-        <div style={kpiSubtextStyle}>
-          Based on filtered employees
-        </div>
-      </div>
-    </div>
-  );
-
-  const listPanel = (
-    <section
-      style={{
-        ...panelStyle,
-        flex: 1.3,
-        minHeight: 320,
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "baseline",
-          marginBottom: 6,
-        }}
-      >
-        <div>
-          <div style={sectionHeadingStyle}>
-            Employee List
-          </div>
-          <div style={sectionSubheadingStyle}>
-            Click a row to view details and activity
-          </div>
-        </div>
-        <div style={{ fontSize: 11, color: "#9ca3af" }}>
-          {filteredEmployees.length} item
-          {filteredEmployees.length === 1 ? "" : "s"} in view
-        </div>
-      </div>
-
-      <div style={tableContainerStyle}>
-        <table style={tableBaseStyle}>
-          <thead>
-            <tr>
-              <th style={tableHeaderStickyStyle}>
-                Name
-              </th>
-              <th style={tableHeaderStickyStyle}>
-                Office
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredEmployees.map((group) => {
-              const isSelected = selectedEmployee && selectedEmployee.name === group.name;
-              const officeDisplay = group.officeCodes.length > 0 
-                ? group.officeCodes.join(", ") 
-                : "Unassigned";
-              
-              return (
-                <tr
-                  key={group.name}
-                  onClick={() => setSelectedEmployeeId(group.employeeIds[0])}
-                  style={{
-                    cursor: "pointer",
-                    transition: "background-color 0.1s ease",
-                    backgroundColor: isSelected ? "#dbeafe" : "transparent",
-                  }}
-                >
-                  <td style={tableCellStyle}>
-                    {group.name}
-                  </td>
-                  <td style={tableCellStyle}>
-                    {officeDisplay}
-                  </td>
-                </tr>
-              );
-            })}
-            {filteredEmployees.length === 0 && (
-              <tr>
-                <td
-                  colSpan={2}
-                  style={{
-                    padding: "8px 8px",
-                    textAlign: "center",
-                    fontSize: 12,
-                    color: "#9ca3af",
-                  }}
-                >
-                  No employees match the current filters.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
     </section>
-  );
+  ) : null;
 
-  const detailPanel = (
+  const detailPanel = selectedEmployee ? (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      {!selectedEmployee ? (
-        <div
+      {/* Back button */}
+      <div style={{ marginBottom: 8 }}>
+        <button
+          type="button"
+          onClick={() => setSelectedEmployeeId(null)}
           style={{
-            ...panelStyle,
+            padding: "6px 12px",
+            border: "1px solid #d1d5db",
+            background: "#ffffff",
+            color: "#374151",
+            borderRadius: 6,
+            cursor: "pointer",
             fontSize: 13,
-            color: "#9ca3af",
-            padding: 40,
-            textAlign: "center",
+            fontWeight: 500,
           }}
         >
-          Choose an employee from the list to view details and activity.
-        </div>
-      ) : (
-        <>
+          ← Back to List
+        </button>
+      </div>
+      <>
           {/* Employee Header */}
           <div style={{ ...panelStyle, padding: 16 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, justifyContent: "space-between", marginBottom: 8 }}>
@@ -1178,10 +1283,9 @@ export const EmployeesPage: React.FC = () => {
               </div>
             )}
           </div>
-        </>
-      )}
+      </>
     </div>
-  );
+  ) : null;
 
   const content = (
     <>
@@ -1194,7 +1298,7 @@ export const EmployeesPage: React.FC = () => {
         </div>
       )}
 
-      {detailPanel}
+      {selectedEmployeeId ? detailPanel : listPanel}
     </>
   );
 
