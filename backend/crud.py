@@ -472,7 +472,7 @@ def delete_renewal(db: Session, renewal_id: int) -> bool:
 
 # New Business
 def get_new_business(db: Session, employee_id: Optional[int] = None, status: Optional[str] = None) -> List[models.NewBusiness]:
-    from datetime import timedelta
+    from datetime import datetime, timedelta
     
     query = select(models.NewBusiness)
     if employee_id:
