@@ -48,9 +48,10 @@ export const WorkflowTool: React.FC = () => {
   const loadRenewals = async () => {
     setIsLoading(true);
     try {
-      const data = await apiGet<Renewal[]>("/renewals");
-      console.log("Loaded renewals:", data);
-      console.log("Number of renewals loaded:", data?.length || 0);
+      // Only load pending renewals for the logged-in user
+      const data = await apiGet<Renewal[]>("/renewals?status=pending");
+      console.log("Loaded pending renewals:", data);
+      console.log("Number of pending renewals loaded:", data?.length || 0);
       setRenewals(data || []);
       if (data && data.length > 0) {
         console.log("First renewal:", data[0]);
@@ -58,8 +59,7 @@ export const WorkflowTool: React.FC = () => {
     } catch (err: any) {
       console.error("Failed to load renewals", err);
       console.error("Error details:", err?.message);
-      // Show alert if loading fails after import
-      alert(`Failed to load renewals: ${err?.message || "Unknown error"}`);
+      // Don't show alert on initial load - just log the error
     } finally {
       setIsLoading(false);
     }
