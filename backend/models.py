@@ -285,6 +285,24 @@ class Renewal(Base):
     created_by_employee = relationship("Employee", foreign_keys=[created_by_employee_id])
 
 
+class NewBusiness(Base):
+    __tablename__ = "new_business"
+
+    id = Column(Integer, primary_key=True, index=True)
+    contact_email = Column(String(255), nullable=False)
+    policy_number = Column(String(100), nullable=False)
+    product = Column(String(255), nullable=False)
+    effective_date = Column(DateTime, nullable=False, index=True)
+    frequency_days = Column(Integer, nullable=False, default=7)  # 1 = daily, 7 = weekly, 14 = bi-weekly
+    status = Column(String(50), nullable=False, default="pending")  # pending, quoted, bound, declined
+    notes = Column(Text, nullable=True)
+    created_by_employee_id = Column(Integer, ForeignKey("employees.id", ondelete="SET NULL"), nullable=False, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    created_by_employee = relationship("Employee", foreign_keys=[created_by_employee_id])
+
+
 class User(Base):
     __tablename__ = "users"
 

@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from .database import engine, Base, get_db
 from . import models  # noqa: F401
-from .routers import offices, employees, agencies, contacts, logs, tasks, production, admin, document_scrubber, ai_router, auth, users, drafts, as400, email_templates, renewals
+from .routers import offices, employees, agencies, contacts, logs, tasks, production, admin, document_scrubber, ai_router, auth, users, drafts, as400, email_templates, renewals, new_business
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -238,6 +238,7 @@ app.include_router(drafts.router)
 app.include_router(as400.router)
 app.include_router(email_templates.router)
 app.include_router(renewals.router)
+app.include_router(new_business.router)
 
 
 

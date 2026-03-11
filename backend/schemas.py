@@ -523,6 +523,38 @@ class Renewal(RenewalBase, OrmModel):
     updated_at: datetime
 
 
+# --------- NEW BUSINESS ---------
+class NewBusinessBase(BaseModel):
+    contact_email: str
+    policy_number: str
+    product: str
+    effective_date: datetime
+    frequency_days: int = 7  # 1 = daily, 7 = weekly, 14 = bi-weekly
+    status: str = "pending"  # pending, quoted, bound, declined
+    notes: Optional[str] = None
+
+
+class NewBusinessCreate(NewBusinessBase):
+    pass
+
+
+class NewBusinessUpdate(BaseModel):
+    contact_email: Optional[str] = None
+    policy_number: Optional[str] = None
+    product: Optional[str] = None
+    effective_date: Optional[datetime] = None
+    frequency_days: Optional[int] = None
+    status: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class NewBusiness(NewBusinessBase, OrmModel):
+    id: int
+    created_by_employee_id: int
+    created_at: datetime
+    updated_at: datetime
+
+
 # --------- AUDIT LOG ---------
 class AuditLogBase(BaseModel):
     actor_email: str

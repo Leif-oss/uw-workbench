@@ -30,20 +30,53 @@ interface ContactDue {
   contact_frequency_days: number;
 }
 
+interface NewBusiness {
+  id: number;
+  contact_email: string;
+  policy_number: string;
+  product: string;
+  effective_date: string;
+  frequency_days: number;
+  status: string;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export const WorkflowTool: React.FC = () => {
   const [renewals, setRenewals] = useState<Renewal[]>([]);
   const [contactsDue, setContactsDue] = useState<ContactDue[]>([]);
+  const [newBusinessItems, setNewBusinessItems] = useState<NewBusiness[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [pasteText, setPasteText] = useState("");
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editNotes, setEditNotes] = useState("");
   const [editStatus, setEditStatus] = useState("pending");
+  const [showNewBusinessForm, setShowNewBusinessForm] = useState(false);
+  const [newBusinessForm, setNewBusinessForm] = useState({
+    contact_email: "",
+    policy_number: "",
+    product: "",
+    effective_date: "",
+    frequency_days: 7,
+  });
 
   // Load both renewals and contacts due on mount so they persist across sessions
   useEffect(() => {
     loadRenewals();
     loadContactsDue();
+    loadNewBusiness();
   }, []);
+
+  const loadNewBusiness = async () => {
+    try {
+      const data = await apiGet<NewBusiness[]>("/new-business");
+      console.log("Loaded new business items:", data);
+      setNewBusinessItems(data || []);
+    } catch (err: any) {
+      console.error("Failed to load new business", err);
+    }
+  };
 
   const loadRenewals = async () => {
     setIsLoading(true);
@@ -326,11 +359,39 @@ export const WorkflowTool: React.FC = () => {
   };
 
   // Combine renewals and contacts due, sorted by date (chronological)
+  const handleCreateNewBusiness = async () => {
+    if (!newBusinessForm.contact_email || !newBusinessForm.policy_number || !newBusinessForm.product || !newBusinessForm.effective_date) {
+      alert("Please fill in all required fields");
+      return;
+    }
+
+    try {
+      const payload = {
+        ...newBusinessForm,
+        effective_date: new Date(newBusinessForm.effective_date).toISOString(),
+      };
+      await apiPost<NewBusiness>("/new-business", payload);
+      alert("New business item created successfully");
+      setShowNewBusinessForm(false);
+      setNewBusinessForm({
+        contact_email: "",
+        policy_number: "",
+        product: "",
+        effective_date: "",
+        frequency_days: 7,
+      });
+      await loadNewBusiness();
+    } catch (err: any) {
+      console.error("Failed to create new business", err);
+      alert(`Failed to create new business: ${err?.message || "Unknown error"}`);
+    }
+  };
+
   const sortedWorkflowItems = useMemo(() => {
     const items: Array<{
-      type: "renewal" | "contact";
-      date: string; // expiration_date for renewals, next_contact_date for contacts
-      data: Renewal | ContactDue;
+      type: "renewal" | "contact" | "new_business";
+      date: string; // expiration_date for renewals, next_contact_date for contacts, effective_date for new business
+      data: Renewal | ContactDue | NewBusiness;
     }> = [];
 
     // Add renewals
@@ -351,11 +412,20 @@ export const WorkflowTool: React.FC = () => {
       });
     });
 
+    // Add new business items
+    newBusinessItems.forEach((item) => {
+      items.push({
+        type: "new_business",
+        date: item.effective_date,
+        data: item,
+      });
+    });
+
     // Sort by date (chronological)
     return items.sort((a, b) => {
       return new Date(a.date).getTime() - new Date(b.date).getTime();
     });
-  }, [renewals, contactsDue]);
+  }, [renewals, contactsDue, newBusinessItems]);
 
   // Calculate days until expiration
   const daysUntilExpiration = (expirationDate: string): number => {
@@ -460,6 +530,7 @@ export const WorkflowTool: React.FC = () => {
               try {
                 await loadRenewals();
                 await loadContactsDue();
+                await loadNewBusiness();
               } finally {
                 setIsLoading(false);
               }
@@ -777,11 +848,224 @@ export const WorkflowTool: React.FC = () => {
                     </div>
                   </div>
                 );
+              } else if (item.type === "new_business") {
+                // New Business item
+                const newBusiness = item.data as NewBusiness;
+                const effectiveDate = new Date(newBusiness.effective_date);
+                const frequencyLabel = newBusiness.frequency_days === 1 
+                  ? "Daily" 
+                  : newBusiness.frequency_days === 7 
+                  ? "Weekly" 
+                  : "Bi-Weekly";
+
+                return (
+                  <div
+                    key={`new-business-${newBusiness.id}`}
+                    style={{
+                      border: "2px solid #e5e7eb",
+                      borderRadius: 8,
+                      padding: 16,
+                      backgroundColor: "#ffffff",
+                      display: "flex",
+                      gap: 16,
+                    }}
+                  >
+                    {/* Effective Date - Far Left */}
+                    <div style={{ minWidth: "120px", flexShrink: 0 }}>
+                      <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 4, textTransform: "uppercase" }}>
+                        Effective Date
+                      </div>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: "#111827" }}>
+                        {formatDate(newBusiness.effective_date)}
+                      </div>
+                    </div>
+
+                    {/* Policy Number and Contact Email */}
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: "flex", gap: 12, alignItems: "baseline", marginBottom: 8 }}>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: "#111827" }}>
+                          Policy: {newBusiness.policy_number}
+                        </div>
+                      </div>
+                      <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>
+                        Product: {newBusiness.product}
+                      </div>
+                      <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>
+                        Contact: {newBusiness.contact_email}
+                      </div>
+                      <div style={{ fontSize: 12, marginTop: 4 }}>
+                        Frequency: <strong>{frequencyLabel}</strong>
+                      </div>
+                      {newBusiness.notes && (
+                        <div style={{ fontSize: 12, color: "#6b7280", marginTop: 4 }}>
+                          Notes: {newBusiness.notes}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Status and Actions - Right Side */}
+                    <div style={{ display: "flex", gap: 8, flexShrink: 0, alignItems: "flex-start", flexDirection: "column" }}>
+                      <div style={{ fontSize: 12, color: "#6b7280" }}>
+                        Status: <strong>{newBusiness.status}</strong>
+                      </div>
+                      <button
+                        onClick={async () => {
+                          if (confirm("Delete this new business item?")) {
+                            try {
+                              await apiDelete(`/new-business/${newBusiness.id}`);
+                              await loadNewBusiness();
+                            } catch (err: any) {
+                              alert(`Failed to delete: ${err?.message || "Unknown error"}`);
+                            }
+                          }
+                        }}
+                        style={{
+                          padding: "6px 12px",
+                          borderRadius: 6,
+                          border: "1px solid #dc2626",
+                          background: "#ffffff",
+                          color: "#dc2626",
+                          cursor: "pointer",
+                          fontSize: 12,
+                        }}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                );
               }
+              return null;
             })}
           </div>
         )}
       </div>
+
+      {/* New Business Form Modal */}
+      {showNewBusinessForm && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
+          onClick={() => setShowNewBusinessForm(false)}
+        >
+          <div
+            style={{
+              ...cardStyle,
+              width: "90%",
+              maxWidth: 500,
+              padding: 24,
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 style={{ margin: "0 0 20px 0", fontSize: 18, fontWeight: 600, color: "#111827" }}>
+              New Business Tracking
+            </h3>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              <div>
+                <label style={labelStyle}>Contact Email *</label>
+                <input
+                  type="email"
+                  value={newBusinessForm.contact_email}
+                  onChange={(e) => setNewBusinessForm({ ...newBusinessForm, contact_email: e.target.value })}
+                  style={inputStyle}
+                  placeholder="contact@example.com"
+                />
+              </div>
+
+              <div>
+                <label style={labelStyle}>Policy Number *</label>
+                <input
+                  type="text"
+                  value={newBusinessForm.policy_number}
+                  onChange={(e) => setNewBusinessForm({ ...newBusinessForm, policy_number: e.target.value })}
+                  style={inputStyle}
+                  placeholder="Policy number"
+                />
+              </div>
+
+              <div>
+                <label style={labelStyle}>Product *</label>
+                <input
+                  type="text"
+                  value={newBusinessForm.product}
+                  onChange={(e) => setNewBusinessForm({ ...newBusinessForm, product: e.target.value })}
+                  style={inputStyle}
+                  placeholder="Product name"
+                />
+              </div>
+
+              <div>
+                <label style={labelStyle}>Effective Date *</label>
+                <input
+                  type="date"
+                  value={newBusinessForm.effective_date}
+                  onChange={(e) => setNewBusinessForm({ ...newBusinessForm, effective_date: e.target.value })}
+                  style={inputStyle}
+                />
+              </div>
+
+              <div>
+                <label style={labelStyle}>Frequency *</label>
+                <select
+                  value={newBusinessForm.frequency_days}
+                  onChange={(e) => setNewBusinessForm({ ...newBusinessForm, frequency_days: Number(e.target.value) })}
+                  style={selectStyle}
+                >
+                  <option value={1}>Daily (Every day)</option>
+                  <option value={7}>Weekly (Every 7 days from effective date)</option>
+                  <option value={14}>Bi-Weekly (Every 2 weeks from effective date)</option>
+                </select>
+              </div>
+
+              <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                <button
+                  onClick={handleCreateNewBusiness}
+                  disabled={!newBusinessForm.contact_email || !newBusinessForm.policy_number || !newBusinessForm.product || !newBusinessForm.effective_date}
+                  style={{
+                    ...primaryButtonStyle,
+                    opacity: (!newBusinessForm.contact_email || !newBusinessForm.policy_number || !newBusinessForm.product || !newBusinessForm.effective_date) ? 0.5 : 1,
+                  }}
+                >
+                  Create
+                </button>
+                <button
+                  onClick={() => {
+                    setShowNewBusinessForm(false);
+                    setNewBusinessForm({
+                      contact_email: "",
+                      policy_number: "",
+                      product: "",
+                      effective_date: "",
+                      frequency_days: 7,
+                    });
+                  }}
+                  style={{
+                    padding: "8px 16px",
+                    borderRadius: 6,
+                    border: "1px solid #d1d5db",
+                    background: "#ffffff",
+                    color: "#374151",
+                    cursor: "pointer",
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

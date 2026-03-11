@@ -470,6 +470,84 @@ def delete_renewal(db: Session, renewal_id: int) -> bool:
     return True
 
 
+# New Business
+def get_new_business(db: Session, employee_id: Optional[int] = None, status: Optional[str] = None) -> List[models.NewBusiness]:
+    from datetime import timedelta
+    
+    query = select(models.NewBusiness)
+    if employee_id:
+        query = query.where(models.NewBusiness.created_by_employee_id == employee_id)
+    if status:
+        query = query.where(models.NewBusiness.status == status)
+    
+    # Filter to only show items that should appear today based on frequency
+    all_items = db.execute(query).scalars().all()
+    today = datetime.utcnow().date()
+    
+    filtered_items = []
+    for item in all_items:
+        effective_date = item.effective_date.date() if isinstance(item.effective_date, datetime) else item.effective_date
+        days_since_effective = (today - effective_date).days
+        
+        # Calculate if this item should show today
+        if item.frequency_days == 1:
+            # Daily - show every day
+            should_show = True
+        elif item.frequency_days == 7:
+            # Weekly - show on effective date and every 7 days after
+            should_show = days_since_effective >= 0 and days_since_effective % 7 == 0
+        elif item.frequency_days == 14:
+            # Bi-weekly - show on effective date and every 14 days after
+            should_show = days_since_effective >= 0 and days_since_effective % 14 == 0
+        else:
+            # Default to weekly behavior
+            should_show = days_since_effective >= 0 and days_since_effective % item.frequency_days == 0
+        
+        if should_show:
+            filtered_items.append(item)
+    
+    return filtered_items
+
+
+def get_new_business_item(db: Session, new_business_id: int) -> Optional[models.NewBusiness]:
+    return db.execute(select(models.NewBusiness).where(models.NewBusiness.id == new_business_id)).scalar_one_or_none()
+
+
+def create_new_business(db: Session, new_business: schemas.NewBusinessCreate, employee_id: int) -> models.NewBusiness:
+    db_new_business = models.NewBusiness(
+        **new_business.model_dump(),
+        created_by_employee_id=employee_id
+    )
+    db.add(db_new_business)
+    db.commit()
+    db.refresh(db_new_business)
+    return db_new_business
+
+
+def update_new_business(db: Session, new_business_id: int, payload: schemas.NewBusinessUpdate) -> Optional[models.NewBusiness]:
+    new_business = db.execute(select(models.NewBusiness).where(models.NewBusiness.id == new_business_id)).scalar_one_or_none()
+    if not new_business:
+        return None
+    
+    update_data = payload.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(new_business, field, value)
+    
+    new_business.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(new_business)
+    return new_business
+
+
+def delete_new_business(db: Session, new_business_id: int) -> bool:
+    new_business = db.execute(select(models.NewBusiness).where(models.NewBusiness.id == new_business_id)).scalar_one_or_none()
+    if not new_business:
+        return False
+    db.delete(new_business)
+    db.commit()
+    return True
+
+
 def get_contacts_due_for_contact(db: Session, employee_id: int) -> List[dict]:
     """
     Get contacts that are due for contact based on their contact_frequency_days and last contact date.
