@@ -515,6 +515,21 @@ export const WorkflowTool: React.FC = () => {
           >
             Clear
           </button>
+          <button
+            onClick={() => setShowNewBusinessForm(true)}
+            disabled={isLoading}
+            style={{
+              padding: "8px 16px",
+              borderRadius: 6,
+              border: "1px solid #d1d5db",
+              background: "#ffffff",
+              color: "#374151",
+              cursor: !isLoading ? "pointer" : "not-allowed",
+              opacity: !isLoading ? 1 : 0.5,
+            }}
+          >
+            New Business Tracking
+          </button>
         </div>
       </div>
 
