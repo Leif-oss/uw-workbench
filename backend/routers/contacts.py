@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query, status, HTTPException, Request, Response
+from fastapi import APIRouter, Depends, Query, status, HTTPException, Request, Response, UploadFile, File
 from sqlalchemy.orm import Session
 from typing import List, Optional
 import io
@@ -353,6 +353,139 @@ def create_contact(
         )
     
     return new_contact
+
+
+@router.post("/bulk-upload", response_model=List[schemas.Contact])
+async def bulk_upload_contacts(
+    file: UploadFile = File(...),
+    agency_id: int = Query(..., description="Agency ID to assign contacts to"),
+    request: Request = None,
+    user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Upload multiple contacts from an Excel file.
+    
+    Expected Excel format:
+    - First row should be headers: Name, Title, Email, Phone, LinkedIn
+    - Each subsequent row represents one contact
+    - Name is required, other fields are optional
+    """
+    require_authenticated(user)
+    require_agency_access(user, agency_id, db, for_modification=True)
+    
+    # Validate file type
+    if not file.filename.endswith(('.xlsx', '.xls')):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File must be an Excel file (.xlsx or .xls)"
+        )
+    
+    try:
+        # Read Excel file
+        contents = await file.read()
+        df = pd.read_excel(io.BytesIO(contents))
+        
+        # Validate required columns
+        required_columns = ['Name']
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Missing required columns: {', '.join(missing_columns)}"
+            )
+        
+        # Normalize column names (case-insensitive, strip whitespace)
+        df.columns = df.columns.str.strip()
+        column_mapping = {
+            'name': 'Name',
+            'title': 'Title',
+            'email': 'Email',
+            'phone': 'Phone',
+            'linkedin': 'LinkedIn',
+        }
+        
+        # Map columns to standard names
+        for key, value in column_mapping.items():
+            for col in df.columns:
+                if col.lower() == key:
+                    df.rename(columns={col: value}, inplace=True)
+                    break
+        
+        # Create contacts
+        contacts_to_create = []
+        errors = []
+        
+        for idx, row in df.iterrows():
+            try:
+                # Skip empty rows
+                if pd.isna(row.get('Name')) or str(row.get('Name', '')).strip() == '':
+                    continue
+                
+                contact_data = {
+                    'name': str(row.get('Name', '')).strip(),
+                    'title': str(row.get('Title', '')).strip() if pd.notna(row.get('Title')) else None,
+                    'email': str(row.get('Email', '')).strip() if pd.notna(row.get('Email')) else None,
+                    'phone': str(row.get('Phone', '')).strip() if pd.notna(row.get('Phone')) else None,
+                    'linkedin_url': str(row.get('LinkedIn', '')).strip() if pd.notna(row.get('LinkedIn')) else None,
+                    'agency_id': agency_id,
+                    'contact_frequency_days': 90,  # Default frequency
+                    'do_not_contact': False,
+                }
+                
+                # Validate email format if provided
+                if contact_data['email'] and '@' not in contact_data['email']:
+                    errors.append(f"Row {idx + 2}: Invalid email format: {contact_data['email']}")
+                    continue
+                
+                # Create contact schema
+                contact_create = schemas.ContactCreate(**contact_data)
+                contacts_to_create.append(contact_create)
+                
+            except Exception as e:
+                errors.append(f"Row {idx + 2}: {str(e)}")
+                continue
+        
+        if errors:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Errors processing file:\n" + "\n".join(errors[:10])  # Show first 10 errors
+            )
+        
+        if not contacts_to_create:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No valid contacts found in file"
+            )
+        
+        # Create contacts in bulk
+        created_contacts = crud.create_contacts_bulk(db, contacts_to_create)
+        
+        # Log bulk create action
+        if request:
+            agency = db.get(models.Agency, agency_id)
+            log_audit_event(
+                db=db,
+                actor_email=user.get("email", "unknown"),
+                action="BULK_CREATE",
+                entity_type="contact",
+                entity_id=None,
+                office_id=agency.office_id if agency else None,
+                details_json=f'{{"count": {len(created_contacts)}, "agency_id": {agency_id}}}',
+                ip_address=request.client.host if request.client else None,
+                user_agent=request.headers.get("user-agent"),
+                request_path=str(request.url.path),
+                request_method=request.method,
+            )
+        
+        return created_contacts
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error processing file: {str(e)}"
+        )
 
 
 @router.put("/{contact_id}", response_model=schemas.Contact)

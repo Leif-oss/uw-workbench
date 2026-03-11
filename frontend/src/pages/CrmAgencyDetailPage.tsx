@@ -126,6 +126,9 @@ type ProductionRecord = {
   const [newContactNotes, setNewContactNotes] = useState("");
   const [newContactFrequencyDays, setNewContactFrequencyDays] = useState<number | null>(90);
   const [isAddingContact, setIsAddingContact] = useState(false);
+  const [showUploadFormat, setShowUploadFormat] = useState(false);
+  const [isUploadingContacts, setIsUploadingContacts] = useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const [isEditingContact, setIsEditingContact] = useState(false);
   const [editContactName, setEditContactName] = useState("");
@@ -760,21 +763,258 @@ type ProductionRecord = {
       <div style={cardStyle}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
           <div style={{ fontSize: 13, fontWeight: 600 }}>Contacts</div>
-          <button
-            type="button"
-            onClick={() => setIsAddingContact((v) => !v)}
-            style={{
-              padding: "6px 8px",
-              borderRadius: 6,
-              border: "1px solid #d1d5db",
-              background: "#f9fafb",
-              cursor: "pointer",
-              fontSize: 12,
-            }}
-          >
-            {isAddingContact ? "Close" : "Add Contact"}
-          </button>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <button
+              type="button"
+              onClick={() => {
+                if (fileInputRef.current) {
+                  fileInputRef.current.click();
+                }
+              }}
+              disabled={isUploadingContacts || !agencyIdNum}
+              style={{
+                padding: "6px 8px",
+                borderRadius: 6,
+                border: "1px solid #10b981",
+                background: isUploadingContacts || !agencyIdNum ? "#f3f4f6" : "#ecfdf5",
+                color: isUploadingContacts || !agencyIdNum ? "#9ca3af" : "#059669",
+                cursor: isUploadingContacts || !agencyIdNum ? "not-allowed" : "pointer",
+                fontSize: 12,
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
+                opacity: isUploadingContacts || !agencyIdNum ? 0.6 : 1,
+              }}
+            >
+              Upload Contacts
+              <span
+                style={{
+                  fontSize: 14,
+                  cursor: "help",
+                  marginLeft: 2,
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowUploadFormat(!showUploadFormat);
+                }}
+                title="Click to see required format"
+              >
+                ℹ️
+              </span>
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".xlsx,.xls"
+              style={{ display: "none" }}
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file || !agencyIdNum) return;
+                
+                setIsUploadingContacts(true);
+                try {
+                  const formData = new FormData();
+                  formData.append("file", file);
+                  
+                  const apiBaseUrl = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+                  const authToken = localStorage.getItem("auth_token");
+                  const headers: HeadersInit = {};
+                  if (authToken) {
+                    headers["Authorization"] = `Bearer ${authToken}`;
+                  }
+                  
+                  const response = await fetch(
+                    `${apiBaseUrl}/contacts/bulk-upload?agency_id=${agencyIdNum}`,
+                    {
+                      method: "POST",
+                      headers: headers,
+                      body: formData,
+                    }
+                  );
+                  
+                  if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.detail || `Upload failed: ${response.statusText}`);
+                  }
+                  
+                  const createdContacts = await response.json();
+                  alert(`Successfully uploaded ${createdContacts.length} contact(s)`);
+                  
+                  // Refresh contacts list
+                  const refreshed = await apiGet<Contact[]>(`/contacts?agency_id=${agencyIdNum}`);
+                  if (refreshed) {
+                    setContacts(refreshed);
+                    if (refreshed.length > 0 && !selectedContactId) {
+                      setSelectedContactId(refreshed[0].id);
+                      setPrimaryContactId(refreshed[0].id);
+                    }
+                  }
+                  
+                  // Reset file input
+                  if (fileInputRef.current) {
+                    fileInputRef.current.value = "";
+                  }
+                } catch (err: any) {
+                  alert(`Failed to upload contacts: ${err?.message || "Unknown error"}`);
+                } finally {
+                  setIsUploadingContacts(false);
+                }
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => setIsAddingContact((v) => !v)}
+              style={{
+                padding: "6px 8px",
+                borderRadius: 6,
+                border: "1px solid #d1d5db",
+                background: "#f9fafb",
+                cursor: "pointer",
+                fontSize: 12,
+              }}
+            >
+              {isAddingContact ? "Close" : "Add Contact"}
+            </button>
+          </div>
         </div>
+        
+        {/* Upload Format Info Modal */}
+        {showUploadFormat && (
+          <div
+            style={{
+              position: "fixed",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: "rgba(0, 0, 0, 0.5)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 1000,
+            }}
+            onClick={() => setShowUploadFormat(false)}
+          >
+            <div
+              style={{
+                background: "#ffffff",
+                borderRadius: 12,
+                padding: 24,
+                maxWidth: 600,
+                maxHeight: "80vh",
+                overflow: "auto",
+                boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1)",
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                <h3 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: "#111827" }}>
+                  Excel Upload Format
+                </h3>
+                <button
+                  onClick={() => setShowUploadFormat(false)}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    fontSize: 24,
+                    cursor: "pointer",
+                    color: "#6b7280",
+                    padding: 0,
+                    width: 24,
+                    height: 24,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+              
+              <div style={{ marginBottom: 16 }}>
+                <p style={{ margin: "0 0 12px 0", fontSize: 14, color: "#374151" }}>
+                  Your Excel file should have the following columns in the first row:
+                </p>
+                <div style={{ 
+                  background: "#f9fafb", 
+                  border: "1px solid #e5e7eb", 
+                  borderRadius: 8, 
+                  padding: 16,
+                  marginBottom: 16,
+                }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                    <thead>
+                      <tr style={{ background: "#f3f4f6" }}>
+                        <th style={{ padding: "8px 12px", textAlign: "left", border: "1px solid #e5e7eb", fontSize: 12, fontWeight: 600 }}>Column</th>
+                        <th style={{ padding: "8px 12px", textAlign: "left", border: "1px solid #e5e7eb", fontSize: 12, fontWeight: 600 }}>Required</th>
+                        <th style={{ padding: "8px 12px", textAlign: "left", border: "1px solid #e5e7eb", fontSize: 12, fontWeight: 600 }}>Description</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td style={{ padding: "8px 12px", border: "1px solid #e5e7eb", fontSize: 12, fontWeight: 600 }}>Name</td>
+                        <td style={{ padding: "8px 12px", border: "1px solid #e5e7eb", fontSize: 12, color: "#dc2626" }}>Yes</td>
+                        <td style={{ padding: "8px 12px", border: "1px solid #e5e7eb", fontSize: 12 }}>Contact's full name</td>
+                      </tr>
+                      <tr>
+                        <td style={{ padding: "8px 12px", border: "1px solid #e5e7eb", fontSize: 12 }}>Title</td>
+                        <td style={{ padding: "8px 12px", border: "1px solid #e5e7eb", fontSize: 12, color: "#6b7280" }}>No</td>
+                        <td style={{ padding: "8px 12px", border: "1px solid #e5e7eb", fontSize: 12 }}>Job title or position</td>
+                      </tr>
+                      <tr>
+                        <td style={{ padding: "8px 12px", border: "1px solid #e5e7eb", fontSize: 12 }}>Email</td>
+                        <td style={{ padding: "8px 12px", border: "1px solid #e5e7eb", fontSize: 12, color: "#6b7280" }}>No</td>
+                        <td style={{ padding: "8px 12px", border: "1px solid #e5e7eb", fontSize: 12 }}>Email address</td>
+                      </tr>
+                      <tr>
+                        <td style={{ padding: "8px 12px", border: "1px solid #e5e7eb", fontSize: 12 }}>Phone</td>
+                        <td style={{ padding: "8px 12px", border: "1px solid #e5e7eb", fontSize: 12, color: "#6b7280" }}>No</td>
+                        <td style={{ padding: "8px 12px", border: "1px solid #e5e7eb", fontSize: 12 }}>Phone number</td>
+                      </tr>
+                      <tr>
+                        <td style={{ padding: "8px 12px", border: "1px solid #e5e7eb", fontSize: 12 }}>LinkedIn</td>
+                        <td style={{ padding: "8px 12px", border: "1px solid #e5e7eb", fontSize: 12, color: "#6b7280" }}>No</td>
+                        <td style={{ padding: "8px 12px", border: "1px solid #e5e7eb", fontSize: 12 }}>LinkedIn profile URL</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                
+                <div style={{ 
+                  background: "#eff6ff", 
+                  border: "1px solid #3b82f6", 
+                  borderRadius: 8, 
+                  padding: 12,
+                  fontSize: 12,
+                  color: "#1e40af",
+                }}>
+                  <strong>Example:</strong>
+                  <div style={{ marginTop: 8, fontFamily: "monospace", fontSize: 11 }}>
+                    Name | Title | Email | Phone | LinkedIn<br/>
+                    John Doe | Agent | john@example.com | 555-1234 | linkedin.com/in/johndoe<br/>
+                    Jane Smith | Manager | jane@example.com | 555-5678 | linkedin.com/in/janesmith
+                  </div>
+                </div>
+              </div>
+              
+              <button
+                onClick={() => setShowUploadFormat(false)}
+                style={{
+                  padding: "8px 16px",
+                  borderRadius: 6,
+                  border: "1px solid #d1d5db",
+                  background: "#ffffff",
+                  color: "#374151",
+                  cursor: "pointer",
+                  fontSize: 12,
+                  fontWeight: 500,
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        )}
 
         {isAddingContact && (
           <div style={{ marginBottom: 10, display: "flex", flexDirection: "column", gap: 6 }}>

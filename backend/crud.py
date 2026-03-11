@@ -195,6 +195,28 @@ def create_contact(db: Session, contact: schemas.ContactCreate) -> models.Contac
     return db_contact
 
 
+def create_contacts_bulk(db: Session, contacts: List[schemas.ContactCreate]) -> List[models.Contact]:
+    """Create multiple contacts in bulk"""
+    created_contacts = []
+    for contact in contacts:
+        contact_data = contact.model_dump()
+        
+        # Synchronize do_not_contact with contact_frequency_days
+        if contact_data.get('contact_frequency_days') is None:
+            contact_data['do_not_contact'] = True
+        else:
+            contact_data['do_not_contact'] = False
+        
+        db_contact = models.Contact(**contact_data)
+        db.add(db_contact)
+        created_contacts.append(db_contact)
+    
+    db.commit()
+    for contact in created_contacts:
+        db.refresh(contact)
+    return created_contacts
+
+
 def update_contact(db: Session, contact_id: int, payload: schemas.ContactUpdate) -> Optional[models.Contact]:
     db_ct = db.get(models.Contact, contact_id)
     if not db_ct:
