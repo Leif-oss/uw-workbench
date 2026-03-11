@@ -418,6 +418,28 @@ const EmailToolsPage: React.FC = () => {
       rightNote="Agency Management · Marketing Tools"
       sidebar={sidebar}
     >
+      {/* Back button when coming from a contact */}
+      {prefillContactId && prefillAgencyId && (
+        <button
+          onClick={() => navigate(`/crm/agencies/${prefillAgencyId}?contactId=${prefillContactId}`)}
+          style={{
+            padding: "8px 16px",
+            borderRadius: 6,
+            border: "1px solid #d1d5db",
+            background: "#ffffff",
+            color: "#374151",
+            cursor: "pointer",
+            fontSize: 12,
+            fontWeight: 500,
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            marginBottom: 16,
+          }}
+        >
+          ← Back to Contact
+        </button>
+      )}
       <div style={{ marginBottom: 16 }}>
         <button
           type="button"

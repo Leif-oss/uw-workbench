@@ -398,6 +398,28 @@ const EmailBuilderPage: React.FC = () => {
       sidebar={sidebar}
     >
       <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+        {/* Back button when coming from a contact */}
+        {prefillContactId && prefillAgencyId && (
+          <button
+            onClick={() => navigate(`/crm/agencies/${prefillAgencyId}?contactId=${prefillContactId}`)}
+            style={{
+              padding: "8px 16px",
+              borderRadius: 6,
+              border: "1px solid #d1d5db",
+              background: "#ffffff",
+              color: "#374151",
+              cursor: "pointer",
+              fontSize: 12,
+              fontWeight: 500,
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              alignSelf: "flex-start",
+            }}
+          >
+            ← Back to Contact
+          </button>
+        )}
         {error && (
           <div style={{ padding: "12px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, color: "#dc2626" }}>
             {error}
