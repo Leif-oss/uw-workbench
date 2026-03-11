@@ -505,10 +505,13 @@ type ProductionRecord = {
       
       const datetimeIso = (() => {
         if (logDate) {
-          // Use the selected date at midnight (no time component)
-          const dateOnly = new Date(logDate);
-          dateOnly.setHours(0, 0, 0, 0);
-          return dateOnly.toISOString();
+          // Parse the date string (YYYY-MM-DD) and create a date at local midnight
+          // This ensures the date is interpreted in the user's local timezone, not UTC
+          const [year, month, day] = logDate.split('-').map(Number);
+          const dateAtLocalMidnight = new Date(year, month - 1, day, 0, 0, 0, 0); // month is 0-indexed
+          // Convert to ISO string - this will represent the local midnight as UTC
+          // The backend will store it correctly, and when displayed it will show the correct date
+          return dateAtLocalMidnight.toISOString();
         }
         // Use today's date at midnight (no time component)
         const today = new Date();
