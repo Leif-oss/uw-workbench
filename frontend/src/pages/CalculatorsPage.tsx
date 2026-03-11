@@ -237,8 +237,10 @@ const RegularCalculator: React.FC = () => {
           <button
             type="button"
             onClick={handleEquals}
-            style={buttonStyle("#10b981", "#ffffff")}
-            rowSpan={2}
+            style={{
+              ...buttonStyle("#10b981", "#ffffff"),
+              gridRow: "span 2",
+            }}
           >
             =
           </button>
