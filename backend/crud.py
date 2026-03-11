@@ -491,17 +491,28 @@ def get_new_business(db: Session, employee_id: Optional[int] = None, status: Opt
         
         # Calculate if this item should show today
         if item.frequency_days == 1:
-            # Daily - show every day
+            # Daily - show every day (including future dates)
             should_show = True
         elif item.frequency_days == 7:
             # Weekly - show on effective date and every 7 days after
-            should_show = days_since_effective >= 0 and days_since_effective % 7 == 0
+            # If effective date is in the future, show it
+            if days_since_effective < 0:
+                should_show = True  # Show future items
+            else:
+                should_show = days_since_effective % 7 == 0
         elif item.frequency_days == 14:
             # Bi-weekly - show on effective date and every 14 days after
-            should_show = days_since_effective >= 0 and days_since_effective % 14 == 0
+            # If effective date is in the future, show it
+            if days_since_effective < 0:
+                should_show = True  # Show future items
+            else:
+                should_show = days_since_effective % 14 == 0
         else:
             # Default to weekly behavior
-            should_show = days_since_effective >= 0 and days_since_effective % item.frequency_days == 0
+            if days_since_effective < 0:
+                should_show = True  # Show future items
+            else:
+                should_show = days_since_effective % item.frequency_days == 0
         
         if should_show:
             filtered_items.append(item)
