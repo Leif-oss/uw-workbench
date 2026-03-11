@@ -104,15 +104,19 @@ export const DashboardPage: React.FC = () => {
           .sort((a, b) => a.month.localeCompare(b.month));
 
         // Get the most recent month data for summary metrics
+        // Group by office + agency_code to ensure unique agencies (same agency_code can exist in different offices)
         const latestByAgency = new Map<string, ProductionRecord>();
         data.forEach((record) => {
-          const existing = latestByAgency.get(record.agency_code);
+          // Use office + agency_code as unique key to avoid double-counting agencies with same code in different offices
+          const uniqueKey = `${record.office}_${record.agency_code}`;
+          const existing = latestByAgency.get(uniqueKey);
           if (!existing || record.month > existing.month) {
-            latestByAgency.set(record.agency_code, record);
+            latestByAgency.set(uniqueKey, record);
           }
         });
 
-        // Calculate totals
+        // Calculate totals - summing YTD values from all unique agencies across all offices
+        // This represents the combined total for all offices and all agencies
         let currentYearTotal = 0;
         let priorYearTotal = 0;
         let newBusinessCount = 0;
