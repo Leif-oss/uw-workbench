@@ -474,15 +474,33 @@ def get_contacts_due_for_contact(db: Session, employee_id: int) -> List[dict]:
     """
     Get contacts that are due for contact based on their contact_frequency_days and last contact date.
     Returns contacts where next_contact_date <= today.
+    Only returns contacts from agencies in the employee's assigned offices.
     """
     from datetime import datetime, timedelta
     from sqlalchemy import func
     
-    # Get all contacts for agencies the employee has access to
-    # For now, get all contacts (we can filter by employee's offices later if needed)
-    contacts = db.query(models.Contact).filter(
+    # Get the employee and their office assignments
+    employee = db.query(models.Employee).filter(models.Employee.id == employee_id).first()
+    if not employee:
+        return []
+    
+    # Get office IDs for this employee (from many-to-many relationship)
+    office_ids = []
+    if hasattr(employee, 'offices') and employee.offices:
+        office_ids = [office.id for office in employee.offices]
+    elif hasattr(employee, 'office_id') and employee.office_id:
+        # Backward compatibility: if only office_id is set, use it
+        office_ids = [employee.office_id]
+    
+    if not office_ids:
+        # Employee has no office assignments, return empty list
+        return []
+    
+    # Get contacts for agencies in the employee's assigned offices only
+    contacts = db.query(models.Contact).join(models.Agency).filter(
         models.Contact.do_not_contact == False,
-        models.Contact.contact_frequency_days.isnot(None)
+        models.Contact.contact_frequency_days.isnot(None),
+        models.Agency.office_id.in_(office_ids)
     ).all()
     
     contacts_due = []

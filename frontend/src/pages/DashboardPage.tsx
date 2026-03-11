@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { WorkbenchLayout } from "../components/WorkbenchLayout";
 import { TabbedProductionGraph } from "../components/TabbedProductionGraph";
-import { WorkflowTool } from "../components/WorkflowTool";
 import { cardStyle, sidebarHeadingStyle } from "../ui/designSystem";
 import { apiGet } from "../api/client";
 
@@ -263,9 +262,6 @@ export const DashboardPage: React.FC = () => {
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          {/* Workflow Tool - User-specific renewals */}
-          <WorkflowTool />
-
           {/* Tabbed Production Graph */}
           <TabbedProductionGraph
             productionData={productionData}
