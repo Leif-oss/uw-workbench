@@ -1195,6 +1195,82 @@ export const EmployeesPage: React.FC = () => {
                 </table>
               </div>
             )}
+              </div>
+
+            {/* Right Column - Assigned Agencies */}
+            <div style={{ width: 350, flexShrink: 0 }}>
+              <div style={{ ...panelStyle, padding: 16 }}>
+                <h3 style={{ margin: "0 0 12px 0", fontSize: 16, fontWeight: 600, color: "#111827" }}>
+                  Assigned Agencies ({employeeAgenciesCount})
+                </h3>
+
+                {employeeAgenciesCount === 0 ? (
+                  <div style={{ fontSize: 13, color: "#9ca3af", padding: 20, textAlign: "center" }}>
+                    No agencies are currently assigned to this employee.
+                  </div>
+                ) : (
+                  <div style={{ maxHeight: 600, overflowY: "auto" }}>
+                    <table style={{ width: "100%", fontSize: 13, borderCollapse: "collapse" }}>
+                      <thead style={{ position: "sticky", top: 0, background: "#f9fafb" }}>
+                        <tr style={{ borderBottom: "2px solid #e5e7eb" }}>
+                          <th style={{ padding: "8px 12px", textAlign: "left", fontWeight: 600, color: "#6b7280" }}>Code</th>
+                          <th style={{ padding: "8px 12px", textAlign: "left", fontWeight: 600, color: "#6b7280" }}>Agency</th>
+                          <th style={{ padding: "8px 12px", textAlign: "left", fontWeight: 600, color: "#6b7280" }}>Office</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {employeeAgencies.slice(0, 50).map((ag) => {
+                          const office = offices.find((o) => o.id === ag.office_id);
+                          const officeLabel = office ? office.code : "—";
+
+                          return (
+                            <tr key={ag.id} style={{ borderBottom: "1px solid #f3f4f6" }}>
+                              <td style={{ padding: "8px 12px" }}>
+                                <button
+                                  type="button"
+                                  onClick={() => navigate(`/crm/agencies/${ag.id}`)}
+                                  style={{
+                                    border: "none",
+                                    background: "transparent",
+                                    color: "#2563eb",
+                                    cursor: "pointer",
+                                    textDecoration: "underline",
+                                    padding: 0,
+                                    fontSize: "inherit",
+                                  }}
+                                >
+                                  {ag.code}
+                                </button>
+                              </td>
+                              <td style={{ padding: "8px 12px" }}>
+                                <button
+                                  type="button"
+                                  onClick={() => navigate(`/crm/agencies/${ag.id}`)}
+                                  style={{
+                                    border: "none",
+                                    background: "transparent",
+                                    color: "#2563eb",
+                                    cursor: "pointer",
+                                    textDecoration: "underline",
+                                    padding: 0,
+                                    fontSize: "inherit",
+                                  }}
+                                >
+                                  {ag.name}
+                                </button>
+                              </td>
+                              <td style={{ padding: "8px 12px" }}>
+                                {officeLabel}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
       </>
     </div>
