@@ -959,11 +959,14 @@ type ProductionRecord = {
                           navigate(`/crm/agencies/${newAgencyId}`);
                         }
                       }}
+                      disabled={isEditingAgency}
                       style={{
                         ...selectStyle,
                         minWidth: 200,
                         padding: "6px 10px",
                         fontSize: 13,
+                        opacity: isEditingAgency ? 0.5 : 1,
+                        cursor: isEditingAgency ? "not-allowed" : "pointer",
                       }}
                     >
                       {officeAgencies.map((ag) => (
