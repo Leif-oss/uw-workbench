@@ -532,6 +532,7 @@ class NewBusinessBase(BaseModel):
     frequency_days: int = 7  # 1 = daily, 7 = weekly, 14 = bi-weekly
     status: str = "pending"  # pending, quoted, bound, declined
     notes: Optional[str] = None
+    last_contact_date: Optional[datetime] = None
 
 
 class NewBusinessCreate(NewBusinessBase):
@@ -546,6 +547,7 @@ class NewBusinessUpdate(BaseModel):
     frequency_days: Optional[int] = None
     status: Optional[str] = None
     notes: Optional[str] = None
+    last_contact_date: Optional[datetime] = None
 
 
 class NewBusiness(NewBusinessBase, OrmModel):

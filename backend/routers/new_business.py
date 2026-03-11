@@ -1,4 +1,5 @@
 from typing import List, Optional
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 
@@ -127,3 +128,31 @@ def delete_new_business(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="New business item not found")
     
     return None
+
+
+@router.post("/{new_business_id}/follow-up", response_model=schemas.NewBusiness)
+def mark_follow_up(
+    new_business_id: int,
+    db: Session = Depends(get_db),
+    user: dict = Depends(get_current_user)
+):
+    """Mark that a follow-up was done for a new business item"""
+    employee_id = user.get("employee_id")
+    if not employee_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Employee ID not found")
+    
+    # Check ownership
+    existing = crud.get_new_business_item(db, new_business_id)
+    if not existing:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="New business item not found")
+    
+    if existing.created_by_employee_id != employee_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
+    
+    # Update last_contact_date to today
+    update_data = schemas.NewBusinessUpdate(last_contact_date=datetime.utcnow())
+    updated = crud.update_new_business(db, new_business_id, update_data)
+    if not updated:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="New business item not found")
+    
+    return updated

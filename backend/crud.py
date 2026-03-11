@@ -480,40 +480,59 @@ def get_new_business(db: Session, employee_id: Optional[int] = None, status: Opt
     if status:
         query = query.where(models.NewBusiness.status == status)
     
-    # Filter to only show items that should appear today based on frequency
+    # Filter to only show items that should appear today based on frequency intervals
+    # Intervals are calculated from effective_date: effective_date ± N*frequency
     all_items = db.execute(query).scalars().all()
     today = datetime.utcnow().date()
     
     filtered_items = []
     for item in all_items:
         effective_date = item.effective_date.date() if isinstance(item.effective_date, datetime) else item.effective_date
-        days_since_effective = (today - effective_date).days
+        frequency = item.frequency_days
+        last_contact = item.last_contact_date.date() if item.last_contact_date and isinstance(item.last_contact_date, datetime) else (item.last_contact_date if item.last_contact_date else None)
         
-        # Show items that are due today or in the future
-        # Frequency determines when to show recurring items, but we always show upcoming items
-        if days_since_effective < 0:
-            # Future date - always show upcoming items
-            should_show = True
-        elif days_since_effective == 0:
-            # Today is the effective date - always show
-            should_show = True
+        # Calculate the next contact date based on intervals from effective_date
+        # Find the interval date that is <= today and closest to today
+        next_contact_date = None
+        
+        if frequency == 1:
+            # Daily - next contact is always today
+            next_contact_date = today
         else:
-            # Past date - show based on frequency
-            if item.frequency_days == 1:
-                # Daily - show every day
-                should_show = True
-            elif item.frequency_days == 7:
-                # Weekly - show every 7 days
-                should_show = days_since_effective % 7 == 0
-            elif item.frequency_days == 14:
-                # Bi-weekly - show every 14 days
-                should_show = days_since_effective % 14 == 0
+            # Calculate intervals: effective_date - N*frequency, effective_date, effective_date + N*frequency
+            days_since_effective = (today - effective_date).days
+            
+            if days_since_effective < 0:
+                # Effective date is in the future
+                # Find the interval before effective_date that is <= today
+                days_before = abs(days_since_effective)
+                intervals_before = (days_before + frequency - 1) // frequency  # Round up
+                next_contact_date = effective_date - timedelta(days=intervals_before * frequency)
             else:
-                # Default to weekly behavior
-                should_show = days_since_effective % item.frequency_days == 0
+                # Effective date is today or in the past
+                # Find the most recent interval <= today
+                intervals_after = days_since_effective // frequency
+                next_contact_date = effective_date + timedelta(days=intervals_after * frequency)
+                
+                # Also check if there's an interval before effective_date that's closer to today
+                if intervals_after == 0 and days_since_effective > 0:
+                    # Today is after effective_date but before first interval after
+                    # Check intervals before effective_date
+                    intervals_before = days_since_effective // frequency
+                    if intervals_before > 0:
+                        prev_interval = effective_date - timedelta(days=intervals_before * frequency)
+                        if prev_interval <= today:
+                            next_contact_date = prev_interval
         
-        if should_show:
-            filtered_items.append(item)
+        # Show if next_contact_date is today or in the past, and we haven't contacted on this date yet
+        if next_contact_date and next_contact_date <= today:
+            if last_contact is None:
+                # Never contacted - show it
+                filtered_items.append(item)
+            elif last_contact < next_contact_date:
+                # Last contact was before this interval - show it
+                filtered_items.append(item)
+            # If last_contact >= next_contact_date, we've already contacted on this interval, so don't show
     
     return filtered_items
 

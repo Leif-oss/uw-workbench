@@ -296,6 +296,7 @@ class NewBusiness(Base):
     frequency_days = Column(Integer, nullable=False, default=7)  # 1 = daily, 7 = weekly, 14 = bi-weekly
     status = Column(String(50), nullable=False, default="pending")  # pending, quoted, bound, declined
     notes = Column(Text, nullable=True)
+    last_contact_date = Column(DateTime, nullable=True)  # Track when last follow-up was done
     created_by_employee_id = Column(Integer, ForeignKey("employees.id", ondelete="SET NULL"), nullable=False, index=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)

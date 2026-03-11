@@ -39,6 +39,7 @@ interface NewBusiness {
   frequency_days: number;
   status: string;
   notes: string | null;
+  last_contact_date: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -359,6 +360,15 @@ export const WorkflowTool: React.FC = () => {
   };
 
   // Combine renewals and contacts due, sorted by date (chronological)
+  const handleFollowUp = async (newBusinessId: number) => {
+    try {
+      await apiPost(`/new-business/${newBusinessId}/follow-up`, {});
+      await loadNewBusiness();
+    } catch (err: any) {
+      alert(`Failed to mark follow-up: ${err?.message || "Unknown error"}`);
+    }
+  };
+
   const handleCreateNewBusiness = async () => {
     if (!newBusinessForm.contact_email || !newBusinessForm.policy_number || !newBusinessForm.product || !newBusinessForm.effective_date) {
       alert("Please fill in all required fields");
@@ -923,29 +933,51 @@ export const WorkflowTool: React.FC = () => {
                       <div style={{ fontSize: 12, color: "#6b7280" }}>
                         Status: <strong>{newBusiness.status}</strong>
                       </div>
-                      <button
-                        onClick={async () => {
-                          if (confirm("Delete this new business item?")) {
-                            try {
-                              await apiDelete(`/new-business/${newBusiness.id}`);
-                              await loadNewBusiness();
-                            } catch (err: any) {
-                              alert(`Failed to delete: ${err?.message || "Unknown error"}`);
+                      {newBusiness.last_contact_date && (
+                        <div style={{ fontSize: 11, color: "#6b7280" }}>
+                          Last Follow-up: {formatDate(newBusiness.last_contact_date)}
+                        </div>
+                      )}
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <button
+                          onClick={() => handleFollowUp(newBusiness.id)}
+                          style={{
+                            padding: "6px 12px",
+                            borderRadius: 6,
+                            border: "1px solid #10b981",
+                            background: "#ffffff",
+                            color: "#10b981",
+                            cursor: "pointer",
+                            fontSize: 12,
+                            fontWeight: 500,
+                          }}
+                        >
+                          Follow Up
+                        </button>
+                        <button
+                          onClick={async () => {
+                            if (confirm("Delete this new business item?")) {
+                              try {
+                                await apiDelete(`/new-business/${newBusiness.id}`);
+                                await loadNewBusiness();
+                              } catch (err: any) {
+                                alert(`Failed to delete: ${err?.message || "Unknown error"}`);
+                              }
                             }
-                          }
-                        }}
-                        style={{
-                          padding: "6px 12px",
-                          borderRadius: 6,
-                          border: "1px solid #dc2626",
-                          background: "#ffffff",
-                          color: "#dc2626",
-                          cursor: "pointer",
-                          fontSize: 12,
-                        }}
-                      >
-                        Delete
-                      </button>
+                          }}
+                          style={{
+                            padding: "6px 12px",
+                            borderRadius: 6,
+                            border: "1px solid #dc2626",
+                            background: "#ffffff",
+                            color: "#dc2626",
+                            cursor: "pointer",
+                            fontSize: 12,
+                          }}
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );
