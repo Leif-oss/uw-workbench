@@ -1196,6 +1196,7 @@ export const EmployeesPage: React.FC = () => {
               </div>
             )}
               </div>
+            </div>
 
           {/* Right Column - Assigned Agencies */}
           <div style={{ width: 350, flexShrink: 0 }}>
