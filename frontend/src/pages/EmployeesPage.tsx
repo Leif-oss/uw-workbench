@@ -975,8 +975,8 @@ export const EmployeesPage: React.FC = () => {
                 </div>
               </div>
 
-          {/* Production Performance */}
-          <div style={{ ...panelStyle, padding: 20 }}>
+              {/* Production Performance */}
+              <div style={{ ...panelStyle, padding: 20 }}>
             <h3 style={{ margin: "0 0 16px 0", fontSize: 16, fontWeight: 600, color: "#111827" }}>
               New Business Production (Assigned Agencies)
             </h3>
@@ -1005,10 +1005,10 @@ export const EmployeesPage: React.FC = () => {
                 </div>
               </>
             )}
-          </div>
+              </div>
 
-          {/* Contacts Needing Attention */}
-          <div style={{ ...panelStyle, padding: 16 }}>
+              {/* Contacts Needing Attention */}
+              <div style={{ ...panelStyle, padding: 16 }}>
             <h3 style={{ margin: "0 0 12px 0", fontSize: 16, fontWeight: 600, color: "#111827" }}>
               Contacts Needing Attention
               <span style={{ marginLeft: 8, fontSize: 13, fontWeight: 400, color: "#6b7280" }}>
@@ -1094,10 +1094,10 @@ export const EmployeesPage: React.FC = () => {
                 </table>
               </div>
             )}
-          </div>
+              </div>
 
-          {/* Recent Activity */}
-          <div style={{ ...panelStyle, padding: 16 }}>
+              {/* Recent Activity */}
+              <div style={{ ...panelStyle, padding: 16 }}>
             <h3 style={{ margin: "0 0 12px 0", fontSize: 16, fontWeight: 600, color: "#111827" }}>
               Recent Marketing Calls
             </h3>
