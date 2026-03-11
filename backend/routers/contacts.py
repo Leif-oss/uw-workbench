@@ -270,6 +270,25 @@ def read_contacts(
     return contacts
 
 
+@router.get("/{contact_id}/new-business-count")
+def get_contact_new_business_count(
+    contact_id: int,
+    months: int = Query(12, description="Number of months to look back"),
+    db: Session = Depends(get_db),
+    user: dict = Depends(get_current_user)
+):
+    """Get count of new business items submitted by a contact in the last N months"""
+    require_authenticated(user)
+    
+    # Verify contact exists
+    contact = crud.get_contact(db, contact_id)
+    if not contact:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Contact not found")
+    
+    count = crud.get_new_business_count_for_contact(db, contact_id, months)
+    return {"contact_id": contact_id, "count": count, "months": months}
+
+
 @router.get("/{contact_id}", response_model=schemas.Contact)
 def read_contact(
     contact_id: int,

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import { apiGet, apiPost, apiPut, apiDelete } from "../api/client";
 import { cardStyle, inputStyle, labelStyle, primaryButtonStyle, selectStyle } from "../ui/designSystem";
 
@@ -45,6 +46,7 @@ interface NewBusiness {
 }
 
 export const WorkflowTool: React.FC = () => {
+  const [searchParams] = useSearchParams();
   const [renewals, setRenewals] = useState<Renewal[]>([]);
   const [contactsDue, setContactsDue] = useState<ContactDue[]>([]);
   const [newBusinessItems, setNewBusinessItems] = useState<NewBusiness[]>([]);
@@ -61,6 +63,24 @@ export const WorkflowTool: React.FC = () => {
     effective_date: "",
     frequency_days: 7,
   });
+  
+  // Check for URL parameters to pre-fill form
+  useEffect(() => {
+    const contactEmail = searchParams.get("contactEmail");
+    const contactId = searchParams.get("contactId");
+    if (contactEmail) {
+      setNewBusinessForm(prev => ({
+        ...prev,
+        contact_email: contactEmail,
+      }));
+      setShowNewBusinessForm(true);
+      // Clear URL params after using them
+      if (contactId) {
+        // Store contactId for when we create the new business
+        (newBusinessForm as any).contactId = parseInt(contactId);
+      }
+    }
+  }, [searchParams]);
 
   // Load both renewals and contacts due on mount so they persist across sessions
   useEffect(() => {

@@ -155,6 +155,7 @@ type ProductionRecord = {
   const [editContactPreviousAgencies, setEditContactPreviousAgencies] = useState<string>("");
   const [editContactLikesHobbies, setEditContactLikesHobbies] = useState<string>("");
   const [editContactAdditionalInfo, setEditContactAdditionalInfo] = useState<string>("");
+  const [contactNewBusinessCount, setContactNewBusinessCount] = useState<number | null>(null);
 
   const [isEditingAgency, setIsEditingAgency] = useState(false);
   const [editAgencyName, setEditAgencyName] = useState("");
@@ -1581,6 +1582,62 @@ type ProductionRecord = {
                   Delete
                 </button>
               </div>
+              {/* New Business Button and Counter - Right side below Edit/Delete */}
+              {!isEditingContact && selectedContact && (
+                <div style={{ 
+                  display: "flex", 
+                  flexDirection: "column", 
+                  alignItems: "flex-end", 
+                  gap: 8,
+                  marginTop: 8,
+                }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      // Navigate to workflow with contact email pre-filled
+                      navigate(`/workbench?contactEmail=${encodeURIComponent(selectedContact.email || "")}&contactId=${selectedContact.id}`);
+                    }}
+                    style={{
+                      padding: "6px 12px",
+                      borderRadius: 6,
+                      border: "1px solid #10b981",
+                      background: "#ecfdf5",
+                      color: "#059669",
+                      cursor: "pointer",
+                      fontSize: 12,
+                      fontWeight: 600,
+                      transition: "all 0.2s",
+                      whiteSpace: "nowrap",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = "#10b981";
+                      e.currentTarget.style.color = "#fff";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = "#ecfdf5";
+                      e.currentTarget.style.color = "#059669";
+                    }}
+                  >
+                    New Business
+                  </button>
+                  {contactNewBusinessCount !== null && (
+                    <div style={{
+                      fontSize: 11,
+                      color: "#6b7280",
+                      textAlign: "right",
+                      padding: "4px 8px",
+                      background: "#f9fafb",
+                      borderRadius: 4,
+                      border: "1px solid #e5e7eb",
+                    }}>
+                      <div style={{ fontSize: 10, marginBottom: 2 }}>New Business (12mo)</div>
+                      <div style={{ fontSize: 16, fontWeight: 700, color: "#111827" }}>
+                        {contactNewBusinessCount}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {isEditingContact ? (

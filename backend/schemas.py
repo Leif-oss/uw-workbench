@@ -533,6 +533,7 @@ class NewBusinessBase(BaseModel):
     status: str = "pending"  # pending, quoted, bound, declined
     notes: Optional[str] = None
     last_contact_date: Optional[datetime] = None
+    contact_id: Optional[int] = None  # Track which contact submitted this
 
 
 class NewBusinessCreate(NewBusinessBase):
@@ -548,6 +549,7 @@ class NewBusinessUpdate(BaseModel):
     status: Optional[str] = None
     notes: Optional[str] = None
     last_contact_date: Optional[datetime] = None
+    contact_id: Optional[int] = None
 
 
 class NewBusiness(NewBusinessBase, OrmModel):

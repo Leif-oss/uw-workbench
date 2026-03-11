@@ -297,6 +297,7 @@ class NewBusiness(Base):
     status = Column(String(50), nullable=False, default="pending")  # pending, quoted, bound, declined
     notes = Column(Text, nullable=True)
     last_contact_date = Column(DateTime, nullable=True)  # Track when last follow-up was done
+    contact_id = Column(Integer, ForeignKey("contacts.id", ondelete="SET NULL"), nullable=True, index=True)  # Track which contact submitted this
     created_by_employee_id = Column(Integer, ForeignKey("employees.id", ondelete="SET NULL"), nullable=False, index=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
