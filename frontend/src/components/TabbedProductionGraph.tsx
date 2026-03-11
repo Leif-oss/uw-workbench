@@ -40,7 +40,7 @@ export const TabbedProductionGraph: React.FC<TabbedProductionGraphProps> = ({
   metricsData,
 }) => {
   const [activeTab, setActiveTab] = useState<TabType>("all");
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(true);
 
   // Process data for the active tab
   const graphData = useMemo(() => {

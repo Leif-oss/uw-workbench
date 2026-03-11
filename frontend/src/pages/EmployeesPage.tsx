@@ -919,57 +919,61 @@ export const EmployeesPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Activity Stats */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 12 }}>
-            <div style={{ ...panelStyle, padding: 16 }}>
-              <div style={{ fontSize: 11, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>
-                In Person (12 Mo)
+          {/* Main Content Layout - Left and Right Columns */}
+          <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
+            {/* Left Column */}
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 16 }}>
+              {/* Activity Stats */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 12 }}>
+                <div style={{ ...panelStyle, padding: 16 }}>
+                  <div style={{ fontSize: 11, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>
+                    In Person (12 Mo)
+                  </div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: "#1e40af" }}>
+                    {employeeActivityMetrics.inPerson12Mo}
+                  </div>
+                </div>
+                <div style={{ ...panelStyle, padding: 16 }}>
+                  <div style={{ fontSize: 11, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>
+                    Emails (12 Mo)
+                  </div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: "#059669" }}>
+                    {employeeActivityMetrics.emails12Mo}
+                  </div>
+                </div>
+                <div style={{ ...panelStyle, padding: 16 }}>
+                  <div style={{ fontSize: 11, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>
+                    Phone (12 Mo)
+                  </div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: "#7c3aed" }}>
+                    {employeeActivityMetrics.phone12Mo}
+                  </div>
+                </div>
+                <div style={{ ...panelStyle, padding: 16 }}>
+                  <div style={{ fontSize: 11, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>
+                    In Person (30d)
+                  </div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: "#1e40af" }}>
+                    {employeeActivityMetrics.inPerson30d}
+                  </div>
+                </div>
+                <div style={{ ...panelStyle, padding: 16 }}>
+                  <div style={{ fontSize: 11, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>
+                    Emails (30d)
+                  </div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: "#059669" }}>
+                    {employeeActivityMetrics.emails30d}
+                  </div>
+                </div>
+                <div style={{ ...panelStyle, padding: 16 }}>
+                  <div style={{ fontSize: 11, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>
+                    Phone (30d)
+                  </div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: "#7c3aed" }}>
+                    {employeeActivityMetrics.phone30d}
+                  </div>
+                </div>
               </div>
-              <div style={{ fontSize: 24, fontWeight: 700, color: "#1e40af" }}>
-                {employeeActivityMetrics.inPerson12Mo}
-              </div>
-            </div>
-            <div style={{ ...panelStyle, padding: 16 }}>
-              <div style={{ fontSize: 11, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>
-                Emails (12 Mo)
-              </div>
-              <div style={{ fontSize: 24, fontWeight: 700, color: "#059669" }}>
-                {employeeActivityMetrics.emails12Mo}
-              </div>
-            </div>
-            <div style={{ ...panelStyle, padding: 16 }}>
-              <div style={{ fontSize: 11, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>
-                Phone (12 Mo)
-              </div>
-              <div style={{ fontSize: 24, fontWeight: 700, color: "#7c3aed" }}>
-                {employeeActivityMetrics.phone12Mo}
-              </div>
-            </div>
-            <div style={{ ...panelStyle, padding: 16 }}>
-              <div style={{ fontSize: 11, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>
-                In Person (30d)
-              </div>
-              <div style={{ fontSize: 24, fontWeight: 700, color: "#1e40af" }}>
-                {employeeActivityMetrics.inPerson30d}
-              </div>
-            </div>
-            <div style={{ ...panelStyle, padding: 16 }}>
-              <div style={{ fontSize: 11, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>
-                Emails (30d)
-              </div>
-              <div style={{ fontSize: 24, fontWeight: 700, color: "#059669" }}>
-                {employeeActivityMetrics.emails30d}
-              </div>
-            </div>
-            <div style={{ ...panelStyle, padding: 16 }}>
-              <div style={{ fontSize: 11, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>
-                Phone (30d)
-              </div>
-              <div style={{ fontSize: 24, fontWeight: 700, color: "#7c3aed" }}>
-                {employeeActivityMetrics.phone30d}
-              </div>
-            </div>
-          </div>
 
           {/* Production Performance */}
           <div style={{ ...panelStyle, padding: 20 }}>
@@ -1183,97 +1187,6 @@ export const EmployeesPage: React.FC = () => {
                           </td>
                           <td style={{ padding: "8px 12px", maxWidth: 300, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={log.notes || undefined}>
                             {log.notes || "—"}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-
-          {/* Assigned Agencies */}
-          <div style={{ ...panelStyle, padding: 16 }}>
-            <h3 style={{ margin: "0 0 12px 0", fontSize: 16, fontWeight: 600, color: "#111827" }}>
-              Assigned Agencies ({employeeAgenciesCount})
-            </h3>
-
-            {employeeAgenciesCount === 0 ? (
-              <div style={{ fontSize: 13, color: "#9ca3af", padding: 20, textAlign: "center" }}>
-                No agencies are currently assigned to this employee.
-              </div>
-            ) : (
-              <div style={{ maxHeight: 400, overflowY: "auto" }}>
-                <table style={{ width: "100%", fontSize: 13, borderCollapse: "collapse" }}>
-                  <thead style={{ position: "sticky", top: 0, background: "#f9fafb" }}>
-                    <tr style={{ borderBottom: "2px solid #e5e7eb" }}>
-                      <th style={{ padding: "8px 12px", textAlign: "left", fontWeight: 600, color: "#6b7280" }}>Code</th>
-                      <th style={{ padding: "8px 12px", textAlign: "left", fontWeight: 600, color: "#6b7280" }}>Agency</th>
-                      <th style={{ padding: "8px 12px", textAlign: "left", fontWeight: 600, color: "#6b7280" }}>Office</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {employeeAgencies.slice(0, 50).map((ag) => {
-                      const office = offices.find((o) => o.id === ag.office_id);
-                      const officeLabel = office ? office.code : "—";
-
-                      return (
-                        <tr key={ag.id} style={{ borderBottom: "1px solid #f3f4f6" }}>
-                          <td style={{ padding: "8px 12px" }}>
-                            <button
-                              type="button"
-                              onClick={() => navigate(`/crm/agencies/${ag.id}`)}
-                              style={{
-                                border: "none",
-                                background: "transparent",
-                                color: "#2563eb",
-                                cursor: "pointer",
-                                textDecoration: "underline",
-                                padding: 0,
-                                fontSize: "inherit",
-                              }}
-                            >
-                              {ag.code}
-                            </button>
-                          </td>
-                          <td style={{ padding: "8px 12px" }}>
-                            <button
-                              type="button"
-                              onClick={() => navigate(`/crm/agencies/${ag.id}`)}
-                              style={{
-                                border: "none",
-                                background: "transparent",
-                                color: "#2563eb",
-                                cursor: "pointer",
-                                textDecoration: "underline",
-                                padding: 0,
-                                fontSize: "inherit",
-                              }}
-                            >
-                              {ag.name}
-                            </button>
-                          </td>
-                          <td style={{ padding: "8px 12px" }}>
-                            {office ? (
-                              <button
-                                type="button"
-                                onClick={() => navigate(`/crm/offices/${office.id}`)}
-                                style={{
-                                  border: "none",
-                                  background: "transparent",
-                                  color: "#2563eb",
-                                  cursor: "pointer",
-                                  textDecoration: "underline",
-                                  padding: 0,
-                                  fontSize: "inherit",
-                                }}
-                              >
-                                {officeLabel}
-                              </button>
-                            ) : (
-                              officeLabel
-                            )}
                           </td>
                         </tr>
                       );
