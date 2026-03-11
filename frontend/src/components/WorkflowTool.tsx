@@ -751,7 +751,7 @@ export const WorkflowTool: React.FC = () => {
                   )}
                   </div>
                 );
-              } else {
+              } else if (item.type === "contact") {
                 // Contact due
                 const contact = item.data as ContactDue;
                 const contactDate = new Date(contact.next_contact_date);
