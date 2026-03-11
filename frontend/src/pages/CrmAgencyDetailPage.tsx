@@ -932,68 +932,43 @@ type ProductionRecord = {
               </div>
               
               <div style={{ marginBottom: 16 }}>
-                <p style={{ margin: "0 0 12px 0", fontSize: 14, color: "#374151" }}>
-                  Your Excel file should have the following columns in the first row:
+                <p style={{ margin: "0 0 16px 0", fontSize: 14, color: "#374151", fontWeight: 500 }}>
+                  Name is required. All other fields are optional.
                 </p>
+                
                 <div style={{ 
-                  background: "#f9fafb", 
+                  background: "#ffffff", 
                   border: "1px solid #e5e7eb", 
                   borderRadius: 8, 
-                  padding: 16,
-                  marginBottom: 16,
+                  overflow: "hidden",
                 }}>
-                  <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
                     <thead>
                       <tr style={{ background: "#f3f4f6" }}>
-                        <th style={{ padding: "8px 12px", textAlign: "left", border: "1px solid #e5e7eb", fontSize: 12, fontWeight: 600 }}>Column</th>
-                        <th style={{ padding: "8px 12px", textAlign: "left", border: "1px solid #e5e7eb", fontSize: 12, fontWeight: 600 }}>Required</th>
-                        <th style={{ padding: "8px 12px", textAlign: "left", border: "1px solid #e5e7eb", fontSize: 12, fontWeight: 600 }}>Description</th>
+                        <th style={{ padding: "10px 12px", textAlign: "left", border: "1px solid #d1d5db", fontWeight: 600, color: "#111827" }}>Name</th>
+                        <th style={{ padding: "10px 12px", textAlign: "left", border: "1px solid #d1d5db", fontWeight: 600, color: "#111827" }}>Title</th>
+                        <th style={{ padding: "10px 12px", textAlign: "left", border: "1px solid #d1d5db", fontWeight: 600, color: "#111827" }}>Email</th>
+                        <th style={{ padding: "10px 12px", textAlign: "left", border: "1px solid #d1d5db", fontWeight: 600, color: "#111827" }}>Phone</th>
+                        <th style={{ padding: "10px 12px", textAlign: "left", border: "1px solid #d1d5db", fontWeight: 600, color: "#111827" }}>LinkedIn</th>
                       </tr>
                     </thead>
                     <tbody>
                       <tr>
-                        <td style={{ padding: "8px 12px", border: "1px solid #e5e7eb", fontSize: 12, fontWeight: 600 }}>Name</td>
-                        <td style={{ padding: "8px 12px", border: "1px solid #e5e7eb", fontSize: 12, color: "#dc2626" }}>Yes</td>
-                        <td style={{ padding: "8px 12px", border: "1px solid #e5e7eb", fontSize: 12 }}>Contact's full name</td>
+                        <td style={{ padding: "10px 12px", border: "1px solid #e5e7eb", color: "#111827" }}>John Doe</td>
+                        <td style={{ padding: "10px 12px", border: "1px solid #e5e7eb", color: "#6b7280" }}>Agent</td>
+                        <td style={{ padding: "10px 12px", border: "1px solid #e5e7eb", color: "#6b7280" }}>john@example.com</td>
+                        <td style={{ padding: "10px 12px", border: "1px solid #e5e7eb", color: "#6b7280" }}>555-1234</td>
+                        <td style={{ padding: "10px 12px", border: "1px solid #e5e7eb", color: "#6b7280" }}>linkedin.com/in/johndoe</td>
                       </tr>
                       <tr>
-                        <td style={{ padding: "8px 12px", border: "1px solid #e5e7eb", fontSize: 12 }}>Title</td>
-                        <td style={{ padding: "8px 12px", border: "1px solid #e5e7eb", fontSize: 12, color: "#6b7280" }}>No</td>
-                        <td style={{ padding: "8px 12px", border: "1px solid #e5e7eb", fontSize: 12 }}>Job title or position</td>
-                      </tr>
-                      <tr>
-                        <td style={{ padding: "8px 12px", border: "1px solid #e5e7eb", fontSize: 12 }}>Email</td>
-                        <td style={{ padding: "8px 12px", border: "1px solid #e5e7eb", fontSize: 12, color: "#6b7280" }}>No</td>
-                        <td style={{ padding: "8px 12px", border: "1px solid #e5e7eb", fontSize: 12 }}>Email address</td>
-                      </tr>
-                      <tr>
-                        <td style={{ padding: "8px 12px", border: "1px solid #e5e7eb", fontSize: 12 }}>Phone</td>
-                        <td style={{ padding: "8px 12px", border: "1px solid #e5e7eb", fontSize: 12, color: "#6b7280" }}>No</td>
-                        <td style={{ padding: "8px 12px", border: "1px solid #e5e7eb", fontSize: 12 }}>Phone number</td>
-                      </tr>
-                      <tr>
-                        <td style={{ padding: "8px 12px", border: "1px solid #e5e7eb", fontSize: 12 }}>LinkedIn</td>
-                        <td style={{ padding: "8px 12px", border: "1px solid #e5e7eb", fontSize: 12, color: "#6b7280" }}>No</td>
-                        <td style={{ padding: "8px 12px", border: "1px solid #e5e7eb", fontSize: 12 }}>LinkedIn profile URL</td>
+                        <td style={{ padding: "10px 12px", border: "1px solid #e5e7eb", color: "#111827" }}>Jane Smith</td>
+                        <td style={{ padding: "10px 12px", border: "1px solid #e5e7eb", color: "#6b7280" }}>Manager</td>
+                        <td style={{ padding: "10px 12px", border: "1px solid #e5e7eb", color: "#6b7280" }}>jane@example.com</td>
+                        <td style={{ padding: "10px 12px", border: "1px solid #e5e7eb", color: "#6b7280" }}>555-5678</td>
+                        <td style={{ padding: "10px 12px", border: "1px solid #e5e7eb", color: "#6b7280" }}>linkedin.com/in/janesmith</td>
                       </tr>
                     </tbody>
                   </table>
-                </div>
-                
-                <div style={{ 
-                  background: "#eff6ff", 
-                  border: "1px solid #3b82f6", 
-                  borderRadius: 8, 
-                  padding: 12,
-                  fontSize: 12,
-                  color: "#1e40af",
-                }}>
-                  <strong>Example:</strong>
-                  <div style={{ marginTop: 8, fontFamily: "monospace", fontSize: 11 }}>
-                    Name | Title | Email | Phone | LinkedIn<br/>
-                    John Doe | Agent | john@example.com | 555-1234 | linkedin.com/in/johndoe<br/>
-                    Jane Smith | Manager | jane@example.com | 555-5678 | linkedin.com/in/janesmith
-                  </div>
                 </div>
               </div>
               
