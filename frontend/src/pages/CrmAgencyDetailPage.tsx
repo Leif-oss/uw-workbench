@@ -1530,67 +1530,69 @@ type ProductionRecord = {
               <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em" }}>
                 Contact Details
               </div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <button
-                  type="button"
-                  onClick={handleEditContact}
-                  style={{
-                    padding: "6px 12px",
-                    borderRadius: 6,
-                    border: "1px solid #2563eb",
-                    background: "#eff6ff",
-                    color: "#2563eb",
-                    cursor: "pointer",
-                    fontSize: 12,
-                    fontWeight: 600,
-                    transition: "all 0.2s",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = "#2563eb";
-                    e.currentTarget.style.color = "#fff";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = "#eff6ff";
-                    e.currentTarget.style.color = "#2563eb";
-                  }}
-                >
-                  Edit
-                </button>
-                <button
-                  type="button"
-                  onClick={handleDeleteContact}
-                  style={{
-                    padding: "6px 12px",
-                    borderRadius: 6,
-                    border: "1px solid #ef4444",
-                    background: "#fef2f2",
-                    color: "#b91c1c",
-                    cursor: "pointer",
-                    fontSize: 12,
-                    fontWeight: 600,
-                    transition: "all 0.2s",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = "#ef4444";
-                    e.currentTarget.style.color = "#fff";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = "#fef2f2";
-                    e.currentTarget.style.color = "#b91c1c";
-                  }}
-                >
-                  Delete
-                </button>
-              </div>
-              {/* New Business Button and Counter - Right side below Edit/Delete */}
-              {!isEditingContact && selectedContact && (
-                <div style={{ 
-                  display: "flex", 
-                  flexDirection: "column", 
-                  alignItems: "flex-end", 
-                  gap: 8,
-                  marginTop: 8,
-                }}>
+              {/* All buttons on the right side */}
+              <div style={{ 
+                display: "flex", 
+                flexDirection: "column", 
+                alignItems: "flex-end", 
+                gap: 8,
+              }}>
+                {/* Edit and Delete buttons */}
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button
+                    type="button"
+                    onClick={handleEditContact}
+                    style={{
+                      padding: "6px 12px",
+                      borderRadius: 6,
+                      border: "1px solid #2563eb",
+                      background: "#eff6ff",
+                      color: "#2563eb",
+                      cursor: "pointer",
+                      fontSize: 12,
+                      fontWeight: 600,
+                      transition: "all 0.2s",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = "#2563eb";
+                      e.currentTarget.style.color = "#fff";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = "#eff6ff";
+                      e.currentTarget.style.color = "#2563eb";
+                    }}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDeleteContact}
+                    style={{
+                      padding: "6px 12px",
+                      borderRadius: 6,
+                      border: "1px solid #ef4444",
+                      background: "#fef2f2",
+                      color: "#b91c1c",
+                      cursor: "pointer",
+                      fontSize: 12,
+                      fontWeight: 600,
+                      transition: "all 0.2s",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = "#ef4444";
+                      e.currentTarget.style.color = "#fff";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = "#fef2f2";
+                      e.currentTarget.style.color = "#b91c1c";
+                    }}
+                  >
+                    Delete
+                  </button>
+                </div>
+                {/* New Business Button and Counter */}
+                {!isEditingContact && selectedContact && (
+                  <>
                   <button
                     type="button"
                     onClick={() => {
