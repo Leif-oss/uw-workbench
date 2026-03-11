@@ -919,8 +919,8 @@ export const EmployeesPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Main Content Layout - Left and Right Columns */}
-          <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
+        {/* Main Content Layout - Left and Right Columns */}
+        <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
             {/* Left Column */}
             <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 16 }}>
               {/* Activity Stats */}
@@ -1197,9 +1197,9 @@ export const EmployeesPage: React.FC = () => {
             )}
               </div>
 
-            {/* Right Column - Assigned Agencies */}
-            <div style={{ width: 350, flexShrink: 0 }}>
-              <div style={{ ...panelStyle, padding: 16 }}>
+          {/* Right Column - Assigned Agencies */}
+          <div style={{ width: 350, flexShrink: 0 }}>
+            <div style={{ ...panelStyle, padding: 16 }}>
                 <h3 style={{ margin: "0 0 12px 0", fontSize: 16, fontWeight: 600, color: "#111827" }}>
                   Assigned Agencies ({employeeAgenciesCount})
                 </h3>
@@ -1269,9 +1269,9 @@ export const EmployeesPage: React.FC = () => {
                     </table>
                   </div>
                 )}
-              </div>
             </div>
           </div>
+        </div>
       </>
     </div>
   ) : null;
